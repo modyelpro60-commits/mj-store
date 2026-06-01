@@ -37,7 +37,9 @@ export default function Home() {
 
   {/* Main Glow */}
   <div className="absolute top-[-250px] left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-purple-700/30 rounded-full blur-[220px]" />
-
+<div className="fixed top-0 left-0 z-[9999] bg-red-600 text-white p-4">
+  TEST MAHMOUD
+</div>
   {/* Left Glow */}
   <div className="absolute left-[-200px] top-[300px] w-[500px] h-[500px] bg-fuchsia-500/10 rounded-full blur-[180px]" />
 
@@ -49,14 +51,49 @@ export default function Home() {
       <nav className="sticky top-0 z-50 backdrop-blur-xl bg-black/20 border-b border-purple-500/10">
         <div className="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
         <h1 className="text-3xl font-black tracking-widest">
-          MJ STORE
+          MJ STORE TEST
         </h1>
 
-        <div className="flex gap-6 text-zinc-400">
-          <Link href="/">Home</Link>
-          <Link href="/admin">Admin</Link>
-          <Link href="/admin/orders">Orders</Link>
-        </div>
+        <div className="flex items-center gap-8">
+
+  <div className="hidden md:flex gap-8 text-zinc-400">
+
+    <a
+      href="#"
+      className="hover:text-white transition"
+    >
+      Home
+    </a>
+
+    <a
+      href="#products"
+      className="hover:text-white transition"
+    >
+      Products
+    </a>
+
+    <a
+      href="#"
+      className="hover:text-white transition"
+    >
+      Reviews
+    </a>
+
+  </div>
+
+  <button className="border border-purple-500/30 px-3 py-1 rounded-lg text-sm">
+    EN | AR
+  </button>
+
+  <a href="#products">
+
+    <button className="bg-purple-600 hover:bg-purple-700 px-5 py-2 rounded-xl font-bold transition">
+      Buy Now
+    </button>
+
+  </a>
+
+</div>
       </nav>
 
       {/* Hero */}
@@ -183,7 +220,7 @@ export default function Home() {
       {/* Products */}
       <section
         id="products"
-        className="max-w-7xl mx-auto px-6 pb-24"
+        className="max-w-[1600px] mx-auto px-6 pb-24"
       >
         <h2 className="text-5xl font-black text-center mb-12">
           Products

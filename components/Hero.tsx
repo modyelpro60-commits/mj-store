@@ -94,7 +94,7 @@ export default function Hero() {
           transition={{ delay: 0.2 }}
           className="mt-10 text-7xl md:text-9xl font-black leading-none"
         >
-          LEVEL UP
+          Mahmoud Store
         </motion.h1>
 
         <motion.h2
