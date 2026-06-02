@@ -1,31 +1,64 @@
 import { supabase } from "../lib/supabase";
-import { Gamepad2, ShieldCheck, Star, Zap } from "lucide-react";
 import FeaturedProductsGrid from "../components/storefront/FeaturedProductsGrid";
 import StorefrontHero from "../components/storefront/StorefrontHero";
+import SocialProofSection from "../components/storefront/SocialProofSection";
+import BestSellersSection from "../components/storefront/BestSellersSection";
+import WhyChooseSection from "../components/storefront/WhyChooseSection";
+import TestimonialsSection from "../components/storefront/TestimonialsSection";
+import PremiumCTASection from "../components/storefront/PremiumCTASection";
+
+type Product = {
+  id: number | string;
+  name: string;
+  description: string;
+  price: number | string;
+  image: string;
+  features?: string | null;
+  sales_count?: number | string | null;
+};
+
+function toNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+function computeHomeStats(products: Product[]) {
+  const delivered = products.reduce((acc, p) => acc + toNumber(p.sales_count), 0);
+  const totalSalesEGP = products.reduce((acc, p) => {
+    const sales = toNumber(p.sales_count);
+    const price = toNumber(p.price);
+    return acc + price * sales;
+  }, 0);
+
+  // We don’t have a dedicated customer table; approximate customers served with deliveries.
+  const totalCustomers = delivered;
+
+  return {
+    totalDelivered: delivered,
+    totalSalesEGP,
+    totalCustomers,
+  };
+}
+
+function computeBestSellers(products: Product[], limit: number) {
+  return [...products]
+    .sort((a, b) => toNumber(b.sales_count) - toNumber(a.sales_count))
+    .slice(0, limit);
+}
 
 export default async function Home() {
   const { data: products } = await supabase.from("products").select("*");
 
+  const list = (products ?? []) as Product[];
+  const stats = computeHomeStats(list);
+  const bestSellers = computeBestSellers(list, 8);
+
   return (
     <main className="min-h-screen bg-black text-white overflow-hidden">
-      {/* Background */}
-      <div className="fixed inset-0 -z-10">
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: `
-            linear-gradient(rgba(168,85,247,0.15) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(168,85,247,0.15) 1px, transparent 1px)
-            `,
-            backgroundSize: "60px 60px",
-          }}
-        />
-
-        <div className="absolute top-[-250px] left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-purple-700/30 rounded-full blur-[220px]" />
-        <div className="absolute left-[-200px] top-[300px] w-[500px] h-[500px] bg-fuchsia-500/10 rounded-full blur-[180px]" />
-        <div className="absolute right-[-200px] top-[300px] w-[500px] h-[500px] bg-violet-500/10 rounded-full blur-[180px]" />
-      </div>
-
       {/* Nav */}
       <nav className="sticky top-0 z-50 backdrop-blur-xl bg-black/40 border-b border-purple-500/10">
         <div className="max-w-[1600px] mx-auto px-8 py-5 flex items-center justify-between">
@@ -64,72 +97,32 @@ export default async function Home() {
         </div>
       </nav>
 
-      {/* Hero (upgraded) */}
+      {/* Hero */}
       <StorefrontHero />
 
-      {/* Why MJ Store */}
-      <section className="max-w-[1600px] mx-auto px-8 py-10">
-        <h2 className="text-5xl font-black text-center mb-14">WHY MJ STORE?</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Card 1 */}
-          <div className="w-24 h-24 object-contain transition-all duration-700 group-hover:scale-125 group-hover:rotate-6">
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition bg-gradient-to-b from-purple-500/10 to-transparent" />
-            <div className="relative z-10">
-              <div className="w-20 h-20 mx-auto rounded-3xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-6">
-                <Zap size={38} className="text-purple-500" />
-              </div>
-              <h3 className="text-2xl font-bold">Instant Delivery</h3>
-              <p className="text-zinc-400 mt-4">Receive your products instantly after payment.</p>
-            </div>
-          </div>
+      {/* Social Proof */}
+      <SocialProofSection stats={stats} />
 
-          {/* Card 2 */}
-          <div className="group bg-zinc-900/70 border border-purple-500/20 hover:border-purple-500 rounded-3xl p-8 text-center transition-all duration-300 hover:-translate-y-3 overflow-hidden relative">
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition bg-gradient-to-b from-purple-500/10 to-transparent" />
-            <div className="relative z-10">
-              <div className="w-20 h-20 mx-auto rounded-3xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-6">
-                <ShieldCheck size={38} className="text-purple-500" />
-              </div>
-              <h3 className="text-2xl font-bold">Secure Payment</h3>
-              <p className="text-zinc-400 mt-4">Protected and trusted payment methods.</p>
-            </div>
-          </div>
+      {/* Best Sellers */}
+      <BestSellersSection id="best-sellers" products={bestSellers} />
 
-          {/* Card 3 */}
-          <div className="group bg-zinc-900/70 border border-purple-500/20 hover:border-purple-500 rounded-3xl p-8 text-center transition-all duration-300 hover:-translate-y-3 overflow-hidden relative">
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition bg-gradient-to-b from-purple-500/10 to-transparent" />
-            <div className="relative z-10">
-              <div className="w-20 h-20 mx-auto rounded-3xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-6">
-                <Gamepad2 size={38} className="text-purple-500" />
-              </div>
-              <h3 className="text-2xl font-bold">Premium Services</h3>
-              <p className="text-zinc-400 mt-4">Top quality subscriptions and digital services.</p>
-            </div>
-          </div>
+      {/* Why Choose */}
+      <WhyChooseSection />
 
-          {/* Card 4 */}
-          <div className="group bg-zinc-900/70 border border-purple-500/20 hover:border-purple-500 rounded-3xl p-8 text-center transition-all duration-300 hover:-translate-y-3 overflow-hidden relative">
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition bg-gradient-to-b from-purple-500/10 to-transparent" />
-            <div className="relative z-10">
-              <div className="w-20 h-20 mx-auto rounded-3xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-6">
-                <Star size={38} className="text-purple-500" />
-              </div>
-              <h3 className="text-2xl font-bold">Trusted Store</h3>
-              <p className="text-zinc-400 mt-4">Hundreds of satisfied customers trust MJ Store.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Testimonials */}
+      <TestimonialsSection id="reviews" />
 
       {/* Products */}
       <section id="products" className="max-w-[1600px] mx-auto px-8 py-20">
         <h2 className="text-5xl font-black text-center mb-12">Products</h2>
-
-        <FeaturedProductsGrid products={products as any} />
+        <FeaturedProductsGrid products={list as any} />
       </section>
 
+      {/* Premium CTA */}
+      <PremiumCTASection />
+
       {/* Footer */}
-      <footer id="contact" className="border-t border-purple-500/10 mt-32">
+      <footer id="contact" className="border-t border-purple-500/10 mt-0">
         <div className="max-w-[1600px] mx-auto px-8 py-12">
           <div className="flex flex-col md:flex-row justify-between gap-10">
             <div>
