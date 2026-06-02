@@ -6,6 +6,7 @@ import BestSellersSection from "../components/storefront/BestSellersSection";
 import WhyChooseSection from "../components/storefront/WhyChooseSection";
 import TestimonialsSection from "../components/storefront/TestimonialsSection";
 import PremiumCTASection from "../components/storefront/PremiumCTASection";
+import StorefrontNavbar from "../components/auth/StorefrontNavbar";
 
 type Product = {
   id: number | string;
@@ -60,42 +61,7 @@ export default async function Home() {
   return (
     <main className="min-h-screen bg-black text-white overflow-hidden">
       {/* Nav */}
-      <nav className="sticky top-0 z-50 backdrop-blur-xl bg-black/40 border-b border-purple-500/10">
-        <div className="max-w-[1600px] mx-auto px-8 py-5 flex items-center justify-between">
-          {/* Logo */}
-          <div>
-            <h1 className="text-3xl font-black tracking-[4px]">
-              MJ <span className="text-purple-500">STORE</span>
-            </h1>
-          </div>
-
-          {/* Links */}
-          <div className="hidden md:flex items-center gap-10 text-zinc-400 font-medium">
-            <a href="#products" className="hover:text-white transition">
-              Products
-            </a>
-            <a href="#reviews" className="hover:text-white transition">
-              Reviews
-            </a>
-            <a href="#contact" className="hover:text-white transition">
-              Contact
-            </a>
-          </div>
-
-          {/* Right Side */}
-          <div className="flex items-center gap-4">
-            <button className="border border-purple-500/30 hover:border-purple-500 px-4 py-2 rounded-xl transition">
-              EN | AR
-            </button>
-
-            <a href="#products">
-              <button className="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-xl font-bold transition">
-                Buy Now
-              </button>
-            </a>
-          </div>
-        </div>
-      </nav>
+      <StorefrontNavbar />
 
       {/* Hero */}
       <StorefrontHero />

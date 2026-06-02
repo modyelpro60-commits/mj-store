@@ -14,6 +14,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import AnimatedNumber from "./animated-number";
+import { useAuth } from "../../components/auth/AuthProvider";
 
 interface ProductRecord {
   id: number;
@@ -50,23 +51,33 @@ const cardVariants: Variants = {
 };
 
 export default function AdminPage() {
+  const { accessToken } = useAuth();
+
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!accessToken) return;
     loadDashboard();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken]);
 
   async function loadDashboard() {
     try {
       setLoading(true);
       setError("");
 
+      const authHeader = accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : undefined;
+
       const [productsRes, statsRes] = await Promise.all([
         fetch("/api/get-products"),
-        fetch("/api/admin/dashboard-stats"),
+        fetch("/api/admin/dashboard-stats", {
+          headers: authHeader,
+        }),
       ]);
 
       const productsData = (await productsRes.json()) as ProductsApiResponse;
@@ -238,7 +249,9 @@ export default function AdminPage() {
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
-              <p className="text-sm uppercase tracking-[0.24em] text-zinc-500">Best Seller</p>
+              <p className="text-sm uppercase tracking-[0.24em] text-zinc-500">
+                Best Seller
+              </p>
               <h3 className="mt-3 text-2xl font-black tracking-tight">
                 {stats?.bestSellingProduct?.name || "No sales yet"}
               </h3>

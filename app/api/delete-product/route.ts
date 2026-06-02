@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "../../lib/auth/requireAdmin";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,9 @@ const supabase = createClient(
 );
 
 export async function POST(req: Request) {
+  // Admin-only
+  await requireAdmin(req);
+
   const { id } = await req.json();
 
   const { error } = await supabase

@@ -9,6 +9,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
+import { useAuth } from "../../../components/auth/AuthProvider";
 import AnimatedNumber from "../animated-number";
 
 const ORDER_STATUSES = ["Pending", "Processing", "Completed", "Cancelled"] as const;
@@ -47,6 +48,7 @@ const cardVariants: Variants = {
 };
 
 export default function OrdersPage() {
+  const { accessToken } = useAuth();
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -77,7 +79,14 @@ export default function OrdersPage() {
       setLoading(true);
       setError("");
 
-      const res = await fetch(`/api/get-orders${queryString ? `?${queryString}` : ""}`);
+      const res = await fetch(
+        `/api/get-orders${queryString ? `?${queryString}` : ""}`,
+        {
+          headers: accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : undefined,
+        }
+      );
       const data = (await res.json()) as OrdersApiResponse;
 
       if (!data.success || !data.data) {
@@ -104,6 +113,9 @@ export default function OrdersPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : {}),
         },
         body: JSON.stringify({
           id,
@@ -138,6 +150,9 @@ export default function OrdersPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : {}),
         },
         body: JSON.stringify({ id }),
       });

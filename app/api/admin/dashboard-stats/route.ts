@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "../../../lib/auth/requireAdmin";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,11 +30,16 @@ interface DashboardStatsResponse {
   } | null;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Admin-only
+  await requireAdmin(req);
+
   try {
     const [productsRes, ordersRes] = await Promise.all([
       supabase.from("products").select("id, name"),
-      supabase.from("orders").select("id, product_id, product_name, price"),
+      supabase
+        .from("orders")
+        .select("id, product_id, product_name, price"),
     ]);
 
     const { data: products, error: productsError } = productsRes;
@@ -57,11 +63,15 @@ export async function GET() {
     const typedOrders = (orders ?? []) as OrderRow[];
 
     const totalRevenue = typedOrders.reduce((sum, order) => {
-      const value = typeof order.price === "string" ? Number(order.price) : order.price ?? 0;
+      const value =
+        typeof order.price === "string" ? Number(order.price) : order.price ?? 0;
       return sum + value;
     }, 0);
 
-    const salesMap = new Map<number | string, { name: string; sales: number; id: number | null }>();
+    const salesMap = new Map<
+      number | string,
+      { name: string; sales: number; id: number | null }
+    >();
 
     for (const order of typedOrders) {
       const key = order.product_id ?? order.product_name ?? order.id;

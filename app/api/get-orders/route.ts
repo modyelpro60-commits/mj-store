@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "../../lib/auth/requireAdmin";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,6 +12,9 @@ const ALLOWED_STATUSES = ["Pending", "Processing", "Completed", "Cancelled"] as 
 type OrderStatus = (typeof ALLOWED_STATUSES)[number];
 
 export async function GET(req: Request) {
+  // Admin-only
+  await requireAdmin(req);
+
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search")?.trim() ?? "";

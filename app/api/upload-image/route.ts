@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "../../lib/auth/requireAdmin";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,9 @@ const supabase = createClient(
 );
 
 export async function POST(req: Request) {
+  // Admin-only
+  await requireAdmin(req);
+
   try {
     const formData = await req.formData();
 
@@ -40,18 +44,18 @@ export async function POST(req: Request) {
 
     const {
       data: { publicUrl },
-    } = supabase.storage
-      .from("product-images")
-      .getPublicUrl(fileName);
+    } = supabase.storage.from("product-images").getPublicUrl(fileName);
 
     return NextResponse.json({
       success: true,
       url: publicUrl,
     });
-  } catch (err: any) {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+
     return NextResponse.json({
       success: false,
-      error: err.message,
+      error: message,
     });
   }
 }

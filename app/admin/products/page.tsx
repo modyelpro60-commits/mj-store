@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, type Variants } from "framer-motion";
+import { useAuth } from "../../../components/auth/AuthProvider";
 import {
   AlertCircle,
   BadgePlus,
@@ -72,6 +73,7 @@ const panelVariants: Variants = {
 };
 
 export default function ProductsPage() {
+  const { accessToken } = useAuth();
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
   const [products, setProducts] = useState<ProductRecord[]>([]);
@@ -114,6 +116,7 @@ export default function ProductsPage() {
         const uploadRes = await fetch("/api/upload-image", {
           method: "POST",
           body: formData,
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
         });
 
         const uploadData = (await uploadRes.json()) as UploadImageResponse;
@@ -143,6 +146,7 @@ export default function ProductsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify(
           editingId
@@ -192,6 +196,9 @@ export default function ProductsPage() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : {}),
       },
       body: JSON.stringify({ id }),
     });

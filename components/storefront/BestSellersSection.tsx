@@ -28,7 +28,7 @@ const gridVariants: Variants = {
 };
 
 const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 14 },
+  hidden: { opacity: 0, y: 16 },
   show: (delay: number) => ({
     opacity: 1,
     y: 0,
@@ -41,18 +41,18 @@ export default function BestSellersSection({
   products,
 }: BestSellersSectionProps) {
   return (
-    <section id={id} className="max-w-[1600px] mx-auto px-8 py-16">
+    <section id={id} className="max-w-[1600px] mx-auto px-8 py-20">
       <div className="flex items-end justify-between gap-6 flex-wrap">
         <div>
-          <h2 className="text-5xl font-black tracking-tight">Best Sellers</h2>
-          <p className="mt-3 text-zinc-400 max-w-xl">
-            The most delivered digital products—chosen for speed, quality, and instant access.
+          <h2 className="text-6xl font-black tracking-tight">Best Sellers</h2>
+          <p className="mt-4 text-zinc-400 max-w-xl text-lg">
+            The most delivered digital products—premium picks that unlock instantly.
           </p>
         </div>
 
         <div className="hidden md:flex items-center gap-2 text-sm text-purple-200">
           <span className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/5 px-4 py-2">
-            Neon picks, real customers
+            Neon picks • Verified demand
           </span>
         </div>
       </div>
@@ -61,7 +61,7 @@ export default function BestSellersSection({
         variants={gridVariants}
         initial="hidden"
         animate="show"
-        className="mt-10 grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"
+        className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10"
       >
         {products.map((product, index) => (
           <motion.div key={product.id} variants={itemVariants} custom={index * 0.06}>
@@ -71,6 +71,9 @@ export default function BestSellersSection({
           </motion.div>
         ))}
       </motion.div>
+
+      {/* Subtle divider glow */}
+      <div className="mt-14 h-[1px] w-full bg-gradient-to-r from-transparent via-purple-500/25 to-transparent opacity-70" />
     </section>
   );
 }

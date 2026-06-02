@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "../../lib/auth/requireAdmin";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,9 @@ const supabase = createClient(
 );
 
 export async function POST(req: Request) {
+  // Admin-only
+  await requireAdmin(req);
+
   try {
     const body = (await req.json()) as { id?: number };
 
@@ -17,7 +21,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const { error } = await supabase.from("orders").delete().eq("id", body.id);
+    const { error } = await supabase
+      .from("orders")
+      .delete()
+      .eq("id", body.id);
 
     if (error) {
       return NextResponse.json(
