@@ -3,18 +3,55 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function GET() {
-  const { data, error } = await supabase
-    .from("orders")
-    .select("*")
-    .order("id", { ascending: false });
+const ALLOWED_STATUSES = ["Pending", "Processing", "Completed", "Cancelled"] as const;
 
-  if (error) {
-    return NextResponse.json([]);
+type OrderStatus = (typeof ALLOWED_STATUSES)[number];
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get("search")?.trim() ?? "";
+    const status = searchParams.get("status")?.trim() ?? "";
+    const limitParam = Number(searchParams.get("limit") ?? "0");
+
+    let query = supabase.from("orders").select("*").order("id", { ascending: false });
+
+    if (status && ALLOWED_STATUSES.includes(status as OrderStatus)) {
+      query = query.eq("status", status);
+    }
+
+    if (search) {
+      query = query.or(
+        `customer_name.ilike.%${search}%,customer_email.ilike.%${search}%,product_name.ilike.%${search}%`
+      );
+    }
+
+    if (Number.isFinite(limitParam) && limitParam > 0) {
+      query = query.limit(limitParam);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return NextResponse.json(
+        { success: false, error: error.message, data: [] },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: data ?? [],
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+
+    return NextResponse.json(
+      { success: false, error: message, data: [] },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json(data);
 }
