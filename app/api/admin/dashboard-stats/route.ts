@@ -32,7 +32,15 @@ interface DashboardStatsResponse {
 
 export async function GET(req: Request) {
   // Admin-only
-  await requireAdmin(req);
+  try {
+    await requireAdmin(req);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    return NextResponse.json(
+      { success: false, error: "Forbidden" },
+      { status: 403 }
+    );
+  }
 
   try {
     const [productsRes, ordersRes] = await Promise.all([

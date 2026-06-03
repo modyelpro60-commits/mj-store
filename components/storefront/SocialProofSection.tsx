@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { CreditCard, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 export type SocialProofStats = {
   totalCustomers: number;
@@ -16,6 +17,8 @@ export default function SocialProofSection({
   id?: string;
   stats: SocialProofStats;
 }) {
+  const { translate } = useLanguage();
+
   const fmt = (n: number) =>
     new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(
       Number.isFinite(n) ? Math.round(n) : 0
@@ -24,9 +27,11 @@ export default function SocialProofSection({
   return (
     <section id={id} className="max-w-[1600px] mx-auto px-8 py-16">
       <div className="text-center">
-        <h2 className="text-5xl font-black tracking-tight">Trusted by gamers & builders</h2>
+        <h2 className="text-5xl font-black tracking-tight">
+          {translate("home.social.trustedTitle")}
+        </h2>
         <p className="mt-4 text-zinc-400 max-w-2xl mx-auto">
-          Premium digital products with instant delivery—built on trust, speed, and secure payments.
+          {translate("home.social.trustedSubtitle")}
         </p>
       </div>
 
@@ -40,7 +45,9 @@ export default function SocialProofSection({
         >
           <div className="flex items-center justify-between gap-6">
             <div>
-              <p className="text-sm uppercase tracking-[0.28em] text-zinc-500">TOTAL CUSTOMERS</p>
+              <p className="text-sm uppercase tracking-[0.28em] text-zinc-500">
+                {translate("home.social.totalCustomersLabel")}
+              </p>
               <p className="mt-4 text-5xl font-black drop-shadow-[0_0_18px_rgba(168,85,247,0.25)]">
                 {fmt(stats.totalCustomers)}
               </p>
@@ -51,7 +58,7 @@ export default function SocialProofSection({
           </div>
 
           <div className="mt-6 text-zinc-400">
-            Customers served with instant access and clear delivery.
+            {translate("home.social.totalCustomersDesc")}
           </div>
         </motion.article>
 
@@ -64,7 +71,9 @@ export default function SocialProofSection({
         >
           <div className="flex items-center justify-between gap-6">
             <div>
-              <p className="text-sm uppercase tracking-[0.28em] text-zinc-500">TOTAL SALES</p>
+              <p className="text-sm uppercase tracking-[0.28em] text-zinc-500">
+                {translate("home.social.totalSalesLabel")}
+              </p>
               <p className="mt-4 text-5xl font-black drop-shadow-[0_0_18px_rgba(168,85,247,0.25)]">
                 {fmt(stats.totalSalesEGP)} EGP
               </p>
@@ -75,7 +84,7 @@ export default function SocialProofSection({
           </div>
 
           <div className="mt-6 text-zinc-400">
-            Revenue generated from premium subscriptions & digital services.
+            {translate("home.social.totalSalesDesc")}
           </div>
         </motion.article>
 
@@ -88,7 +97,9 @@ export default function SocialProofSection({
         >
           <div className="flex items-center justify-between gap-6">
             <div>
-              <p className="text-sm uppercase tracking-[0.28em] text-zinc-500">PRODUCTS DELIVERED</p>
+              <p className="text-sm uppercase tracking-[0.28em] text-zinc-500">
+                {translate("home.social.totalDeliveredLabel")}
+              </p>
               <p className="mt-4 text-5xl font-black drop-shadow-[0_0_18px_rgba(168,85,247,0.25)]">
                 {fmt(stats.totalDelivered)}
               </p>
@@ -99,7 +110,7 @@ export default function SocialProofSection({
           </div>
 
           <div className="mt-6 text-zinc-400">
-            Delivered instantly after payment—no waiting, no hassle.
+            {translate("home.social.totalDeliveredDesc")}
           </div>
         </motion.article>
       </div>
@@ -118,8 +129,12 @@ export default function SocialProofSection({
               <ShieldCheck className="h-5 w-5 text-purple-300" />
             </div>
             <div>
-              <div className="font-bold">Instant delivery</div>
-              <div className="text-zinc-400 text-sm">Fast access right after checkout.</div>
+              <div className="font-bold">
+                {translate("home.social.trust.instantTitle")}
+              </div>
+              <div className="text-zinc-400 text-sm">
+                {translate("home.social.trust.instantDesc")}
+              </div>
             </div>
           </div>
 
@@ -128,8 +143,12 @@ export default function SocialProofSection({
               <CreditCard className="h-5 w-5 text-purple-300" />
             </div>
             <div>
-              <div className="font-bold">Secure payments</div>
-              <div className="text-zinc-400 text-sm">Protected checkout & trusted processing.</div>
+              <div className="font-bold">
+                {translate("home.social.trust.secureTitle")}
+              </div>
+              <div className="text-zinc-400 text-sm">
+                {translate("home.social.trust.secureDesc")}
+              </div>
             </div>
           </div>
 
@@ -138,8 +157,12 @@ export default function SocialProofSection({
               <Sparkles className="h-5 w-5 text-purple-300" />
             </div>
             <div>
-              <div className="font-bold">Premium support</div>
-              <div className="text-zinc-400 text-sm">Help when you need it, clearly and fast.</div>
+              <div className="font-bold">
+                {translate("home.social.trust.premiumTitle")}
+              </div>
+              <div className="text-zinc-400 text-sm">
+                {translate("home.social.trust.premiumDesc")}
+              </div>
             </div>
           </div>
         </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -5,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowRight, LoaderCircle } from "lucide-react";
+import { useToast } from "../../components/toast/ToastProvider";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +15,8 @@ const supabase = createClient(
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { pushToast } = useToast();
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +26,8 @@ export default function RegisterPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
+
     setLoading(true);
     setError(null);
 
@@ -35,18 +41,44 @@ export default function RegisterPage() {
 
       const userId = data?.user?.id;
 
-      // Best-effort: after profile RLS is added, user should be allowed to update own row.
-      // If RLS disallows it, the trigger will still create the profile; full_name can be edited later.
+      // Best-effort: update profile full_name if possible (RLS may block).
       if (userId && fullName.trim()) {
-        await supabase
-          .from("profiles")
-          .update({ full_name: fullName.trim() })
-          .eq("id", userId);
+        try {
+          await supabase
+            .from("profiles")
+            .update({ full_name: fullName.trim() })
+            .eq("id", userId);
+        } catch {
+          // no-op: keep registration successful even if profile update is blocked by RLS
+        }
       }
 
-      router.replace("/account");
+      // Ensure session is created so we can authenticate immediately.
+      const signUpSession = data?.session ?? null;
+
+      const sessionRes = signUpSession
+        ? { data: { session: signUpSession } }
+        : await supabase.auth.getSession();
+
+      const hasSession = Boolean(sessionRes.data.session);
+
+      if (!hasSession) {
+        throw new Error(
+          "Registration created your account, but automatic sign-in is not available. Please check your email confirmation status."
+        );
+      }
+
+
+      router.push("/welcome?mode=register");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Register failed");
+      const message = err instanceof Error ? err.message : "Register failed";
+      setError(message);
+
+      pushToast({
+        type: "error",
+        title: "Registration failed",
+        message,
+      });
     } finally {
       setLoading(false);
     }
@@ -56,8 +88,8 @@ export default function RegisterPage() {
     <main className="min-h-screen bg-black text-white px-6 py-16 overflow-hidden">
       <div className="mx-auto max-w-xl">
         <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 18, filter: "blur(6px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           transition={{ duration: 0.45, ease: "easeOut" }}
           className="rounded-[2rem] border border-white/10 bg-zinc-950/70 p-6 shadow-[0_30px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:p-8"
         >
@@ -65,9 +97,11 @@ export default function RegisterPage() {
             Register
           </div>
 
-          <h1 className="mt-6 text-4xl font-black tracking-tight">Create your account</h1>
+          <h1 className="mt-6 text-4xl font-black tracking-tight">
+            Create your account
+          </h1>
           <p className="mt-3 text-zinc-400 leading-6">
-            You can buy as a guest. Logging in unlocks your account and admin access (if you’re an admin).
+            You can buy as a guest. Logging in unlocks your account and order history.
           </p>
 
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
@@ -80,6 +114,8 @@ export default function RegisterPage() {
                 onChange={(e) => setFullName(e.target.value)}
                 type="text"
                 required
+                autoComplete="name"
+                disabled={loading}
                 className="h-[48px] w-full rounded-2xl border border-white/10 bg-white/5 px-4 outline-none transition-colors placeholder:text-zinc-600 focus:border-purple-500/40 focus:bg-purple-500/10"
                 placeholder="Your name"
               />
@@ -94,6 +130,8 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
                 required
+                autoComplete="email"
+                disabled={loading}
                 className="h-[48px] w-full rounded-2xl border border-white/10 bg-white/5 px-4 outline-none transition-colors placeholder:text-zinc-600 focus:border-purple-500/40 focus:bg-purple-500/10"
                 placeholder="you@example.com"
               />
@@ -108,6 +146,8 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 type="password"
                 required
+                autoComplete="new-password"
+                disabled={loading}
                 className="h-[48px] w-full rounded-2xl border border-white/10 bg-white/5 px-4 outline-none transition-colors placeholder:text-zinc-600 focus:border-purple-500/40 focus:bg-purple-500/10"
                 placeholder="••••••••"
               />
@@ -127,8 +167,11 @@ export default function RegisterPage() {
               whileTap={{ scale: 0.99 }}
               disabled={loading}
               className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl border border-purple-500/30 bg-purple-600 font-bold text-white transition-all duration-300 hover:bg-purple-700 disabled:opacity-60"
+              aria-busy={loading}
             >
-              {loading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : null}
+              {loading ? (
+                <LoaderCircle className="h-5 w-5 animate-spin" />
+              ) : null}
               {loading ? "Creating..." : "Create account"}
               <ArrowRight className="h-5 w-5" />
             </motion.button>

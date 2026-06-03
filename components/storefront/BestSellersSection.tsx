@@ -3,6 +3,7 @@
 import { motion, type Variants } from "framer-motion";
 import Link from "next/link";
 import ProductCard from "./ProductCard";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 type BestSellerProduct = {
   id: number | string;
@@ -10,7 +11,7 @@ type BestSellerProduct = {
   description: string;
   price: number | string;
   image: string;
-  features?: string | null;
+  features?: string | string[] | null;
   sales_count?: number | string | null;
 };
 
@@ -40,19 +41,23 @@ export default function BestSellersSection({
   id,
   products,
 }: BestSellersSectionProps) {
+  const { translate } = useLanguage();
+
   return (
     <section id={id} className="max-w-[1600px] mx-auto px-8 py-20">
       <div className="flex items-end justify-between gap-6 flex-wrap">
         <div>
-          <h2 className="text-6xl font-black tracking-tight">Best Sellers</h2>
+          <h2 className="text-6xl font-black tracking-tight">
+            {translate("home.bestSellers.title")}
+          </h2>
           <p className="mt-4 text-zinc-400 max-w-xl text-lg">
-            The most delivered digital products—premium picks that unlock instantly.
+            {translate("home.bestSellers.subtitle")}
           </p>
         </div>
 
         <div className="hidden md:flex items-center gap-2 text-sm text-purple-200">
           <span className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/5 px-4 py-2">
-            Neon picks • Verified demand
+            {translate("home.bestSellers.tag")}
           </span>
         </div>
       </div>

@@ -1,14 +1,20 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { createClient, type Session } from "@supabase/supabase-js";
 
 type AuthProfile = {
   id: string;
   email: string | null;
   full_name: string | null;
-  role: "admin" | "customer";
+  role: string | null;
   created_at: string | null;
 };
 
@@ -16,7 +22,7 @@ type AuthContextValue = {
   session: Session | null;
   accessToken: string | null;
   profile: AuthProfile | null;
-  role: "admin" | "customer" | null;
+  role: string | null;
   isLoading: boolean;
 
   signOut: () => Promise<void>;
@@ -25,9 +31,10 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function safeRole(role: unknown): "admin" | "customer" | null {
-  if (role === "admin" || role === "customer") return role;
-  return null;
+function normalizeRole(role: unknown): string | null {
+  if (typeof role !== "string") return null;
+  const trimmed = role.trim();
+  return trimmed.length ? trimmed : null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -44,8 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  async function reloadProfile() {
-    const token = accessToken;
+  async function reloadProfile(tokenOverride?: string | null) {
+    const token = tokenOverride ?? accessToken;
 
     if (!token) {
       setProfile(null);
@@ -68,8 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const role = safeRole(data.profile.role);
-    setProfile(role ? { ...(data.profile as any), role } : null);
+    const role = normalizeRole(data.profile.role);
+    if (!role) {
+      setProfile(null);
+      return;
+    }
+
+    setProfile({ ...(data.profile as any), role });
   }
 
   async function signOut() {
@@ -90,9 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = nextSession?.access_token ?? null;
         setAccessToken(token);
 
-        // If session exists, fetch role/profile.
+        // If session exists, fetch role/profile using the freshly read token.
         if (token) {
-          await reloadProfile();
+          await reloadProfile(token);
         } else {
           setProfile(null);
         }
@@ -110,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(token);
 
         if (token) {
-          await reloadProfile();
+          await reloadProfile(token);
         } else {
           setProfile(null);
         }
@@ -132,9 +144,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: profile?.role ?? null,
       isLoading,
       signOut,
-      reloadProfile,
+      reloadProfile: async () => reloadProfile(),
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [session, accessToken, profile, isLoading]
   );
 

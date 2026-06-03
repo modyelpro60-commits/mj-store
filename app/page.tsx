@@ -1,12 +1,13 @@
 import { supabase } from "../lib/supabase";
+import { getHomeStats } from "./lib/home/getHomeStats";
+import { normalizeProductFeatures } from "./lib/products/featureHelpers";
 import FeaturedProductsGrid from "../components/storefront/FeaturedProductsGrid";
 import StorefrontHero from "../components/storefront/StorefrontHero";
-import SocialProofSection from "../components/storefront/SocialProofSection";
-import BestSellersSection from "../components/storefront/BestSellersSection";
-import WhyChooseSection from "../components/storefront/WhyChooseSection";
-import TestimonialsSection from "../components/storefront/TestimonialsSection";
-import PremiumCTASection from "../components/storefront/PremiumCTASection";
 import StorefrontNavbar from "../components/auth/StorefrontNavbar";
+import HomeProductsHeading from "../components/storefront/HomeProductsHeading";
+import HomeFooter from "../components/storefront/HomeFooter";
+import HomeFeaturedProductsHeading from "../components/storefront/HomeFeaturedProductsHeading";
+import HomeLiveStats from "../components/storefront/home/HomeLiveStats";
 
 type Product = {
   id: number | string;
@@ -14,7 +15,7 @@ type Product = {
   description: string;
   price: number | string;
   image: string;
-  features?: string | null;
+  features?: string | string[] | null;
   sales_count?: number | string | null;
 };
 
@@ -27,92 +28,111 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
-function computeHomeStats(products: Product[]) {
-  const delivered = products.reduce((acc, p) => acc + toNumber(p.sales_count), 0);
-  const totalSalesEGP = products.reduce((acc, p) => {
-    const sales = toNumber(p.sales_count);
-    const price = toNumber(p.price);
-    return acc + price * sales;
-  }, 0);
-
-  // We don’t have a dedicated customer table; approximate customers served with deliveries.
-  const totalCustomers = delivered;
-
-  return {
-    totalDelivered: delivered,
-    totalSalesEGP,
-    totalCustomers,
-  };
-}
-
-function computeBestSellers(products: Product[], limit: number) {
+function computeFeaturedProducts(products: Product[], limit: number) {
   return [...products]
     .sort((a, b) => toNumber(b.sales_count) - toNumber(a.sales_count))
     .slice(0, limit);
 }
 
 export default async function Home() {
-  const { data: products } = await supabase.from("products").select("*");
+  const [{ data: products }, stats] = await Promise.all([
+    supabase.from("products").select("*"),
+    getHomeStats(),
+  ]);
 
-  const list = (products ?? []) as Product[];
-  const stats = computeHomeStats(list);
-  const bestSellers = computeBestSellers(list, 8);
+  const productList = (products ?? []) as Product[];
+
+  const productIds = productList.map((p) => p.id).filter(Boolean);
+
+  const { data: featureRows } = productIds.length
+    ? await supabase
+        .from("product_features")
+        .select("product_id,name,sort_order")
+        .in("product_id", productIds)
+    : { data: [] as any[] };
+
+  const featureMap = new Map<string | number, any[]>();
+  for (const row of (featureRows ?? []) as any[]) {
+    const key = String(row.product_id);
+    const curr = featureMap.get(key) ?? [];
+    curr.push(row);
+    featureMap.set(key, curr);
+  }
+
+  const list = productList.map((product) => {
+    const rowsForProduct = featureMap.get(String(product.id)) ?? [];
+    return {
+      ...product,
+      // normalizeProductFeatures expects `product.product_features` rows
+      features: normalizeProductFeatures({
+        ...product,
+        product_features: rowsForProduct,
+      } as any),
+    };
+  });
+
+  // Fetch best-selling product from completed orders
+  const { data: orderData } = await supabase
+    .from("orders")
+    .select("product_id")
+    .eq("status", "completed")
+    .order("product_id");
+  
+  let featuredProduct: Product | null = null;
+  
+  if (orderData && orderData.length > 0) {
+    // Count sales per product
+    const salesCount = new Map<string | number, number>();
+    orderData.forEach(order => {
+      const id = order.product_id;
+      salesCount.set(id, (salesCount.get(id) || 0) + 1);
+    });
+    
+    // Find product with most completed orders
+    let maxSales = 0;
+    for (const product of list) {
+      const sales = salesCount.get(product.id) || 0;
+      if (sales > maxSales) {
+        maxSales = sales;
+        featuredProduct = product;
+      }
+    }
+  }
+  
+  // Fallback: use product with highest sales_count field
+  if (!featuredProduct) {
+    const sorted = [...list].sort((a, b) => toNumber(b.sales_count) - toNumber(a.sales_count));
+    featuredProduct = sorted[0] || null;
+  }
+  
+  const featured = featuredProduct ? [featuredProduct] : [];
 
   return (
     <main className="min-h-screen bg-black text-white overflow-hidden">
-      {/* Nav */}
       <StorefrontNavbar />
 
       {/* Hero */}
       <StorefrontHero />
 
-      {/* Social Proof */}
-      <SocialProofSection stats={stats} />
+      {/* Premium Stats Section */}
+      <HomeLiveStats
+        activeCustomers={stats.activeCustomers}
+        totalCustomers={stats.totalCustomers}
+      />
 
-      {/* Best Sellers */}
-      <BestSellersSection id="best-sellers" products={bestSellers} />
-
-      {/* Why Choose */}
-      <WhyChooseSection />
-
-      {/* Testimonials */}
-      <TestimonialsSection id="reviews" />
-
-      {/* Products */}
-      <section id="products" className="max-w-[1600px] mx-auto px-8 py-20">
-        <h2 className="text-5xl font-black text-center mb-12">Products</h2>
-        <FeaturedProductsGrid products={list as any} />
+      {/* Featured Products (3) */}
+      <section id="best-sellers" className="max-w-[1600px] mx-auto px-8 py-24">
+        <HomeFeaturedProductsHeading />
+        <FeaturedProductsGrid products={featured as any} variant="featured" />
       </section>
 
-      {/* Premium CTA */}
-      <PremiumCTASection />
+      {/* Products Grid */}
+      <section id="products" className="max-w-[1600px] mx-auto px-8 py-28">
+        <HomeProductsHeading />
+        <FeaturedProductsGrid products={list as any} variant="all" />
+      </section>
 
-      {/* Footer */}
-      <footer id="contact" className="border-t border-purple-500/10 mt-0">
-        <div className="max-w-[1600px] mx-auto px-8 py-12">
-          <div className="flex flex-col md:flex-row justify-between gap-10">
-            <div>
-              <h2 className="text-3xl font-black">MJ STORE</h2>
-              <p className="text-zinc-500 mt-4 max-w-md">
-                Premium digital subscriptions with instant delivery and secure payment.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-bold mb-4">Quick Links</h3>
-              <div className="flex flex-col gap-2 text-zinc-400">
-                <a href="#products">Products</a>
-                <a href="#reviews">Reviews</a>
-                <a href="#contact">Contact</a>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-zinc-800 mt-10 pt-6 text-center text-zinc-500">
-            © 2026 MJ STORE. All Rights Reserved.
-          </div>
-        </div>
-      </footer>
+      <HomeFooter />
     </main>
   );
 }

@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { normalizeProductFeatures } from "../../app/lib/products/featureHelpers";
 
 type Product = {
   id: number | string;
@@ -11,7 +12,7 @@ type Product = {
   full_description: string;
   price: number | string;
   sales_count: number | string;
-  features: string | null;
+  features?: string | string[] | null;
 };
 
 type ProductDetailsViewProps = {
@@ -39,19 +40,12 @@ function MotionWrap({
   );
 }
 
-function IncludedFeatures({ features }: { features: string | null }) {
-  const list =
-    features
-      ?.replace("[", "")
-      .replace("]", "")
-      .replaceAll('"', "")
-      .split(",")
-      .map((feature) => feature.trim())
-      .filter(Boolean) ?? [];
+function IncludedFeatures({ features }: { features: string[] }) {
+  if (!features.length) return null;
 
   return (
     <div className="space-y-3">
-      {list.map((feature, index) => (
+      {features.map((feature, index) => (
         <motion.div
           key={`${feature}-${index}`}
           initial={{ opacity: 0, y: 8 }}
@@ -63,17 +57,13 @@ function IncludedFeatures({ features }: { features: string | null }) {
           <span className="text-zinc-200">{feature}</span>
         </motion.div>
       ))}
-      {!list.length ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-zinc-400">
-          No included features.
-        </div>
-      ) : null}
     </div>
   );
 }
 
 export default function ProductDetailsView({ product }: ProductDetailsViewProps) {
   const salesCount = Number(product.sales_count) || 0;
+  const features = normalizeProductFeatures(product);
 
   const badge =
     salesCount >= 500
@@ -156,7 +146,7 @@ export default function ProductDetailsView({ product }: ProductDetailsViewProps)
           <MotionWrap delay={0.24}>
             <div>
               <h2 className="text-2xl font-bold mb-5">What's Included</h2>
-              <IncludedFeatures features={product.features} />
+              {features.length ? <IncludedFeatures features={features} /> : null}
             </div>
           </MotionWrap>
 
@@ -177,9 +167,6 @@ export default function ProductDetailsView({ product }: ProductDetailsViewProps)
               <div className="flex gap-4 mt-6 flex-wrap">
                 <div className="bg-zinc-900/70 border border-purple-500/10 px-4 py-3 rounded-xl">
                   Sold {salesCount}
-                </div>
-                <div className="bg-zinc-900/70 border border-purple-500/10 px-4 py-3 rounded-xl">
-                  Instant Delivery
                 </div>
               </div>
 

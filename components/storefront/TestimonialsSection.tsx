@@ -1,8 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { CheckCircle2, Star } from "lucide-react";
-import { useReducedMotion } from "framer-motion";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 type Testimonial = {
   name: string;
@@ -84,17 +84,18 @@ function Avatar({ initials, accent }: { initials: string; accent: Testimonial["a
   );
 }
 
-function VerifiedBadge() {
+function VerifiedBadge({ label }: { label: string }) {
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/5 px-4 py-2 text-xs font-black tracking-[0.16em] text-purple-200">
       <CheckCircle2 className="h-4 w-4 text-purple-300" />
-      VERIFIED
+      {label}
     </div>
   );
 }
 
 export default function TestimonialsSection({ id }: { id?: string }) {
   const prefersReducedMotion = useReducedMotion();
+  const { translate } = useLanguage();
 
   const avgRating = 5.0;
 
@@ -103,11 +104,11 @@ export default function TestimonialsSection({ id }: { id?: string }) {
       {/* Header */}
       <div className="text-center">
         <div className="flex items-center justify-center">
-          <VerifiedBadge />
+          <VerifiedBadge label={translate("home.testimonials.verifiedBadge")} />
         </div>
 
         <h2 className="mt-4 text-5xl font-black tracking-tight">
-          Reviews that feel real
+          {translate("home.testimonials.title")}
         </h2>
 
         <div className="mt-4 flex items-center justify-center gap-3 flex-wrap">
@@ -117,12 +118,14 @@ export default function TestimonialsSection({ id }: { id?: string }) {
             </div>
             <div>
               <Stars rating={5} />
-              <div className="mt-1 text-zinc-400 text-sm">average rating</div>
+              <div className="mt-1 text-zinc-400 text-sm">
+                {translate("home.testimonials.avgLabel")}
+              </div>
             </div>
           </div>
 
           <div className="text-zinc-400 text-sm max-w-xl">
-            Premium service. Instant access. Secure checkout. That’s what customers keep coming back for.
+            {translate("home.testimonials.summary")}
           </div>
         </div>
       </div>
@@ -168,7 +171,7 @@ export default function TestimonialsSection({ id }: { id?: string }) {
 
               <div className="hidden sm:flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/5 px-4 py-2 text-xs font-bold text-purple-200">
                 <span className="h-2 w-2 rounded-full bg-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.35)]" />
-                Verified
+                {translate("home.testimonials.card.verifiedPill")}
               </div>
             </div>
           </motion.article>
@@ -188,8 +191,12 @@ export default function TestimonialsSection({ id }: { id?: string }) {
             ⭐
           </span>
           <div>
-            <div className="font-black text-lg">Trusted by verified customers</div>
-            <div className="text-zinc-400 text-sm">Fast access, secure payments, premium support</div>
+            <div className="font-black text-lg">
+              {translate("home.testimonials.footer.title")}
+            </div>
+            <div className="text-zinc-400 text-sm">
+              {translate("home.testimonials.footer.subtitle")}
+            </div>
           </div>
         </motion.div>
       </div>

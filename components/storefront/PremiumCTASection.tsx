@@ -3,8 +3,11 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight, Sparkles, Zap, ShieldCheck } from "lucide-react";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 export default function PremiumCTASection() {
+  const { translate } = useLanguage();
+
   return (
     <section className="max-w-[1600px] mx-auto px-8 py-16">
       <motion.div
@@ -35,21 +38,20 @@ export default function PremiumCTASection() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/5 px-4 py-2 text-purple-200 text-sm font-bold tracking-wide">
               <Sparkles className="h-4 w-4" />
-              PREMIUM DIGITAL ACCESS
+              {translate("home.cta.pill")}
             </div>
 
             <h2 className="mt-6 text-5xl md:text-6xl font-black tracking-tight leading-[1.05]">
-              Get instant delivery—
+              {translate("home.cta.titlePrefix")}
               <span className="text-purple-400 drop-shadow-[0_0_18px_rgba(168,85,247,0.35)]">
                 {" "}
-                powered by neon trust
+                {translate("home.cta.titleAccent")}
               </span>
               .
             </h2>
 
             <p className="mt-6 text-zinc-400 max-w-xl text-lg">
-              Shop best sellers or browse the full catalog. After payment, everything unlocks fast.
-              Dark mode, clean UX, and purple neon vibes included.
+              {translate("home.cta.subtitle")}
             </p>
 
             <div className="mt-8 grid sm:grid-cols-2 gap-4">
@@ -58,8 +60,12 @@ export default function PremiumCTASection() {
                   <Zap className="h-5 w-5 text-purple-300" />
                 </div>
                 <div>
-                  <div className="font-black">Instant delivery</div>
-                  <div className="text-zinc-400 text-sm">No waiting after checkout</div>
+                  <div className="font-black">
+                    {translate("home.cta.feature.instantTitle")}
+                  </div>
+                  <div className="text-zinc-400 text-sm">
+                    {translate("home.cta.feature.instantDesc")}
+                  </div>
                 </div>
               </div>
 
@@ -68,8 +74,12 @@ export default function PremiumCTASection() {
                   <ShieldCheck className="h-5 w-5 text-purple-300" />
                 </div>
                 <div>
-                  <div className="font-black">Secure payments</div>
-                  <div className="text-zinc-400 text-sm">Trusted, protected flow</div>
+                  <div className="font-black">
+                    {translate("home.cta.feature.secureTitle")}
+                  </div>
+                  <div className="text-zinc-400 text-sm">
+                    {translate("home.cta.feature.secureDesc")}
+                  </div>
                 </div>
               </div>
             </div>
@@ -85,7 +95,7 @@ export default function PremiumCTASection() {
                 whileTap={{ scale: 0.99 }}
                 className="w-full rounded-2xl bg-purple-600 px-8 py-5 text-2xl font-black text-white border border-purple-400/25 hover:bg-purple-700 transition"
               >
-                Browse Catalog
+                {translate("home.cta.button.browseCatalog")}
                 <span className="inline-flex items-center gap-2 ml-3">
                   <ArrowRight className="h-6 w-6" />
                 </span>
@@ -102,16 +112,16 @@ export default function PremiumCTASection() {
                 whileTap={{ scale: 0.99 }}
                 className="w-full rounded-2xl border border-zinc-700 bg-black/25 px-8 py-5 text-2xl font-black text-white transition"
               >
-                Shop Best Sellers
+                {translate("home.cta.button.shopBestSellers")}
               </motion.button>
             </Link>
 
             <div className="mt-1 rounded-2xl border border-white/10 bg-zinc-900/40 p-5">
               <div className="text-sm font-bold uppercase tracking-[0.22em] text-zinc-400">
-                Quick promise
+                {translate("home.cta.quickPromise.title")}
               </div>
               <div className="mt-3 text-zinc-200 text-lg">
-                You’ll get access instantly after payment—clean, simple, premium.
+                {translate("home.cta.quickPromise.desc")}
               </div>
             </div>
           </div>

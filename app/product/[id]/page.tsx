@@ -1,4 +1,5 @@
 import { supabase } from "../../../lib/supabase";
+import { normalizeProductFeatures } from "../../lib/products/featureHelpers";
 import ProductDetailsView from "../../../components/storefront/ProductDetailsView";
 
 export default async function ProductPage({
@@ -13,6 +14,18 @@ export default async function ProductPage({
     .select("*")
     .eq("id", id)
     .single();
+
+  if (product) {
+    const { data: featureRows } = await supabase
+      .from("product_features")
+      .select("product_id,name,sort_order")
+      .eq("product_id", id);
+
+    (product as any).features = normalizeProductFeatures({
+      ...(product as any),
+      product_features: featureRows ?? [],
+    });
+  }
 
   if (!product) {
     return (

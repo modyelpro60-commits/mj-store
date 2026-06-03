@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import { useAuth } from "../../../components/auth/AuthProvider";
+import { normalizeProductFeatures } from "../../lib/products/featureHelpers";
 import {
   AlertCircle,
   BadgePlus,
@@ -27,7 +28,7 @@ interface ProductRecord {
   description: string;
   full_description: string;
   image: string;
-  features: ProductFeature[] | string | null;
+  features?: ProductFeature[] | string | null;
 }
 
 interface SaveProductResponse {
@@ -44,23 +45,7 @@ interface UploadImageResponse {
 interface ProductsResponse extends Array<ProductRecord> {}
 
 function normalizeFeatures(features: ProductRecord["features"]): string[] {
-  if (Array.isArray(features)) {
-    return features.length ? features.map(String) : [""];
-  }
-
-  if (typeof features === "string" && features.trim()) {
-    try {
-      const parsed = JSON.parse(features) as unknown;
-      if (Array.isArray(parsed)) {
-        const normalized = parsed.map((feature) => String(feature));
-        return normalized.length ? normalized : [""];
-      }
-    } catch {
-      return [features];
-    }
-  }
-
-  return [""];
+  return normalizeProductFeatures({ features });
 }
 
 const panelVariants: Variants = {

@@ -7,12 +7,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   BarChart3,
   Boxes,
+  Home,
   LayoutDashboard,
   ShoppingCart,
   Sparkles,
+  Users,
 } from "lucide-react";
 
 const navItems = [
+  {
+    href: "/",
+    label: "Home",
+    icon: Home,
+  },
   {
     href: "/admin",
     label: "Overview",
@@ -22,6 +29,11 @@ const navItems = [
     href: "/admin/products",
     label: "Products",
     icon: Boxes,
+  },
+  {
+    href: "/admin/users",
+    label: "Users",
+    icon: Users,
   },
   {
     href: "/admin/orders",
@@ -120,23 +132,25 @@ export default function AdminShell({ children }: { children: ReactNode }) {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {navItems.map((item) => {
-                  const active = pathname === item.href;
+                {navItems
+                  .filter((item) => item.href !== "/")
+                  .map((item) => {
+                    const active = pathname === item.href;
 
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-300 ${
-                        active
-                          ? "border-purple-400/40 bg-purple-500/15 text-white shadow-[0_0_20px_rgba(168,85,247,0.22)]"
-                          : "border-white/10 bg-white/5 text-zinc-300 hover:border-purple-500/25 hover:bg-purple-500/10 hover:text-white"
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  );
-                })}
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-300 ${
+                          active
+                            ? "border-purple-400/40 bg-purple-500/15 text-white shadow-[0_0_20px_rgba(168,85,247,0.22)]"
+                            : "border-white/10 bg-white/5 text-zinc-300 hover:border-purple-500/25 hover:bg-purple-500/10 hover:text-white"
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
               </div>
             </div>
           </header>

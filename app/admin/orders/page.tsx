@@ -19,12 +19,10 @@ type OrderStatus = (typeof ORDER_STATUSES)[number];
 interface OrderRecord {
   id: number;
   customer_name: string;
-  customer_email?: string | null;
   customer_phone?: string | null;
   product_name: string;
   price: number | string;
   status: string;
-  created_at?: string | null;
 }
 
 interface OrdersApiResponse {
@@ -437,9 +435,7 @@ export default function OrdersPage() {
                         </span>
                       </div>
 
-                      <p className="text-zinc-400">
-                        {order.customer_email || "No email provided"}
-                      </p>
+                      <p className="text-zinc-400">No email on file</p>
 
                       <p className="text-zinc-400">
                         {order.customer_phone || "No phone provided"}
@@ -452,10 +448,7 @@ export default function OrdersPage() {
                       </p>
 
                       <p className="mt-1 text-sm text-zinc-400">
-                        Created At:{" "}
-                        {order.created_at
-                          ? new Date(order.created_at).toLocaleString()
-                          : "Unknown"}
+                        Created At: Unknown
                       </p>
                     </div>
 

@@ -2,37 +2,42 @@
 
 import { motion } from "framer-motion";
 import { Headphones, Lock, PackageCheck, Zap } from "lucide-react";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 const items = [
   {
-    title: "Instant delivery",
-    description: "Get access immediately after payment—no waiting.",
+    titleKey: "home.why.item.instantTitle",
+    descKey: "home.why.item.instantDesc",
     icon: Zap,
   },
   {
-    title: "Secure payments",
-    description: "Trusted checkout flow with protected transactions.",
+    titleKey: "home.why.item.secureTitle",
+    descKey: "home.why.item.secureDesc",
     icon: Lock,
   },
   {
-    title: "Premium support",
-    description: "Fast responses and clear instructions when you need help.",
+    titleKey: "home.why.item.premiumTitle",
+    descKey: "home.why.item.premiumDesc",
     icon: Headphones,
   },
   {
-    title: "Trusted products",
-    description: "Curated digital products picked for quality and reliability.",
+    titleKey: "home.why.item.trustedTitle",
+    descKey: "home.why.item.trustedDesc",
     icon: PackageCheck,
   },
 ] as const;
 
 export default function WhyChooseSection({ id }: { id?: string }) {
+  const { translate } = useLanguage();
+
   return (
     <section id={id} className="max-w-[1600px] mx-auto px-8 py-16">
       <div className="text-center">
-        <h2 className="text-5xl font-black tracking-tight">Why choose MJ Store</h2>
+        <h2 className="text-5xl font-black tracking-tight">
+          {translate("home.why.title")}
+        </h2>
         <p className="mt-4 text-zinc-400 max-w-2xl mx-auto">
-          Gaming-grade speed meets SaaS-level polish—instant delivery, secure payments, premium support.
+          {translate("home.why.subtitle")}
         </p>
       </div>
 
@@ -42,7 +47,7 @@ export default function WhyChooseSection({ id }: { id?: string }) {
 
           return (
             <motion.article
-              key={item.title}
+              key={item.titleKey}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -55,12 +60,16 @@ export default function WhyChooseSection({ id }: { id?: string }) {
                 </div>
 
                 <div>
-                  <h3 className="text-3xl font-black">{item.title}</h3>
-                  <p className="mt-3 text-zinc-400">{item.description}</p>
+                  <h3 className="text-3xl font-black">
+                    {translate(item.titleKey)}
+                  </h3>
+                  <p className="mt-3 text-zinc-400">
+                    {translate(item.descKey)}
+                  </p>
 
                   <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/5 px-4 py-2 text-purple-200 text-sm font-bold">
                     <span className="h-2 w-2 rounded-full bg-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.35)]" />
-                    Neon-premium assurance
+                    {translate("home.why.pill")}
                   </div>
                 </div>
               </div>

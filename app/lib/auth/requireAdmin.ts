@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 type AdminAuthResult = {
@@ -23,7 +22,10 @@ export async function requireAdmin(req: Request): Promise<AdminAuthResult> {
   const token = getBearerToken(req);
 
   if (!token) {
-    throw NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
   }
 
   const supabaseAnon = createClient(
@@ -36,7 +38,10 @@ export async function requireAdmin(req: Request): Promise<AdminAuthResult> {
   );
 
   if (userError || !userData?.user) {
-    throw NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
   }
 
   const userId = userData.user.id;
@@ -53,7 +58,10 @@ export async function requireAdmin(req: Request): Promise<AdminAuthResult> {
     .single();
 
   if (profileError || !profile || profile.role !== "admin") {
-    throw NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
   }
 
   return { userId, role: "admin" };

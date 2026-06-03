@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "../../lib/auth/requireAdmin";
+import { buildFeatureRows } from "../../lib/products/featureHelpers";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,27 +14,50 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
+    const featureRows = buildFeatureRows(0, body.features);
 
-    const { error } = await supabase.from("products").insert([
-      {
-        name: body.name,
-        description: body.description,
-        full_description: body.full_description,
-        price: body.price,
-        image: body.image,
-        features: body.features,
-        category: body.category,
-        badge: body.badge,
-        sales_count: 0,
-        is_active: true,
-      },
-    ]);
+    const { data: insertedProducts, error } = await supabase
+      .from("products")
+      .insert([
+        {
+          name: body.name,
+          description: body.description,
+          full_description: body.full_description,
+          price: body.price,
+          image: body.image,
+          category: body.category,
+          badge: body.badge,
+          sales_count: 0,
+          is_active: true,
+        },
+      ])
+      .select("id");
 
-    if (error) {
+    if (error || !insertedProducts || insertedProducts.length === 0) {
       return NextResponse.json({
         success: false,
-        error: error.message,
+        error: error?.message || "Failed to create product",
       });
+    }
+
+    const productId = insertedProducts[0].id;
+
+    if (featureRows.length > 0) {
+      const { error: featureError } = await supabase
+        .from("product_features")
+        .insert(
+          featureRows.map((row) => ({
+            ...row,
+            product_id: productId,
+          }))
+        );
+
+      if (featureError) {
+        return NextResponse.json({
+          success: false,
+          error: featureError.message,
+        });
+      }
     }
 
     return NextResponse.json({
