@@ -12,6 +12,31 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+type AccountStatusParam = "suspended" | "banned" | null;
+
+function getAccountStatusParam(): AccountStatusParam {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const t = params.get("accountStatus");
+  if (t === "suspended" || t === "banned") return t;
+  return null;
+}
+
+function renderEnforcementMessage(status: AccountStatusParam) {
+  if (!status) return null;
+
+  const message =
+    status === "suspended"
+      ? "Your account has been suspended."
+      : "Your account has been banned.";
+
+  return (
+    <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+      {message}
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { pushToast } = useToast();
@@ -22,6 +47,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const accountStatus = getAccountStatusParam();
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
@@ -30,13 +57,49 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // 1. Attempt Supabase authentication
+      const { data: signInData, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
       if (signInError) throw signInError;
 
+      const token = signInData.session?.access_token;
+      if (!token) throw new Error("No session token returned");
+
+      // 2. Immediately verify account status via /api/auth/me
+      const meRes = await fetch("/api/auth/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // If server returns 403 -> Suspended or Banned
+      if (meRes.status === 403) {
+        let statusParam: AccountStatusParam = null;
+
+        try {
+          const body = (await meRes.json()) as { error?: string };
+          const msg = (body?.error ?? "").toLowerCase();
+
+          if (msg.includes("suspend")) statusParam = "suspended";
+          else if (msg.includes("ban")) statusParam = "banned";
+        } catch {
+          // ignore JSON parse failure
+        }
+
+        // Use hard navigation to preserve the ?accountStatus= param
+        // across full page reload. router.replace can be overwritten
+        // by the AuthProvider's onAuthStateChange handler, which also
+        // calls reloadProfile and may redirect/clear the URL.
+        const qs = statusParam ? `?accountStatus=${statusParam}` : "";
+        window.location.href = `/login${qs}`;
+        return;
+      }
+
+      // 3. Active user — proceed to welcome page
       router.push("/welcome?mode=login");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Login failed";
@@ -71,6 +134,8 @@ export default function LoginPage() {
           </p>
 
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
+            {renderEnforcementMessage(accountStatus)}
+
             <div>
               <label className="mb-2 block text-sm font-semibold text-zinc-200">
                 Email

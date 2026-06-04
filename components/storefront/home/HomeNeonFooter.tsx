@@ -34,8 +34,8 @@ export default function HomeNeonFooter() {
 
   return (
     <footer id="contact" className="mt-10 border-t border-purple-500/10 bg-black/20">
-      <div className="mx-auto max-w-[1600px] px-6 md:px-10 py-12">
-        <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] items-start">
+      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 md:px-10 py-8 md:py-12">
+        <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] items-start">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -43,7 +43,7 @@ export default function HomeNeonFooter() {
             transition={{ duration: 0.5, ease: "easeOut" }}
             className="space-y-6"
           >
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <MJLogo size="md" glow />
               <div className="text-sm text-zinc-400 leading-relaxed">
                 {isArabic
@@ -52,21 +52,21 @@ export default function HomeNeonFooter() {
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-xl p-6">
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-xl p-5 sm:p-6">
               <div className="text-xs uppercase tracking-[0.26em] text-zinc-500">
                 Payment methods
               </div>
-              <div className="mt-4 flex flex-wrap gap-3">
+              <div className="mt-4 flex flex-wrap gap-2 sm:gap-3">
                 {["Visa", "Mastercard", "Mada", "Apple Pay"].map((p) => (
                   <div
                     key={p}
-                    className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-zinc-200"
+                    className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-zinc-200"
                   >
                     {p}
                   </div>
                 ))}
               </div>
-              <div className="mt-4 text-sm text-zinc-500">
+              <div className="mt-3 sm:mt-4 text-sm text-zinc-500">
                 {isArabic
                   ? "معالجة دفع محمية • تأكيد فوري بعد الدفع"
                   : "Protected payment processing • Instant unlock after checkout"}
@@ -79,9 +79,9 @@ export default function HomeNeonFooter() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.5, ease: "easeOut", delay: 0.05 }}
-            className="space-y-8"
+            className="space-y-6 sm:space-y-8"
           >
-            <div className="grid gap-8 sm:grid-cols-2">
+            <div className="grid gap-6 sm:gap-8 grid-cols-2">
               <div>
                 <div className="text-xs uppercase tracking-[0.26em] text-zinc-500">
                   Links
@@ -117,7 +117,7 @@ export default function HomeNeonFooter() {
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-xl p-6">
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-xl p-5 sm:p-6">
               <div className="text-xs uppercase tracking-[0.26em] text-zinc-500">
                 Social
               </div>

@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireRole, type UserRole } from "../../lib/auth/requireAuthContext";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const ORDER_CREATION_ROLES: UserRole[] = ["user", "helper", "moderator", "admin"];
+
 export async function POST(req: Request) {
+  // Enforce active user + allowed roles (server-side)
+  await requireRole(req, ORDER_CREATION_ROLES);
+
   const body = await req.json();
 
   const { error } = await supabase.from("orders").insert([

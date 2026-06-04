@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireActiveUser } from "../../../lib/auth/requireAuthContext";
 
 function getBearerToken(req: Request): string | null {
   const auth = req.headers.get("authorization");
@@ -15,50 +16,36 @@ function getBearerToken(req: Request): string | null {
 }
 
 export async function GET(req: Request) {
+  const token = getBearerToken(req);
+
+  // Unauthenticated: keep existing behavior (no hard denial here)
+  if (!token) {
+    return NextResponse.json({
+      user: null,
+      profile: null,
+    });
+  }
+
   try {
-    const token = getBearerToken(req);
+    // Server-side status enforcement (Suspended/Banned -> 403)
+    const ctx = await requireActiveUser(req);
 
-    if (!token) {
-      return NextResponse.json({
-        user: null,
-        profile: null,
-      });
-    }
-
-    // Fetch auth user with anon key + provided access token
-    const supabaseAnon = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    const { data: userData, error: userError } = await supabaseAnon.auth.getUser(token);
-
-    if (userError || !userData?.user) {
-      return NextResponse.json({
-        user: null,
-        profile: null,
-      });
-    }
-
-    // Read profile role via service role (deterministic server-side lookup)
     const supabaseService = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const userId = userData.user.id;
-
     const { data: profile, error: profileError } = await supabaseService
       .from("profiles")
-      .select("id, email, full_name, role, created_at")
-      .eq("id", userId)
+      .select("id, email, full_name, role, status, created_at")
+      .eq("id", ctx.userId)
       .single();
 
     if (profileError || !profile) {
       return NextResponse.json({
         user: {
-          id: userData.user.id,
-          email: userData.user.email ?? null,
+          id: ctx.userId,
+          email: null,
         },
         profile: null,
       });
@@ -66,18 +53,22 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       user: {
-        id: userData.user.id,
-        email: userData.user.email ?? null,
+        id: profile.id,
+        email: profile.email ?? null,
       },
       profile: {
         id: profile.id,
         email: profile.email,
         full_name: profile.full_name,
         role: profile.role,
+        status: profile.status,
         created_at: profile.created_at,
       },
     });
-  } catch {
+  } catch (err) {
+    // requireActiveUser throws a Response for forbidden cases
+    if (err instanceof Response) return err;
+
     return NextResponse.json({
       user: null,
       profile: null,

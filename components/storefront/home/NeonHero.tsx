@@ -42,7 +42,7 @@ export default function NeonHero() {
   const ctaGlowBlue = "0 0 55px rgba(59,130,246,0.20), 0 0 25px rgba(59,130,246,0.12)";
 
   return (
-    <section className="relative pt-14 md:pt-20 pb-10 overflow-hidden">
+    <section className="relative pt-8 md:pt-20 pb-6 md:pb-10 overflow-hidden">
       {/* Background depth */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="absolute -top-28 -left-24 h-72 w-72 rounded-full bg-purple-500/10 blur-3xl" />
@@ -50,11 +50,12 @@ export default function NeonHero() {
         <div className="absolute bottom-[-220px] left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-purple-500/5 blur-[140px]" />
       </div>
 
-      <div className="mx-auto max-w-[1600px] px-6 md:px-10 relative">
-        <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.85fr]">
-          {/* LEFT: floating subscription icons */}
+      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 md:px-10 relative">
+        <div className="grid items-center gap-6 md:gap-10 lg:grid-cols-[1.05fr_0.85fr]">
+          {/* LEFT: floating subscription icons (hidden on mobile — too much clutter) */}
           <div className="relative">
             <div className="hidden sm:block">
+              {/* Subscription icons (unchanged from original) */}
               <div
                 className={[
                   "absolute inset-y-0 left-[-10px] w-[250px]",
@@ -128,11 +129,11 @@ export default function NeonHero() {
               </div>
             </div>
 
-            {/* Center title stack for mobile */}
-            <div className="sm:hidden">
-              <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/25 bg-purple-500/10 px-4 py-2 text-purple-200 shadow-[0_0_45px_rgba(168,85,247,0.18)]">
-                <Sparkles className="h-4 w-4 text-purple-300" />
-                <span className="text-sm font-bold tracking-wide">PREMIUM DIGITAL PRODUCTS</span>
+            {/* Badge visible on all screen sizes */}
+            <div className="sm:hidden mb-4">
+              <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/25 bg-purple-500/10 px-3 py-1.5 text-purple-200 shadow-[0_0_45px_rgba(168,85,247,0.18)]">
+                <Sparkles className="h-3 w-3 text-purple-300" />
+                <span className="text-xs font-bold tracking-wide">PREMIUM DIGITAL PRODUCTS</span>
               </div>
             </div>
           </div>

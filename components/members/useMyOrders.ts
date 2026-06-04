@@ -18,7 +18,7 @@ export type MyOrdersData = {
 };
 
 export function useMyOrders(limit = 5) {
-  const { accessToken } = useAuth();
+  const { accessToken, status } = useAuth();
 
   const [data, setData] = useState<MyOrdersData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +28,26 @@ export function useMyOrders(limit = 5) {
     let mounted = true;
 
     async function load() {
+      // Status enforcement (client-side fast-fail; server APIs still enforce).
+      if (status && status !== "Active") {
+        if (!mounted) return;
+        setData({
+          totalOrders: 0,
+          completedOrders: 0,
+          pendingOrders: 0,
+          recentOrders: [],
+        });
+        setError(
+          status === "Suspended"
+            ? "Account Suspended"
+            : status === "Banned"
+            ? "Account Banned"
+            : null
+        );
+        setIsLoading(false);
+        return;
+      }
+
       if (!accessToken) {
         setData(null);
         setError(null);

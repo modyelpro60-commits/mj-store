@@ -23,6 +23,10 @@ interface OrderRecord {
   product_name: string;
   price: number | string;
   status: string;
+  created_at?: string | null;
+  handled_by?: string | null;
+  handled_by_name?: string | null;
+  handled_at?: string | null;
 }
 
 interface OrdersApiResponse {
@@ -45,8 +49,28 @@ const cardVariants: Variants = {
   }),
 };
 
+function formatOrderTimestamp(value?: string | null): string {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  // Example: Jun 12, 2026 - 10:45 PM
+  const datePart = date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+
+  const timePart = date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return `${datePart} - ${timePart}`;
+}
+
 export default function OrdersPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, role } = useAuth();
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -104,6 +128,8 @@ export default function OrdersPage() {
   }
 
   async function updateStatus(id: number, status: OrderStatus) {
+    if (role !== "admin" && role !== "moderator") return;
+
     try {
       setSavingId(id);
 
@@ -137,6 +163,8 @@ export default function OrdersPage() {
   }
 
   async function deleteOrder(id: number) {
+    if (role !== "admin") return;
+
     const confirmed = confirm("Delete this order?");
 
     if (!confirmed) return;
@@ -448,20 +476,20 @@ export default function OrdersPage() {
                       </p>
 
                       <p className="mt-1 text-sm text-zinc-400">
-                        Created At: Unknown
+                        Created At: {formatOrderTimestamp(order.created_at ?? null)}
                       </p>
                     </div>
 
-                    <div className="flex flex-col gap-4 xl:items-end">
-                      <div className="flex flex-col gap-2 min-w-[220px]">
-                        <label className="text-sm text-zinc-400">Order Status</label>
+                      <div className="flex flex-col gap-4 xl:items-end">
+                        <div className="flex flex-col gap-2 min-w-[220px]">
+                          <label className="text-sm text-zinc-400">Order Status</label>
 
-                        <select
-                          value={statusValue}
-                          onChange={(e) => updateStatus(order.id, e.target.value as OrderStatus)}
-                          disabled={isSaving}
-                          className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition-all duration-300 focus:border-purple-400/40 disabled:opacity-50"
-                        >
+                          <select
+                            value={statusValue}
+                            onChange={(e) => updateStatus(order.id, e.target.value as OrderStatus)}
+                            disabled={isSaving || (role !== "admin" && role !== "moderator")}
+                            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition-all duration-300 focus:border-purple-400/40 disabled:opacity-50"
+                          >
                           {ORDER_STATUSES.map((status) => (
                             <option key={status} value={status}>
                               {status}
@@ -470,19 +498,35 @@ export default function OrdersPage() {
                         </select>
                       </div>
 
+                      {order.handled_by ? (
+                        <div className="w-full rounded-[1.5rem] border border-purple-500/20 bg-purple-500/10 px-4 py-3">
+                          <div className="text-xs uppercase tracking-[0.22em] text-purple-200/90">
+                            Handled By
+                          </div>
+                          <div className="mt-1 text-sm font-bold text-white">
+                            {order.handled_by_name ?? "Unknown"}
+                          </div>
+                          <div className="mt-1 text-sm text-purple-100/80">
+                            {formatOrderTimestamp(order.handled_at ?? null)}
+                          </div>
+                        </div>
+                      ) : null}
+
                       <div className="flex gap-3 flex-wrap">
                         <span className="px-4 py-2 rounded-full border border-purple-500/20 bg-purple-500/10 text-purple-200 text-sm font-semibold">
                           #{order.id}
                         </span>
 
-                        <button
-                          onClick={() => deleteOrder(order.id)}
-                          disabled={isSaving}
-                          className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 font-bold text-white transition-all duration-300 hover:bg-red-700 disabled:opacity-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </button>
+                        {role === "admin" ? (
+                          <button
+                            onClick={() => deleteOrder(order.id)}
+                            disabled={isSaving}
+                            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 font-bold text-white transition-all duration-300 hover:bg-red-700 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </button>
+                        ) : null}
                       </div>
 
                       {isSaving ? (

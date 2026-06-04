@@ -73,19 +73,19 @@ export default function ProductDetailsView({ product }: ProductDetailsViewProps)
       : null;
 
   return (
-    <div className="max-w-[1600px] mx-auto px-8 py-20">
-      <div className="grid lg:grid-cols-2 gap-20 items-center">
+    <div className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-8 py-8 md:py-20">
+      <div className="grid lg:grid-cols-2 gap-8 md:gap-20 items-start">
         {/* Product Image */}
         <MotionWrap delay={0.05} className="relative">
           <motion.div
             whileHover={{ y: -4, boxShadow: "0 0 60px rgba(168,85,247,0.25)" }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden rounded-3xl border border-purple-500/15 bg-zinc-900 shadow-2xl"
+            className="overflow-hidden rounded-2xl sm:rounded-3xl border border-purple-500/15 bg-zinc-900 shadow-2xl"
           >
             <motion.img
               src={product.image}
               alt={product.name}
-              className="w-full h-[650px] object-contain p-12"
+              className="w-full h-auto max-h-[350px] sm:max-h-[650px] object-contain p-4 sm:p-12"
               initial={{ opacity: 0, scale: 0.99 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.35, ease: "easeOut" }}
@@ -98,7 +98,7 @@ export default function ProductDetailsView({ product }: ProductDetailsViewProps)
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35 }}
-              className={`inline-flex mt-6 px-5 py-2 rounded-full ${badge.className} font-bold`}
+              className={`inline-flex mt-4 sm:mt-6 px-4 py-1.5 sm:px-5 sm:py-2 rounded-full text-sm sm:text-base ${badge.className} font-bold`}
             >
               {badge.label}
             </motion.div>
@@ -112,7 +112,7 @@ export default function ProductDetailsView({ product }: ProductDetailsViewProps)
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35 }}
-              className="text-6xl font-black leading-[1.05]"
+              className="text-3xl sm:text-4xl md:text-6xl font-black leading-[1.05] break-words"
             >
               {product.name}
             </motion.h1>
@@ -159,7 +159,7 @@ export default function ProductDetailsView({ product }: ProductDetailsViewProps)
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: 0.06 }}
-                className="text-6xl font-black text-purple-300 drop-shadow-[0_0_18px_rgba(168,85,247,0.35)]"
+                className="text-4xl sm:text-5xl md:text-6xl font-black text-purple-300 drop-shadow-[0_0_18px_rgba(168,85,247,0.35)] break-all sm:break-normal"
               >
                 {product.price} EGP
               </motion.h2>
@@ -174,7 +174,7 @@ export default function ProductDetailsView({ product }: ProductDetailsViewProps)
                 <motion.button
                   whileHover={{ boxShadow: "0 0 55px rgba(168,85,247,0.32)", y: -2 }}
                   whileTap={{ scale: 0.98 }}
-                  className="mt-10 w-full rounded-2xl bg-purple-600 px-10 py-5 text-2xl font-bold text-white transition-all duration-300 hover:bg-purple-700 border border-purple-500/20"
+                  className="mt-6 sm:mt-10 w-full rounded-2xl bg-purple-600 px-6 sm:px-10 py-4 sm:py-5 text-lg sm:text-2xl font-bold text-white transition-all duration-300 hover:bg-purple-700 border border-purple-500/20"
                 >
                   Buy Now →
                 </motion.button>
@@ -189,21 +189,21 @@ export default function ProductDetailsView({ product }: ProductDetailsViewProps)
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
-        className="grid md:grid-cols-3 gap-6 mt-24"
+        className="grid md:grid-cols-3 gap-4 sm:gap-6 mt-12 md:mt-24"
       >
-        <div className="bg-zinc-900/60 border border-purple-500/10 rounded-3xl p-8 hover:border-purple-500/20 transition-colors">
-          <h3 className="text-2xl font-bold mb-4">⚡ Fast Delivery</h3>
-          <p className="text-zinc-400">Receive your product instantly after payment.</p>
+        <div className="bg-zinc-900/60 border border-purple-500/10 rounded-2xl sm:rounded-3xl p-5 sm:p-8 hover:border-purple-500/20 transition-colors">
+          <h3 className="text-lg sm:text-2xl font-bold mb-3 sm:mb-4">⚡ Fast Delivery</h3>
+          <p className="text-sm sm:text-base text-zinc-400">Receive your product instantly after payment.</p>
         </div>
 
-        <div className="bg-zinc-900/60 border border-purple-500/10 rounded-3xl p-8 hover:border-purple-500/20 transition-colors">
-          <h3 className="text-2xl font-bold mb-4">🔒 Safe Payments</h3>
-          <p className="text-zinc-400">Secure and trusted payment experience.</p>
+        <div className="bg-zinc-900/60 border border-purple-500/10 rounded-2xl sm:rounded-3xl p-5 sm:p-8 hover:border-purple-500/20 transition-colors">
+          <h3 className="text-lg sm:text-2xl font-bold mb-3 sm:mb-4">🔒 Safe Payments</h3>
+          <p className="text-sm sm:text-base text-zinc-400">Secure and trusted payment experience.</p>
         </div>
 
-        <div className="bg-zinc-900/60 border border-purple-500/10 rounded-3xl p-8 hover:border-purple-500/20 transition-colors">
-          <h3 className="text-2xl font-bold mb-4">⭐ Premium Service</h3>
-          <p className="text-zinc-400">High quality digital products and support.</p>
+        <div className="bg-zinc-900/60 border border-purple-500/10 rounded-2xl sm:rounded-3xl p-5 sm:p-8 hover:border-purple-500/20 transition-colors">
+          <h3 className="text-lg sm:text-2xl font-bold mb-3 sm:mb-4">⭐ Premium Service</h3>
+          <p className="text-sm sm:text-base text-zinc-400">High quality digital products and support.</p>
         </div>
       </motion.div>
     </div>

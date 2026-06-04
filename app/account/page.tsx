@@ -25,11 +25,18 @@ import { useMyOrders } from "../../components/members/useMyOrders";
 
 function formatRoleLabel(role: string | null) {
   const r = (role ?? "").toLowerCase().trim();
+
+  // Supported roles in DB spec:
+  // user / helper / moderator / admin
   if (r === "admin") return "Admin";
-  if (r === "manager") return "Manager";
-  if (r === "support") return "Support";
-  if (r === "customer" || r === "member") return "Customer";
-  return "Customer";
+  if (r === "moderator") return "Moderator";
+  if (r === "helper") return "Helper";
+  if (r === "user") return "User";
+
+  // Legacy UI compatibility
+  if (r === "customer" || r === "member") return "User";
+
+  return "User";
 }
 
 function roleBadgeStyle(roleLabel: string) {
@@ -74,7 +81,7 @@ type TabKey = "overview" | "orders" | "settings";
 
 export default function MembersDashboardPage() {
   const router = useRouter();
-  const { profile, accessToken, role, isLoading } = useAuth();
+  const { profile, accessToken, role, status, isLoading } = useAuth();
 
   const [tab, setTab] = useState<TabKey>("overview");
 
@@ -133,6 +140,23 @@ export default function MembersDashboardPage() {
   }
 
   if (!accessToken) return null;
+
+  if (status && status !== "Active") {
+    const message = status === "Suspended" ? "Account Suspended" : "Account Banned";
+
+    return (
+      <main className="min-h-screen bg-black text-white px-6 py-16 overflow-hidden">
+        <div className="mx-auto max-w-2xl">
+          <div className="rounded-[2rem] border border-white/10 bg-zinc-950/70 p-8 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+            <div className="text-2xl font-black">{message}</div>
+            <p className="mt-3 text-zinc-400">
+              Your account status does not allow access to the dashboard.
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   const StatCard = ({
     icon,
@@ -537,7 +561,7 @@ export default function MembersDashboardPage() {
   );
 
   return (
-    <main className="min-h-screen bg-black text-white px-6 py-16 overflow-hidden">
+    <main className="min-h-screen bg-black text-white px-4 py-8 sm:px-6 sm:py-16 overflow-hidden">
       <div className="mx-auto max-w-5xl">
         {/* Premium dashboard header */}
         <div className="space-y-4">

@@ -6,8 +6,10 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import { createClient, type Session } from "@supabase/supabase-js";
 
 type AuthProfile = {
@@ -15,6 +17,7 @@ type AuthProfile = {
   email: string | null;
   full_name: string | null;
   role: string | null;
+  status: string | null;
   created_at: string | null;
 };
 
@@ -23,6 +26,7 @@ type AuthContextValue = {
   accessToken: string | null;
   profile: AuthProfile | null;
   role: string | null;
+  status: string | null;
   isLoading: boolean;
 
   signOut: () => Promise<void>;
@@ -38,6 +42,8 @@ function normalizeRole(role: unknown): string | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+
   const supabase = useMemo(() => {
     return createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,6 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  async function signOut() {
+    await supabase.auth.signOut();
+  }
 
   async function reloadProfile(tokenOverride?: string | null) {
     const token = tokenOverride ?? accessToken;
@@ -65,9 +75,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
 
+    // Server-side status enforcement (Suspended/Banned -> 403).
+    // We do NOT redirect here — the login page or a hard navigation
+    // already set the ?accountStatus= param. Just clear profile.
+    if (res.status === 403) {
+      setProfile(null);
+      return;
+    }
+
+    // If we can’t validate the session, clear local profile.
+    if (!res.ok) {
+      setProfile(null);
+      return;
+    }
+
     const data = (await res.json()) as {
       user: { id: string; email: string | null } | null;
-      profile: Omit<AuthProfile, "role"> & { role: unknown } | null;
+      profile:
+        | (Omit<AuthProfile, "role" | "status"> & {
+            role: unknown;
+            status: unknown;
+          })
+        | null;
     };
 
     if (!data.profile) {
@@ -81,11 +110,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setProfile({ ...(data.profile as any), role });
-  }
+    const status =
+      typeof data.profile.status === "string" ? data.profile.status : null;
 
-  async function signOut() {
-    await supabase.auth.signOut();
+    setProfile({
+      ...(data.profile as any),
+      role,
+      status,
+    });
   }
 
   useEffect(() => {
@@ -142,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       accessToken,
       profile,
       role: profile?.role ?? null,
+      status: profile?.status ?? null,
       isLoading,
       signOut,
       reloadProfile: async () => reloadProfile(),

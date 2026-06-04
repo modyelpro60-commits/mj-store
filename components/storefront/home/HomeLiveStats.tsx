@@ -64,17 +64,17 @@ export default function HomeLiveStats({
       };
 
   return (
-    <section className="relative py-12 md:py-16">
-      <div className="mx-auto max-w-[1600px] px-6 md:px-10">
+    <section className="relative py-8 md:py-16">
+      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 md:px-10">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, ease: "easeOut" }}
           viewport={{ once: true, margin: "-80px" }}
-          className="grid gap-6 sm:grid-cols-2"
+          className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2"
         >
           <motion.div
-            className="group relative overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-emerald-500/5 backdrop-blur-xl p-8 transition-all duration-300"
+            className="group relative overflow-hidden rounded-[1.5rem] sm:rounded-[2rem] border border-emerald-500/20 bg-emerald-500/5 backdrop-blur-xl p-5 sm:p-8 transition-all duration-300"
             whileHover={
               prefersReducedMotion
                 ? undefined
@@ -129,7 +129,7 @@ export default function HomeLiveStats({
           </motion.div>
 
           <motion.div
-            className="group relative overflow-hidden rounded-[2rem] border border-sky-500/20 bg-sky-500/5 backdrop-blur-xl p-8 transition-all duration-300"
+            className="group relative overflow-hidden rounded-[1.5rem] sm:rounded-[2rem] border border-sky-500/20 bg-sky-500/5 backdrop-blur-xl p-5 sm:p-8 transition-all duration-300"
             whileHover={
               prefersReducedMotion
                 ? undefined

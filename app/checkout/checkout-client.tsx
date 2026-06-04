@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { LoaderCircle, Lock, ShieldCheck, Zap } from "lucide-react";
+import { useAuth } from "../../components/auth/AuthProvider";
 
 interface Product {
   id: number;
@@ -15,6 +16,8 @@ interface Product {
 export default function CheckoutClient() {
   const searchParams = useSearchParams();
   const productId = searchParams.get("product");
+
+  const { accessToken, status, isLoading, signOut } = useAuth();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [name, setName] = useState("");
@@ -32,13 +35,25 @@ export default function CheckoutClient() {
     loadProduct();
   }, [productId]);
 
+  useEffect(() => {
+    if (isLoading) return;
+    if (!accessToken) return;
+    if (status === "Banned") {
+      void (async () => {
+        await signOut();
+      })();
+    }
+  }, [accessToken, isLoading, signOut, status]);
+
   async function createOrder() {
     if (!product) return;
+    if (!accessToken) return;
 
     const res = await fetch("/api/create-order", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
         customer_name: name,
@@ -67,6 +82,28 @@ export default function CheckoutClient() {
               <LoaderCircle className="h-5 w-5 animate-spin text-purple-300" />
               <p className="font-semibold">Loading product…</p>
             </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!isLoading && status && status !== "Active") {
+    const message =
+      status === "Suspended"
+        ? "Account Suspended"
+        : status === "Banned"
+        ? "Account Banned"
+        : "Access denied";
+
+  return (
+    <main className="min-h-screen bg-black text-white px-4 py-6 sm:p-10 overflow-hidden">
+        <div className="mx-auto max-w-2xl">
+          <div className="rounded-[2rem] border border-white/10 bg-zinc-950/70 p-8 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+            <div className="text-2xl font-black">{message}</div>
+            <p className="mt-3 text-zinc-400">
+              Your account status does not allow checkout.
+            </p>
           </div>
         </div>
       </main>

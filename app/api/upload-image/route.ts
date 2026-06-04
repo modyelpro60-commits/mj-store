@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireAdmin } from "../../lib/auth/requireAdmin";
+import { requireRole, type UserRole } from "../../lib/auth/requireAuthContext";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const PRODUCT_IMAGE_ROLES: UserRole[] = ["admin", "moderator"];
+
 export async function POST(req: Request) {
-  // Admin-only
-  await requireAdmin(req);
+  // Admin + Moderator
+  await requireRole(req, PRODUCT_IMAGE_ROLES);
 
   try {
     const formData = await req.formData();

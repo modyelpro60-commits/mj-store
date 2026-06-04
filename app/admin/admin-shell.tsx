@@ -13,6 +13,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+import { useAuth } from "../../components/auth/AuthProvider";
 
 const navItems = [
   {
@@ -44,6 +45,7 @@ const navItems = [
 
 export default function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { role, isLoading } = useAuth();
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#050507] text-white">
@@ -61,8 +63,42 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         <div className="absolute bottom-[-18%] left-[18%] h-[28rem] w-[28rem] rounded-full bg-violet-500/10 blur-[160px]" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1720px] flex-col gap-6 px-4 py-4 sm:px-6 lg:flex-row lg:px-8 lg:py-6">
-        <aside className="rounded-[2rem] border border-white/10 bg-zinc-950/80 p-4 shadow-[0_0_0_1px_rgba(168,85,247,0.06),0_30px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:w-[280px] lg:flex-shrink-0 lg:p-5">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1720px] flex-col gap-4 px-3 py-3 sm:px-4 sm:py-4 lg:flex-row lg:px-8 lg:py-6">
+        {/* Mobile bottom nav (fixed) */}
+        <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden border-t border-purple-500/20 bg-zinc-950/95 backdrop-blur-xl px-2 py-2 flex items-center justify-around">
+          {navItems
+            .filter(
+              (item) => isLoading || role === "admin" || item.href !== "/admin/users"
+            )
+            .map((item) => {
+              const active = pathname === item.href;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex flex-col items-center gap-0.5 rounded-2xl px-3 py-2 text-[10px] font-semibold transition-all duration-200 ${
+                    active
+                      ? "text-purple-200"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <span
+                    className={`grid h-8 w-8 place-items-center rounded-xl transition-all duration-200 ${
+                      active
+                        ? "bg-purple-500/20 text-purple-200"
+                        : "text-zinc-400"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+        </nav>
+
+        <aside className="hidden lg:block rounded-[2rem] border border-white/10 bg-zinc-950/80 p-4 shadow-[0_0_0_1px_rgba(168,85,247,0.06),0_30px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:w-[280px] lg:flex-shrink-0 lg:p-5">
           <div className="flex items-center gap-3 rounded-[1.5rem] border border-purple-500/15 bg-white/5 px-4 py-4">
             <div className="grid h-12 w-12 place-items-center rounded-2xl border border-purple-400/30 bg-purple-500/15 text-purple-200 shadow-[0_0_30px_rgba(168,85,247,0.25)]">
               <Sparkles className="h-5 w-5" />
@@ -76,7 +112,11 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           </div>
 
           <nav className="mt-6 space-y-2 lg:space-y-3">
-            {navItems.map((item) => {
+            {navItems
+              .filter(
+                (item) => isLoading || role === "admin" || item.href !== "/admin/users"
+              )
+              .map((item) => {
               const active = pathname === item.href;
               const Icon = item.icon;
 
@@ -133,7 +173,11 @@ export default function AdminShell({ children }: { children: ReactNode }) {
 
               <div className="flex flex-wrap gap-2">
                 {navItems
-                  .filter((item) => item.href !== "/")
+                  .filter(
+                    (item) =>
+                      item.href !== "/" &&
+                      (isLoading || role === "admin" || item.href !== "/admin/users")
+                  )
                   .map((item) => {
                     const active = pathname === item.href;
 

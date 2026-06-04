@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireAdmin } from "../../lib/auth/requireAdmin";
+import {
+  requireRole,
+  type UserRole,
+} from "../../lib/auth/requireAuthContext";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,9 +13,11 @@ const supabase = createClient(
 const ALLOWED_STATUSES = ["Pending", "Processing", "Completed", "Cancelled"] as const;
 type OrderStatus = (typeof ALLOWED_STATUSES)[number];
 
+const UPDATE_ACTOR_ROLES: UserRole[] = ["admin", "moderator"];
+
 export async function POST(req: Request) {
-  // Admin-only
-  await requireAdmin(req);
+  // Admin + Moderator
+  const ctx = await requireRole(req, UPDATE_ACTOR_ROLES);
 
   const body = (await req.json()) as { id?: number; status?: string };
 
@@ -33,10 +38,30 @@ export async function POST(req: Request) {
     );
   }
 
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", ctx.userId)
+    .single();
+
+  const handledByName = profile?.full_name ?? null;
+
+  if (profileError) {
+    return NextResponse.json({
+      success: false,
+      error: profileError.message,
+    });
+  }
+
+  const handledAt = new Date().toISOString();
+
   const { error } = await supabase
     .from("orders")
     .update({
       status: status as OrderStatus,
+      handled_by: ctx.userId,
+      handled_by_name: handledByName,
+      handled_at: handledAt,
     })
     .eq("id", id);
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, type Variants } from "framer-motion";
+import { useRouter } from "next/navigation";
 import {
   Check,
   LoaderCircle,
@@ -71,7 +72,8 @@ function statusBadgeClass(status: StatusOption): string {
 }
 
 export default function UsersPage() {
-  const { accessToken, profile } = useAuth();
+  const router = useRouter();
+  const { accessToken, profile, role, status, isLoading } = useAuth();
 
   const adminId = profile?.id ?? null;
   const [users, setUsers] = useState<AdminUserRow[]>([]);
@@ -84,6 +86,18 @@ export default function UsersPage() {
   const [error, setError] = useState<string>("");
 
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    // Suspended/Banned admins are not allowed into any admin page.
+    if (status && status !== "Active") return;
+
+    // Role-based admin-only page.
+    if (role !== "admin") {
+      router.replace("/");
+    }
+  }, [isLoading, role, status, router]);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();

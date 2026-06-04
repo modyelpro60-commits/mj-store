@@ -58,7 +58,7 @@ const panelVariants: Variants = {
 };
 
 export default function ProductsPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, role, status, isLoading } = useAuth();
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
   const [products, setProducts] = useState<ProductRecord[]>([]);
@@ -173,6 +173,10 @@ export default function ProductsPage() {
   }
 
   async function deleteProduct(id: number) {
+    if (role !== "admin") {
+      alert("Only Admin can delete products.");
+      return;
+    }
     const confirmed = confirm("Delete this product?");
 
     if (!confirmed) return;

@@ -4,7 +4,7 @@ import AdminGuard from "./admin-guard";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-    <AdminGuard>
+    <AdminGuard allowedRoles={["admin", "moderator"]}>
       <AdminShell>{children}</AdminShell>
     </AdminGuard>
   );
