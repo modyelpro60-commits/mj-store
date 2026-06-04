@@ -75,9 +75,7 @@ export default function FeaturedProductsGrid({
             variants={itemVariants}
             custom={index * 0.06}
           >
-            <Link href={`/product/${product.id}`} className="block h-full">
-              <ProductCard product={product} size="support" />
-            </Link>
+            <ProductCard product={product} size="support" />
           </motion.div>
         );
       })}

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -7,6 +6,7 @@ import { motion } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowRight, LoaderCircle } from "lucide-react";
 import { useToast } from "../../components/toast/ToastProvider";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,6 +16,7 @@ const supabase = createClient(
 export default function RegisterPage() {
   const router = useRouter();
   const { pushToast } = useToast();
+  const { translate } = useLanguage();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -41,7 +42,6 @@ export default function RegisterPage() {
 
       const userId = data?.user?.id;
 
-      // Best-effort: update profile full_name if possible (RLS may block).
       if (userId && fullName.trim()) {
         try {
           await supabase
@@ -49,11 +49,10 @@ export default function RegisterPage() {
             .update({ full_name: fullName.trim() })
             .eq("id", userId);
         } catch {
-          // no-op: keep registration successful even if profile update is blocked by RLS
+          // no-op
         }
       }
 
-      // Ensure session is created so we can authenticate immediately.
       const signUpSession = data?.session ?? null;
 
       const sessionRes = signUpSession
@@ -67,7 +66,6 @@ export default function RegisterPage() {
           "Registration created your account, but automatic sign-in is not available. Please check your email confirmation status."
         );
       }
-
 
       router.push("/welcome?mode=register");
     } catch (err) {
@@ -94,20 +92,20 @@ export default function RegisterPage() {
           className="rounded-[2rem] border border-white/10 bg-zinc-950/70 p-6 shadow-[0_30px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:p-8"
         >
           <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-200">
-            Register
+            {translate("register.title")}
           </div>
 
           <h1 className="mt-6 text-4xl font-black tracking-tight">
-            Create your account
+            {translate("register.title")}
           </h1>
           <p className="mt-3 text-zinc-400 leading-6">
-            You can buy as a guest. Logging in unlocks your account and order history.
+            {translate("register.subtitle")}
           </p>
 
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
             <div>
               <label className="mb-2 block text-sm font-semibold text-zinc-200">
-                Full name
+                {translate("register.fullNameLabel")}
               </label>
               <input
                 value={fullName}
@@ -117,13 +115,13 @@ export default function RegisterPage() {
                 autoComplete="name"
                 disabled={loading}
                 className="h-[48px] w-full rounded-2xl border border-white/10 bg-white/5 px-4 outline-none transition-colors placeholder:text-zinc-600 focus:border-purple-500/40 focus:bg-purple-500/10"
-                placeholder="Your name"
+                placeholder={translate("register.fullNamePlaceholder")}
               />
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-zinc-200">
-                Email
+                {translate("register.emailLabel")}
               </label>
               <input
                 value={email}
@@ -133,13 +131,13 @@ export default function RegisterPage() {
                 autoComplete="email"
                 disabled={loading}
                 className="h-[48px] w-full rounded-2xl border border-white/10 bg-white/5 px-4 outline-none transition-colors placeholder:text-zinc-600 focus:border-purple-500/40 focus:bg-purple-500/10"
-                placeholder="you@example.com"
+                placeholder={translate("register.emailPlaceholder")}
               />
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-zinc-200">
-                Password
+                {translate("register.passwordLabel")}
               </label>
               <input
                 value={password}
@@ -149,7 +147,7 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 disabled={loading}
                 className="h-[48px] w-full rounded-2xl border border-white/10 bg-white/5 px-4 outline-none transition-colors placeholder:text-zinc-600 focus:border-purple-500/40 focus:bg-purple-500/10"
-                placeholder="••••••••"
+                placeholder={translate("register.passwordPlaceholder")}
               />
             </div>
 
@@ -172,18 +170,18 @@ export default function RegisterPage() {
               {loading ? (
                 <LoaderCircle className="h-5 w-5 animate-spin" />
               ) : null}
-              {loading ? "Creating..." : "Create account"}
+              {loading ? translate("register.creating") : translate("register.button")}
               <ArrowRight className="h-5 w-5" />
             </motion.button>
           </form>
 
           <div className="mt-6 text-sm text-zinc-400">
-            Already have an account?{" "}
+            {translate("register.hasAccount")}{" "}
             <a
               href="/login"
               className="text-purple-300 hover:text-purple-200 underline underline-offset-4"
             >
-              Login
+              {translate("register.login")}
             </a>
           </div>
         </motion.div>

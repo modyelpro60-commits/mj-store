@@ -45,7 +45,7 @@ export default function WelcomePage() {
     if (debugStay) return;
 
     const exitAt = window.setTimeout(() => setIsExiting(true), Math.round(exitDelayMs));
-    const redirectAt = window.setTimeout(() => router.replace("/"), Math.round(redirectDelayMs));
+    const redirectAt = window.setTimeout(() => router.replace("/account"), Math.round(redirectDelayMs));
 
     return () => {
       window.clearTimeout(exitAt);

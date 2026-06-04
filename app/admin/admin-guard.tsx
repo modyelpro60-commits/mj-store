@@ -34,7 +34,14 @@ export default function AdminGuard({
     );
   }
 
+  useEffect(() => {
+    if (isLoading) return;
+    if (!status || status === "Active") return;
+    router.replace("/login");
+  }, [isLoading, status, router]);
+
   if (!isLoading && status && status !== "Active") {
+    // Briefly show message while redirect fires
     const message = status === "Suspended" ? "Account Suspended" : "Account Banned";
 
     return (

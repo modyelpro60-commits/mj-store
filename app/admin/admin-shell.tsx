@@ -159,7 +159,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-4 pb-16 lg:pb-0">
           <header className="rounded-[2rem] border border-white/10 bg-zinc-950/70 px-5 py-4 shadow-[0_0_0_1px_rgba(168,85,247,0.04),0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:px-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>

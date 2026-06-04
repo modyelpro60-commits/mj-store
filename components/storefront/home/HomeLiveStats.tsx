@@ -3,6 +3,7 @@
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useLanguage } from "../../../lib/i18n/LanguageProvider";
 
 function AnimatedNumber({ value }: { value: number }) {
   const [displayValue, setDisplayValue] = useState(0);
@@ -37,6 +38,7 @@ export default function HomeLiveStats({
   totalCustomers: number;
 }) {
   const prefersReducedMotion = useReducedMotion();
+  const { translate } = useLanguage();
 
   const activeValue = Number.isFinite(activeCustomers) ? activeCustomers : 0;
   const totalValue = Number.isFinite(totalCustomers) ? totalCustomers : 0;
@@ -102,7 +104,7 @@ export default function HomeLiveStats({
                     }}
                   />
                   <span className="text-sm font-bold tracking-wide text-emerald-200">
-                    Active Customers
+                    {translate("home.hero.status.activeCustomersLabel")}
                   </span>
                 </div>
 
@@ -164,7 +166,7 @@ export default function HomeLiveStats({
                     }}
                   />
                   <span className="text-sm font-bold tracking-wide text-sky-200">
-                    Total Customers
+                    {translate("home.hero.status.totalCustomersLabel")}
                   </span>
                 </div>
 

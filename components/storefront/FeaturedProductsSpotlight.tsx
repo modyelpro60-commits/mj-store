@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { Sparkles, ShoppingBag, Zap } from "lucide-react";
 import { normalizeProductFeatures } from "../../app/lib/products/featureHelpers";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 type Product = {
   id: number | string;
@@ -27,6 +28,7 @@ function toNumber(value: unknown): number {
 
 export default function FeaturedProductsSpotlight({ product }: { product: Product }) {
   const prefersReducedMotion = useReducedMotion();
+  const { translate } = useLanguage();
   const price = toNumber(product.price);
   const features = normalizeProductFeatures(product);
 
@@ -111,7 +113,7 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
                 className="absolute top-5 left-5 inline-flex items-center gap-2 rounded-full border border-purple-400/40 bg-gradient-to-r from-purple-600/30 to-fuchsia-600/20 px-5 py-2.5 backdrop-blur-sm shadow-[0_0_30px_rgba(168,85,247,0.3)]"
               >
                 <Sparkles className="h-5 w-5 text-purple-200 animate-pulse" />
-                <span className="text-sm font-black text-purple-100">FEATURED</span>
+                  <span className="text-sm font-black text-purple-100">{translate("home.featured.title").toUpperCase()}</span>
               </motion.div>
               
               {salesCount > 0 && (
