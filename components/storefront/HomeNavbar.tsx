@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
 import MJLogo from "../../components/branding/MJLogo";
-import { useToast } from "../../components/toast/ToastProvider";
+import { toast } from "sonner";
 import { ButtonHTMLAttributes } from "react";
 
 type NavButtonProps = {
@@ -50,7 +50,6 @@ function NavButton({
 export default function HomeNavbar() {
   const router = useRouter();
   const { role, isLoading, signOut } = useAuth();
-  const { pushToast } = useToast();
 
   const { language, setLanguage } = useLanguage();
 
@@ -88,16 +87,12 @@ export default function HomeNavbar() {
 
     try {
       await signOut();
-      pushToast({
-        type: "success",
-        title: "Signed out",
-        message: "Redirecting…",
-      });
+      toast.success("Signed out successfully");
       router.refresh();
       router.replace("/");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Logout failed";
-      pushToast({ type: "error", title: "Logout failed", message });
+      toast.error(message);
     } finally {
       setIsSigningOut(false);
     }

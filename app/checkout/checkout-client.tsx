@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
-import { LoaderCircle, Lock, ShieldCheck, Zap } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  CheckCircle,
+  LoaderCircle,
+  Lock,
+  ShieldCheck,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
@@ -14,8 +21,15 @@ interface Product {
   price: number;
 }
 
+const PHONE_REGEX = /^\+?\d{8,15}$/;
+
+function isValidPhone(value: string): boolean {
+  return PHONE_REGEX.test(value.trim());
+}
+
 export default function CheckoutClient() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const productId = searchParams.get("product");
 
   const { accessToken, status, isLoading, signOut } = useAuth();
@@ -24,6 +38,9 @@ export default function CheckoutClient() {
   const [product, setProduct] = useState<Product | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     async function loadProduct() {
@@ -51,27 +68,52 @@ export default function CheckoutClient() {
     if (!product) return;
     if (!accessToken) return;
 
-    const res = await fetch("/api/create-order", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        customer_name: name,
-        customer_phone: phone,
-        product_id: product.id,
-        product_name: product.name,
-        price: product.price,
-      }),
-    });
+    setError(null);
 
-    const data = (await res.json()) as { success?: boolean };
+    // --- Client-side validation ---
+    if (!name.trim()) {
+      setError("Please enter your name.");
+      return;
+    }
+    if (!phone.trim()) {
+      setError("Please enter a valid phone number.");
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      setError("Please enter a valid phone number.");
+      return;
+    }
 
-    if (data.success) {
-      alert(translate("checkout.placeOrder") + " " + translate("checkout.total"));
-    } else {
-      alert("Error Creating Order");
+    setSubmitting(true);
+
+    try {
+      const res = await fetch("/api/create-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          customer_name: name.trim(),
+          customer_phone: phone.trim(),
+          product_id: product.id,
+          product_name: product.name,
+          price: product.price,
+        }),
+      });
+
+      const data = (await res.json()) as { success?: boolean; error?: string };
+
+      if (data.success) {
+        setSuccess(true);
+        setTimeout(() => router.push("/account"), 1500);
+      } else {
+        setError(data.error ?? "Error Creating Order");
+      }
+    } catch {
+      setError("Error Creating Order");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -107,6 +149,25 @@ export default function CheckoutClient() {
               {translate("checkout.statusBlocked")}
             </p>
           </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (success) {
+    return (
+      <main className="min-h-screen bg-black text-white p-6 sm:p-10">
+        <div className="mx-auto max-w-md">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+            className="rounded-[2rem] border border-emerald-500/20 bg-zinc-950/70 p-10 text-center shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
+          >
+            <CheckCircle className="mx-auto h-12 w-12 text-emerald-400" />
+            <h2 className="mt-4 text-2xl font-black text-white">Order Placed!</h2>
+            <p className="mt-2 text-zinc-400">Redirecting to your orders...</p>
+          </motion.div>
         </div>
       </main>
     );
@@ -209,6 +270,20 @@ export default function CheckoutClient() {
               <p className="mt-2 text-zinc-400">{translate("checkout.yourDetailsDesc")}</p>
             </div>
 
+            <AnimatePresence>
+              {error ? (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="mb-4 flex items-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+                >
+                  <XCircle className="h-4 w-4 shrink-0" />
+                  {error}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
             <div className="space-y-4">
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
@@ -240,14 +315,24 @@ export default function CheckoutClient() {
 
               <motion.button
                 onClick={createOrder}
-                whileHover={{
-                  boxShadow: "0 0 60px rgba(168,85,247,0.28)",
-                  y: -2,
-                }}
-                whileTap={{ scale: 0.99 }}
-                className="mt-2 flex h-[52px] w-full items-center justify-center rounded-2xl border border-purple-500/30 bg-purple-600 font-bold text-white transition-all duration-300 hover:bg-purple-700"
+                disabled={submitting}
+                whileHover={
+                  submitting ? {} : {
+                    boxShadow: "0 0 60px rgba(168,85,247,0.28)",
+                    y: -2,
+                  }
+                }
+                whileTap={submitting ? {} : { scale: 0.99 }}
+                className="mt-2 flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl border border-purple-500/30 bg-purple-600 font-bold text-white transition-all duration-300 hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {translate("checkout.placeOrder")}
+                {submitting ? (
+                  <>
+                    <LoaderCircle className="h-5 w-5 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  translate("checkout.placeOrder")
+                )}
               </motion.button>
 
               <p className="text-xs text-zinc-500 leading-5">

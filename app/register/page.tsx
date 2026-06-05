@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowRight, LoaderCircle } from "lucide-react";
-import { useToast } from "../../components/toast/ToastProvider";
+import { toast } from "sonner";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 const supabase = createClient(
@@ -15,7 +15,6 @@ const supabase = createClient(
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { pushToast } = useToast();
   const { translate } = useLanguage();
 
   const [fullName, setFullName] = useState("");
@@ -72,11 +71,7 @@ export default function RegisterPage() {
       const message = err instanceof Error ? err.message : "Register failed";
       setError(message);
 
-      pushToast({
-        type: "error",
-        title: "Registration failed",
-        message,
-      });
+      toast.error(message);
     } finally {
       setLoading(false);
     }

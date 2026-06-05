@@ -5,14 +5,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Menu, X } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "./AuthProvider";
-import { useToast } from "../toast/ToastProvider";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 export default function StorefrontNavbar() {
   const router = useRouter();
   const { role, isLoading, signOut } = useAuth();
-  const { pushToast } = useToast();
 
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -23,21 +22,13 @@ export default function StorefrontNavbar() {
     setIsSigningOut(true);
     try {
       await signOut();
-      pushToast({
-        type: "success",
-        title: translate("toast.signedOutTitle"),
-        message: translate("toast.signedOutMessage"),
-      });
+      toast.success(translate("toast.signedOutMessage") || "Signed out successfully");
 
       router.refresh();
       router.replace("/");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Logout failed";
-      pushToast({
-        type: "error",
-        title: translate("toast.logoutFailedTitle"),
-        message,
-      });
+      toast.error(message);
     } finally {
       setIsSigningOut(false);
     }

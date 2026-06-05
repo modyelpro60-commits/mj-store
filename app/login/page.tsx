@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
 import { LoaderCircle, ArrowRight } from "lucide-react";
-import { useToast } from "../../components/toast/ToastProvider";
+import { toast } from "sonner";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 const supabase = createClient(
@@ -40,7 +40,6 @@ function renderEnforcementMessage(status: AccountStatusParam, translate: (k: str
 
 export default function LoginPage() {
   const router = useRouter();
-  const { pushToast } = useToast();
   const { translate } = useLanguage();
 
   const [email, setEmail] = useState("");
@@ -98,11 +97,7 @@ export default function LoginPage() {
       const message = err instanceof Error ? err.message : "Login failed";
       setError(message);
 
-      pushToast({
-        type: "error",
-        title: "Login failed",
-        message,
-      });
+      toast.error(message);
     } finally {
       setLoading(false);
     }
