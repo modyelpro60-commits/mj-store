@@ -34,7 +34,7 @@ export default function ProductDetailsView({ product }: ProductDetailsViewProps)
   const { translate } = useLanguage();
   const { accessToken, isLoading: authLoading } = useAuth();
   const salesCount = Number(product.sales_count) || 0;
-  const features = normalizeProductFeatures(product);
+  const features = normalizeProductFeatures(product ?? ({} as Product));
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
@@ -224,8 +224,8 @@ export default function ProductDetailsView({ product }: ProductDetailsViewProps)
               {translate("product.description")}
             </h2>
             <div className="prose prose-invert prose-lg max-w-5xl text-zinc-300 leading-[1.8] space-y-4">
-              {product.full_description.split("\n").map((paragraph, i) => (
-                <p key={i}>{paragraph}</p>
+              {(typeof product.full_description === "string" ? product.full_description : "").split("\n").map((paragraph, i) => (
+                <p key={i}>{paragraph || "\u00A0"}</p>
               ))}
             </div>
             <div className="mt-8 pt-6 border-t border-white/5">
@@ -365,7 +365,7 @@ export default function ProductDetailsView({ product }: ProductDetailsViewProps)
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-purple-500/30 to-fuchsia-500/30 text-purple-200 text-sm font-bold shadow-[0_0_20px_rgba(168,85,247,0.1)]">
-                          {review.authorName.charAt(0).toUpperCase()}
+                          {review.authorName ? review.authorName.charAt(0).toUpperCase() : "?"}
                         </div>
                         <span className="font-bold text-white">{review.authorName}</span>
                       </div>

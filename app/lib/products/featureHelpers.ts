@@ -50,7 +50,7 @@ export function normalizeProductFeatures(product: Record<string, unknown>) {
       .filter((feature) => feature.length > 0);
   }
 
-  return normalizeFeatureList(product.features);
+  return normalizeFeatureList(product?.features);
 }
 
 export function buildFeatureRows(productId: number | string, features: unknown) {
