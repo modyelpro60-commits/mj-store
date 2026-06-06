@@ -28,12 +28,6 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
-function computeFeaturedProducts(products: Product[], limit: number) {
-  return [...products]
-    .sort((a, b) => toNumber(b.sales_count) - toNumber(a.sales_count))
-    .slice(0, limit);
-}
-
 export default async function Home() {
   const [{ data: products }, stats] = await Promise.all([
     supabase.from("products").select("*"),
@@ -63,7 +57,6 @@ export default async function Home() {
     const rowsForProduct = featureMap.get(String(product.id)) ?? [];
     return {
       ...product,
-      // normalizeProductFeatures expects `product.product_features` rows
       features: normalizeProductFeatures({
         ...product,
         product_features: rowsForProduct,
@@ -81,14 +74,12 @@ export default async function Home() {
   let featuredProduct: Product | null = null;
   
   if (orderData && orderData.length > 0) {
-    // Count sales per product
     const salesCount = new Map<string | number, number>();
     orderData.forEach(order => {
       const id = order.product_id;
       salesCount.set(id, (salesCount.get(id) || 0) + 1);
     });
     
-    // Find product with most completed orders
     let maxSales = 0;
     for (const product of list) {
       const sales = salesCount.get(product.id) || 0;
@@ -99,7 +90,6 @@ export default async function Home() {
     }
   }
   
-  // Fallback: use product with highest sales_count field
   if (!featuredProduct) {
     const sorted = [...list].sort((a, b) => toNumber(b.sales_count) - toNumber(a.sales_count));
     featuredProduct = sorted[0] || null;
@@ -114,20 +104,21 @@ export default async function Home() {
       {/* Hero */}
       <StorefrontHero />
 
-      {/* Premium Stats Section */}
+      {/* Stats directly below CTA — compact pills */}
       <HomeLiveStats
         activeCustomers={stats.activeCustomers}
         totalCustomers={stats.totalCustomers}
+        totalProducts={productList.length}
       />
 
-      {/* Featured Products (3) */}
-      <section id="best-sellers" className="max-w-[1600px] mx-auto px-8 py-24">
+      {/* Featured Products — reduced vertical spacing */}
+      <section id="best-sellers" className="max-w-[1600px] mx-auto px-8 pt-10 pb-16">
         <HomeFeaturedProductsHeading />
         <FeaturedProductsGrid products={featured as any} variant="featured" />
       </section>
 
-      {/* Products Grid */}
-      <section id="products" className="max-w-[1600px] mx-auto px-8 py-28">
+      {/* Products Grid — reduced vertical spacing */}
+      <section id="products" className="max-w-[1600px] mx-auto px-8 pb-28">
         <HomeProductsHeading />
         <FeaturedProductsGrid products={list as any} variant="all" />
       </section>

@@ -1,197 +1,125 @@
 "use client";
 
-import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
+import { Package, TrendingUp, Users } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLanguage } from "../../../lib/i18n/LanguageProvider";
 
-function AnimatedNumber({ value }: { value: number }) {
-  const [displayValue, setDisplayValue] = useState(0);
+function FastCount({ value }: { value: number }) {
+  const [display, setDisplay] = useState(0);
 
   useEffect(() => {
-    const duration = 1.2;
-    const steps = 60;
+    const duration = 600;
+    const steps = 15;
     const increment = value / steps;
     let current = 0;
 
     const interval = setInterval(() => {
       current += increment;
       if (current >= value) {
-        setDisplayValue(value);
+        setDisplay(value);
         clearInterval(interval);
       } else {
-        setDisplayValue(Math.floor(current));
+        setDisplay(Math.floor(current));
       }
-    }, (duration * 1000) / steps);
+    }, duration / steps);
 
     return () => clearInterval(interval);
   }, [value]);
 
-  return <>{displayValue}</>;
+  return <>{display}</>;
 }
 
 export default function HomeLiveStats({
   activeCustomers,
   totalCustomers,
+  totalProducts,
 }: {
   activeCustomers: number;
   totalCustomers: number;
+  totalProducts?: number;
 }) {
-  const prefersReducedMotion = useReducedMotion();
   const { translate } = useLanguage();
 
   const activeValue = Number.isFinite(activeCustomers) ? activeCustomers : 0;
   const totalValue = Number.isFinite(totalCustomers) ? totalCustomers : 0;
+  const productValue = Number.isFinite(totalProducts) ? (totalProducts as number) : 0;
 
-  const pulse = prefersReducedMotion
-    ? {}
-    : {
-        y: [0, -2, 0],
-        boxShadow: [
-          "0 0 0 rgba(0,0,0,0)",
-          "0 0 55px rgba(34,197,94,0.18)",
-          "0 0 0 rgba(0,0,0,0)",
-        ],
-      };
+  const pillClass =
+    "inline-flex items-center gap-2.5 rounded-2xl border px-4 py-2 backdrop-blur-xl transition-all duration-300";
 
-  const dotPulse = prefersReducedMotion
-    ? {}
-    : {
-        scale: [1, 1.3, 1],
-        boxShadow: [
-          "0 0 8px rgba(0,0,0,0)",
-          "0 0 28px rgba(52,211,153,0.7)",
-          "0 0 8px rgba(0,0,0,0)",
-        ],
-      };
+  const items = [
+    {
+      icon: Users,
+      label: translate("home.hero.status.activeCustomersLabel"),
+      value: activeValue,
+      border: "border-emerald-500/20",
+      bg: "bg-emerald-500/5",
+      hoverBorder: "hover:border-emerald-500/30",
+      iconBorder: "border-emerald-500/20",
+      iconBg: "bg-emerald-500/10",
+      iconColor: "text-emerald-300",
+      glowColor: "rgba(52,211,153,0.18)",
+    },
+    {
+      icon: TrendingUp,
+      label: translate("home.hero.status.totalCustomersLabel"),
+      value: totalValue,
+      border: "border-sky-500/20",
+      bg: "bg-sky-500/5",
+      hoverBorder: "hover:border-sky-500/30",
+      iconBorder: "border-sky-500/20",
+      iconBg: "bg-sky-500/10",
+      iconColor: "text-sky-300",
+      glowColor: "rgba(96,165,250,0.18)",
+    },
+    {
+      icon: Package,
+      label: translate("home.hero.status.totalProductsLabel") || "Products",
+      value: productValue,
+      border: "border-purple-500/20",
+      bg: "bg-purple-500/5",
+      hoverBorder: "hover:border-purple-500/30",
+      iconBorder: "border-purple-500/20",
+      iconBg: "bg-purple-500/10",
+      iconColor: "text-purple-300",
+      glowColor: "rgba(168,85,247,0.18)",
+    },
+  ];
 
   return (
-    <section className="relative py-8 md:py-16">
+    <section className="relative -mt-4 mb-4">
       <div className="mx-auto max-w-[1600px] px-4 sm:px-6 md:px-10">
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: "easeOut" }}
-          viewport={{ once: true, margin: "-80px" }}
-          className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2"
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          viewport={{ once: true, margin: "-40px" }}
+          className="flex flex-wrap items-center justify-center gap-3"
         >
-          <motion.div
-            className="group relative overflow-hidden rounded-[1.5rem] sm:rounded-[2rem] border border-emerald-500/20 bg-emerald-500/5 backdrop-blur-xl p-5 sm:p-8 transition-all duration-300"
-            whileHover={
-              prefersReducedMotion
-                ? undefined
-                : {
-                    y: -6,
-                    boxShadow: "0 0 100px rgba(34,197,94,0.35), 0 0 60px rgba(34,197,94,0.2)",
-                  }
-            }
-          >
-            <div aria-hidden className="absolute inset-0 pointer-events-none">
-              <div className="absolute -top-24 -left-16 h-60 w-60 rounded-full bg-emerald-500/15 blur-3xl" />
-              <div className="absolute -bottom-28 -right-20 h-72 w-72 rounded-full bg-emerald-500/8 blur-3xl" />
-            </div>
-
-            <div className="relative flex items-start justify-between gap-6">
-              <div className="flex-1">
-                <div className="inline-flex items-center gap-3 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 mb-2">
-                  <motion.span
-                    className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.55)]"
-                    animate={dotPulse}
-                    transition={{
-                      duration: 1.8,
-                      repeat: prefersReducedMotion ? 0 : Infinity,
-                      ease: "easeInOut",
-                    }}
-                  />
-                  <span className="text-sm font-bold tracking-wide text-emerald-200">
-                    {translate("home.hero.status.activeCustomersLabel")}
+          {items.map((item) => {
+            const Icon = item.icon;
+            return (
+              <motion.div
+                key={item.label}
+                whileHover={{ scale: 1.02, boxShadow: `0 0 30px ${item.glowColor}` }}
+                transition={{ duration: 0.2 }}
+                className={`${pillClass} ${item.border} ${item.bg} ${item.hoverBorder}`}
+              >
+                <div className={`grid h-7 w-7 place-items-center rounded-xl border ${item.iconBorder} ${item.iconBg}`}>
+                  <Icon className={`h-3.5 w-3.5 ${item.iconColor}`} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-500">
+                    {item.label}
+                  </span>
+                  <span className="text-base font-black text-white tabular-nums leading-tight">
+                    <FastCount value={item.value} />
                   </span>
                 </div>
-
-                <motion.div
-                  animate={pulse}
-                  transition={{
-                    duration: 2.2,
-                    repeat: prefersReducedMotion ? 0 : Infinity,
-                    ease: "easeInOut",
-                  }}
-                  className="mt-4 text-8xl font-black text-white tabular-nums leading-none tracking-tighter"
-                >
-                  <AnimatedNumber value={activeValue} />
-                </motion.div>
-              </div>
-
-              <motion.div
-                className="grid h-16 w-16 flex-shrink-0 place-items-center rounded-3xl border border-emerald-500/25 bg-black/20 text-emerald-200 transition-colors duration-300 group-hover:border-emerald-500/50 group-hover:bg-emerald-500/5"
-                whileHover={prefersReducedMotion ? undefined : { scale: 1.05 }}
-              >
-                <Sparkles className="h-7 w-7" />
               </motion.div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            className="group relative overflow-hidden rounded-[1.5rem] sm:rounded-[2rem] border border-sky-500/20 bg-sky-500/5 backdrop-blur-xl p-5 sm:p-8 transition-all duration-300"
-            whileHover={
-              prefersReducedMotion
-                ? undefined
-                : {
-                    y: -6,
-                    boxShadow: "0 0 100px rgba(59,130,246,0.35), 0 0 60px rgba(59,130,246,0.2)",
-                  }
-            }
-          >
-            <div aria-hidden className="absolute inset-0 pointer-events-none">
-              <div className="absolute -top-24 -left-16 h-60 w-60 rounded-full bg-sky-500/15 blur-3xl" />
-              <div className="absolute -bottom-28 -right-20 h-72 w-72 rounded-full bg-sky-500/8 blur-3xl" />
-            </div>
-
-            <div className="relative flex items-start justify-between gap-6">
-              <div className="flex-1">
-                <div className="inline-flex items-center gap-3 rounded-full border border-sky-500/25 bg-sky-500/10 px-4 py-2 mb-2">
-                  <motion.span
-                    className="h-3 w-3 rounded-full bg-sky-400 shadow-[0_0_20px_rgba(56,189,248,0.55)]"
-                    animate={{
-                      scale: [1, 1.3, 1],
-                      boxShadow: [
-                        "0 0 8px rgba(0,0,0,0)",
-                        "0 0 28px rgba(56,189,248,0.7)",
-                        "0 0 8px rgba(0,0,0,0)",
-                      ],
-                    }}
-                    transition={{
-                      duration: 1.8,
-                      repeat: prefersReducedMotion ? 0 : Infinity,
-                      ease: "easeInOut",
-                    }}
-                  />
-                  <span className="text-sm font-bold tracking-wide text-sky-200">
-                    {translate("home.hero.status.totalCustomersLabel")}
-                  </span>
-                </div>
-
-                <motion.div
-                  animate={pulse}
-                  transition={{
-                    duration: 2.2,
-                    repeat: prefersReducedMotion ? 0 : Infinity,
-                    ease: "easeInOut",
-                    delay: 0.12,
-                  }}
-                  className="mt-4 text-8xl font-black text-white tabular-nums leading-none tracking-tighter"
-                >
-                  <AnimatedNumber value={totalValue} />
-                </motion.div>
-              </div>
-
-              <motion.div
-                className="grid h-16 w-16 flex-shrink-0 place-items-center rounded-3xl border border-sky-500/25 bg-black/20 text-sky-200 transition-colors duration-300 group-hover:border-sky-500/50 group-hover:bg-sky-500/5"
-                whileHover={prefersReducedMotion ? undefined : { scale: 1.05 }}
-              >
-                <Sparkles className="h-7 w-7" />
-              </motion.div>
-            </div>
-          </motion.div>
+            );
+          })}
         </motion.div>
       </div>
     </section>

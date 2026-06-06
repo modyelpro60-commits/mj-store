@@ -134,9 +134,9 @@ export default function ProductCard({
         </div>
       </Link>
 
-      {/* Buy Now button — always visible, links directly to checkout */}
+      {/* Buy Now button — navigates to product details page first */}
       <div className="px-5 sm:px-6 pb-5 sm:pb-6">
-        <Link href={`/checkout?product=${product.id}`}>
+        <Link href={`/product/${product.id}`}>
           <motion.button
             whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}

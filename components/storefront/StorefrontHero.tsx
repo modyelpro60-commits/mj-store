@@ -18,14 +18,29 @@ export default function StorefrontHero() {
   );
 
   return (
-    <section className="relative py-20 md:py-36 overflow-hidden">
-      {/* Subtle glow blobs (no scanlines / no floating promo clutter) */}
-      <div className="pointer-events-none absolute -top-28 -left-28 h-80 w-80 rounded-full bg-purple-600/20 blur-3xl" />
-      <div className="pointer-events-none absolute -top-12 right-[-90px] h-80 w-80 rounded-full bg-purple-600/10 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-[-140px] left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-fuchsia-500/5 blur-3xl" />
+    <section className="relative py-14 md:py-24 overflow-hidden">
+      {/* Animated gradient blobs — very slow, premium feel */}
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-purple-600/10 blur-[120px]"
+        animate={prefersReducedMotion ? {} : { x: [0, 30, 0], y: [0, -20, 0] }}
+        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-32 left-1/3 h-[400px] w-[400px] rounded-full bg-blue-600/8 blur-[100px]"
+        animate={prefersReducedMotion ? {} : { x: [0, -40, 0], y: [0, 25, 0] }}
+        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute top-1/4 right-[-120px] h-[350px] w-[350px] rounded-full bg-purple-500/8 blur-[120px]"
+        animate={prefersReducedMotion ? {} : { x: [0, 20, 0], y: [0, -30, 0] }}
+        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+      />
 
       <div className="mx-auto max-w-[1600px] px-8">
-        <div className="grid items-center gap-12 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
           {/* Left */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -69,28 +84,29 @@ export default function StorefrontHero() {
                 </motion.button>
               </Link>
 
-              <Link href="#best-sellers" aria-label="Browse featured products">
+              <Link href="#best-sellers" aria-label="Browse best sellers">
                 <motion.button
                   whileHover={
                     prefersReducedMotion
                       ? undefined
                       : {
+                          scale: 1.03,
                           y: -2,
                           borderColor: "#c084fc",
                           boxShadow: "0 0 45px rgba(168,85,247,0.22)",
-                          backgroundColor: "rgba(0,0,0,0.3)"
                         }
                   }
                   whileTap={{ scale: 0.98 }}
-                  className="rounded-2xl border border-purple-500/30 bg-black/20 px-12 py-6 font-bold tracking-wide text-white text-lg backdrop-blur-sm transition-all duration-300"
+                  className="rounded-2xl border border-purple-500/30 bg-black/20 px-12 py-6 font-bold tracking-wide text-white text-lg backdrop-blur-sm transition-all duration-300 inline-flex items-center gap-2"
                 >
                   {translate("home.hero.bestSellers")}
+                  <ArrowRight className="h-5 w-5 text-purple-300 transition-transform duration-300 group-hover:translate-x-1" />
                 </motion.button>
               </Link>
             </div>
 
-            {/* Minimal trust lines */}
-            <div className="mt-10 flex flex-wrap gap-x-8 gap-y-4 text-zinc-100 font-medium">
+            {/* Trust lines */}
+            <div className="mt-8 flex flex-wrap gap-x-8 gap-y-4 text-zinc-100 font-medium">
               <motion.div 
                 className="flex items-center gap-3 text-base"
                 initial={{ opacity: 0, x: -8 }}
@@ -116,25 +132,32 @@ export default function StorefrontHero() {
             </div>
           </motion.div>
 
-          {/* Right: image only */}
+          {/* Right: image with floating animation */}
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: "easeOut", delay: 0.05 }}
           >
-            <div className="relative overflow-hidden rounded-[2rem] border border-purple-500/20 bg-zinc-950/60 backdrop-blur-xl shadow-[0_30px_120px_rgba(0,0,0,0.50)]">
-              <div className="absolute inset-0 pointer-events-none bg-purple-500/5" />
-              <motion.img
-                src="/Hero.jpg"
-                alt="MJ Store Premium Digital Products"
-                className="relative w-full h-[360px] md:h-[460px] object-cover rounded-[1.5rem] border border-purple-500/10 bg-black/40 drop-shadow-[0_0_80px_rgba(168,85,247,0.25)]"
-                initial={{ opacity: 0, scale: 0.985 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                whileHover={
-                  prefersReducedMotion ? undefined : { scale: 1.02, filter: "saturate(1.08)" }
-                }
+            {/* Purple glow behind image */}
+            <div className="relative">
+              <motion.div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 rounded-[2rem] bg-purple-500/15 blur-[80px]"
+                animate={prefersReducedMotion ? {} : { opacity: [0.4, 0.7, 0.4] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
               />
+              <motion.div
+                className="relative overflow-hidden rounded-[2rem] border border-purple-500/20 bg-zinc-950/60 backdrop-blur-xl shadow-[0_30px_120px_rgba(0,0,0,0.50)]"
+                animate={prefersReducedMotion ? {} : { y: [0, -10, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <div className="absolute inset-0 pointer-events-none bg-purple-500/5" />
+                <img
+                  src="/Hero.jpg"
+                  alt="MJ Store Premium Digital Products"
+                  className="relative w-full h-[320px] md:h-[400px] object-cover rounded-[1.5rem] border border-purple-500/10 bg-black/40 drop-shadow-[0_0_80px_rgba(168,85,247,0.25)]"
+                />
+              </motion.div>
             </div>
           </motion.div>
         </div>
