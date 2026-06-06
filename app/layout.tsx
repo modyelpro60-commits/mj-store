@@ -24,7 +24,9 @@ export default function RootLayout({
         <AppProviders>{children}</AppProviders>
         <Toaster
           position="top-right"
+          gap={12}
           toastOptions={{
+            duration: 4000,
             style: {
               background: "#09090b",
               border: "1px solid rgba(255,255,255,0.08)",

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
-  Check,
   LoaderCircle,
   Search,
   Sparkles,
@@ -12,6 +11,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../../components/auth/AuthProvider";
+import StatusDropdown from "../../../components/StatusDropdown";
+import Skeleton from "../../../components/Skeleton";
 
 const ROLE_OPTIONS = ["user", "helper", "moderator", "admin"] as const;
 type RoleOption = (typeof ROLE_OPTIONS)[number];
@@ -72,6 +73,52 @@ function statusBadgeClass(status: StatusOption): string {
   return "bg-red-600/20 border-red-500/30 text-red-200";
 }
 
+function FilterSelect({
+  value,
+  onChange,
+  options,
+  label,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: readonly string[];
+  label: string;
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full appearance-none rounded-2xl border border-white/10 bg-[#18181b] px-4 py-3 pr-10 text-sm font-semibold text-zinc-200 outline-none transition-all duration-300 focus:border-purple-400/40"
+        style={{
+          WebkitAppearance: "none",
+          MozAppearance: "none",
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "right 12px center",
+          backgroundSize: "16px",
+        }}
+      >
+        <option value="All">All {label}</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+
+      {/* Native <select> option styling via CSS — the dropdown is still browser-native
+          but the closed state matches the dark theme */}
+      <style jsx>{`
+        select option {
+          background: #18181b;
+          color: #e4e4e7;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function UsersPage() {
   const router = useRouter();
   const { accessToken, profile, role, status, isLoading } = useAuth();
@@ -91,10 +138,8 @@ export default function UsersPage() {
   useEffect(() => {
     if (isLoading) return;
 
-    // Suspended/Banned admins are not allowed into any admin page.
     if (status && status !== "Active") return;
 
-    // Role-based admin-only page.
     if (role !== "admin") {
       router.replace("/");
     }
@@ -320,47 +365,19 @@ export default function UsersPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search users..."
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition-all duration-300 placeholder:text-zinc-500 focus:border-purple-400/40 focus:bg-purple-500/10"
+                  className="w-full rounded-2xl border border-white/10 bg-[#18181b] px-4 py-3 outline-none transition-all duration-300 placeholder:text-zinc-500 focus:border-purple-400/40 focus:bg-purple-500/10"
                 />
               </div>
 
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition-all duration-300 focus:border-purple-400/40"
-              >
-                <option value="All">All Roles</option>
-                {ROLE_OPTIONS.map((r) => (
-                  <option key={r} value={r}>
-                    {roleLabel(r)}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition-all duration-300 focus:border-purple-400/40"
-              >
-                <option value="All">All Statuses</option>
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+              <FilterSelect value={roleFilter} onChange={(v) => setRoleFilter(v as RoleFilter)} options={ROLE_OPTIONS} label="Roles" />
+              <FilterSelect value={statusFilter} onChange={(v) => setStatusFilter(v as StatusFilter)} options={STATUS_OPTIONS} label="Statuses" />
             </div>
           </div>
 
           <div className="mt-6">
             {loading ? (
               <div className="grid gap-4 sm:grid-cols-2">
-                {Array.from({ length: 8 }).map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="h-[140px] animate-pulse rounded-[1.5rem] border border-white/10 bg-white/5"
-                  />
-                ))}
+                <Skeleton count={8} />
               </div>
             ) : users.length === 0 ? (
               <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-white/5 p-8 text-zinc-400">
@@ -380,7 +397,7 @@ export default function UsersPage() {
                     </div>
 
                     <div className="divide-y divide-white/10">
-                      {users.map((u, index) => {
+                      {users.map((u) => {
                         const isSelf = selfId ? u.id === selfId : false;
                         const roleValue = (u.role ?? "user") as RoleOption;
 
@@ -424,45 +441,23 @@ export default function UsersPage() {
 
                               <div className="flex gap-3">
                                 <div className="min-w-[170px]">
-                                  <label className="block text-xs uppercase tracking-[0.22em] text-zinc-500 mb-2">
-                                    Role
-                                  </label>
-                                  <select
-                                    disabled={savingUserId === u.id}
+                                  <label className="block text-xs uppercase tracking-[0.22em] text-zinc-500 mb-2">Role</label>
+                                  <StatusDropdown
                                     value={roleValue}
-                                    onChange={(e) => setRole(u.id, e.target.value as RoleOption)}
-                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition-all duration-300 focus:border-purple-400/40 disabled:opacity-50"
-                                  >
-                                    {ROLE_OPTIONS.map((r) => {
-                                      const disabled = isSelf && r !== "admin";
-                                      return (
-                                        <option key={r} value={r} disabled={disabled}>
-                                          {roleLabel(r)}
-                                        </option>
-                                      );
-                                    })}
-                                  </select>
+                                    onChange={(v) => setRole(u.id, v as RoleOption)}
+                                    options={ROLE_OPTIONS}
+                                    disabled={savingUserId === u.id}
+                                  />
                                 </div>
 
                                 <div className="min-w-[170px]">
-                                  <label className="block text-xs uppercase tracking-[0.22em] text-zinc-500 mb-2">
-                                    Status
-                                  </label>
-                                  <select
-                                    disabled={savingUserId === u.id}
+                                  <label className="block text-xs uppercase tracking-[0.22em] text-zinc-500 mb-2">Status</label>
+                                  <StatusDropdown
                                     value={u.status}
-                                    onChange={(e) => setStatus(u.id, e.target.value as StatusOption)}
-                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition-all duration-300 focus:border-purple-400/40 disabled:opacity-50"
-                                  >
-                                    {STATUS_OPTIONS.map((s) => {
-                                      const disabled = isSelf && s !== "Active";
-                                      return (
-                                        <option key={s} value={s} disabled={disabled}>
-                                          {s}
-                                        </option>
-                                      );
-                                    })}
-                                  </select>
+                                    onChange={(v) => setStatus(u.id, v as StatusOption)}
+                                    options={STATUS_OPTIONS}
+                                    disabled={savingUserId === u.id}
+                                  />
                                 </div>
                               </div>
 
@@ -517,39 +512,23 @@ export default function UsersPage() {
 
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
                           <div>
-                            <label className="block text-xs uppercase tracking-[0.22em] text-zinc-500 mb-2">
-                              Role
-                            </label>
-                            <select
-                              disabled={savingUserId === u.id}
+                            <label className="block text-xs uppercase tracking-[0.22em] text-zinc-500 mb-2">Role</label>
+                            <StatusDropdown
                               value={roleValue}
-                              onChange={(e) => setRole(u.id, e.target.value as RoleOption)}
-                              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition-all duration-300 focus:border-purple-400/40 disabled:opacity-50"
-                            >
-                              {ROLE_OPTIONS.map((r) => (
-                                <option key={r} value={r} disabled={isSelf && r !== "admin"}>
-                                  {roleLabel(r)}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(v) => setRole(u.id, v as RoleOption)}
+                              options={ROLE_OPTIONS}
+                              disabled={savingUserId === u.id}
+                            />
                           </div>
 
                           <div>
-                            <label className="block text-xs uppercase tracking-[0.22em] text-zinc-500 mb-2">
-                              Status
-                            </label>
-                            <select
-                              disabled={savingUserId === u.id}
+                            <label className="block text-xs uppercase tracking-[0.22em] text-zinc-500 mb-2">Status</label>
+                            <StatusDropdown
                               value={u.status}
-                              onChange={(e) => setStatus(u.id, e.target.value as StatusOption)}
-                              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition-all duration-300 focus:border-purple-400/40 disabled:opacity-50"
-                            >
-                              {STATUS_OPTIONS.map((s) => (
-                                <option key={s} value={s} disabled={isSelf && s !== "Active"}>
-                                  {s}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(v) => setStatus(u.id, v as StatusOption)}
+                              options={STATUS_OPTIONS}
+                              disabled={savingUserId === u.id}
+                            />
                           </div>
                         </div>
 
