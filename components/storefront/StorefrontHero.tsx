@@ -155,7 +155,7 @@ export default function StorefrontHero() {
                 <img
                   src="/Hero.jpg"
                   alt="MJ Store Premium Digital Products"
-                  className="relative w-full h-[320px] md:h-[400px] object-cover rounded-[1.5rem] border border-purple-500/10 bg-black/40 drop-shadow-[0_0_80px_rgba(168,85,247,0.25)]"
+                  className="relative w-full h-[280px] md:h-[360px] object-cover rounded-[1.5rem] border border-purple-500/10 bg-black/40 drop-shadow-[0_0_80px_rgba(168,85,247,0.25)]"
                 />
               </motion.div>
             </div>

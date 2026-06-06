@@ -138,6 +138,7 @@ export const ar = {
   // Hero status indicators
   "home.hero.status.activeCustomersLabel": "عملاء نشطون",
   "home.hero.status.totalCustomersLabel": "إجمالي العملاء",
+  "home.hero.status.totalProductsLabel": "إجمالي المنتجات",
 
   // Home V3
   "home.featured.title": "منتجات مميزة",

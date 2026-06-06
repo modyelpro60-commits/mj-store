@@ -1,12 +1,21 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Flame, LoaderCircle, ShoppingBag, Star, Zap } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ArrowLeft,
+  ChevronRight,
+  LoaderCircle,
+  ShoppingBag,
+  Star,
+} from "lucide-react";
 import { normalizeProductFeatures } from "../../app/lib/products/featureHelpers";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
 import { useAuth } from "../auth/AuthProvider";
+import AuroraBackground from "./effects/AuroraBackground";
+import FloatingParticles from "./effects/FloatingParticles";
+import MouseGlow from "./effects/MouseGlow";
 
 type Product = {
   id: number | string;
@@ -18,10 +27,6 @@ type Product = {
   features?: string | string[] | null;
 };
 
-type ProductDetailsViewProps = {
-  product: Product;
-};
-
 type Review = {
   id: number;
   rating: number;
@@ -30,362 +35,405 @@ type Review = {
   createdAt: string;
 };
 
-export default function ProductDetailsView({ product }: ProductDetailsViewProps) {
+export default function ProductDetailsView({ product }: { product: Product }) {
   const { translate } = useLanguage();
   const { accessToken, isLoading: authLoading } = useAuth();
   const salesCount = Number(product.sales_count) || 0;
+  const price = Number(product.price) || 0;
   const features = normalizeProductFeatures(product ?? ({} as Product));
+  const imgRef = useRef<HTMLDivElement>(null);
 
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [loadingReviews, setLoadingReviews] = useState(true);
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitDone, setSubmitDone] = useState(false);
+
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const onMove = useCallback((e: React.MouseEvent) => {
+    if (!imgRef.current) return;
+    const b = imgRef.current.getBoundingClientRect();
+    setTilt({
+      x: ((e.clientX - b.left) / b.width - 0.5) * 10,
+      y: ((e.clientY - b.top) / b.height - 0.5) * -10,
+    });
+  }, []);
+  const onLeave = useCallback(() => setTilt({ x: 0, y: 0 }), []);
 
   useEffect(() => {
-    async function loadReviews() {
-      try {
-        const res = await fetch(`/api/product/${product.id}/reviews`);
-        const data = await res.json();
-        if (data.success) setReviews(data.data);
-      } catch {
-        // ignore
-      } finally {
-        setReviewsLoading(false);
-      }
-    }
-    loadReviews();
+    fetch(`/api/product/${product.id}/reviews`)
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setReviews(d.data); })
+      .catch(() => {})
+      .finally(() => setLoadingReviews(false));
   }, [product.id]);
 
-  async function submitReview(e: React.FormEvent) {
+  async function postReview(e: React.FormEvent) {
     e.preventDefault();
     if (submitting || !accessToken) return;
     setSubmitting(true);
     setSubmitError("");
-    setSubmitSuccess(false);
-
+    setSubmitDone(false);
     try {
-      const res = await fetch(`/api/product/${product.id}/reviews`, {
+      const r = await fetch(`/api/product/${product.id}/reviews`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ rating: newRating, comment: newComment.trim() }),
       });
-
-      const data = await res.json();
-      if (!data.success) {
-        setSubmitError(data.error || "Failed to submit review");
-        return;
-      }
-
-      setSubmitSuccess(true);
+      const d = await r.json();
+      if (!d.success) { setSubmitError(d.error || "Error"); return; }
+      setSubmitDone(true);
       setNewComment("");
-
-      const reloadRes = await fetch(`/api/product/${product.id}/reviews`);
-      const reloadData = await reloadRes.json();
-      if (reloadData.success) setReviews(reloadData.data);
-    } catch {
-      setSubmitError("Failed to submit review");
-    } finally {
-      setSubmitting(false);
-    }
+      const reload = await fetch(`/api/product/${product.id}/reviews`);
+      const rd = await reload.json();
+      if (rd.success) setReviews(rd.data);
+    } catch { setSubmitError("Error"); }
+    finally { setSubmitting(false); }
   }
 
-  const isAuthenticated = !authLoading && !!accessToken;
-  const avgRating = reviews.length
-    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
-    : null;
+  const isUser = !authLoading && !!accessToken;
+  const avgRating = reviews.length ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : null;
+  const descParagraphs = (typeof product.full_description === "string" ? product.full_description : "")
+    .split("\n")
+    .filter((p) => p.trim().length > 0);
 
   return (
-    <div className="bg-[#050507] min-h-screen">
-      {/* Background */}
-      <div className="fixed inset-0 -z-10 pointer-events-none">
-        <div className="absolute top-[-300px] left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] bg-purple-700/20 rounded-full blur-[250px]" />
-        <div
-          className="absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage: `linear-gradient(rgba(168,85,247,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.15) 1px, transparent 1px)`,
-            backgroundSize: "60px 60px",
-          }}
-        />
-      </div>
+    <div className="min-h-screen bg-black text-white relative">
+      <AuroraBackground />
+      <FloatingParticles />
+      <MouseGlow />
 
-      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-8 md:py-12 lg:py-16">
-        {/* Breadcrumb */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-sm text-zinc-500 mb-10">
-          <Link href="/" className="hover:text-purple-300 transition">{translate("nav.quickLinks")}</Link>
-          <span>/</span>
-          <span className="text-zinc-300">{product.name}</span>
-        </motion.div>
-
-        {/* ─── HERO SECTION ─── */}
-        <div className="grid lg:grid-cols-2 gap-10 lg:gap-20 items-start mb-20 lg:mb-28">
-          {/* Image */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6 }}
-            className="relative overflow-hidden rounded-3xl border border-purple-500/20 bg-zinc-900/80 shadow-[0_40px_120px_rgba(0,0,0,0.6)]"
-          >
-            <div className="aspect-[4/3] md:aspect-[16/10] relative flex items-center justify-center">
-              <img
-                src={product.image}
-                alt={product.name}
-                className="w-full h-full object-contain p-8 md:p-16 transition-transform duration-700 hover:scale-105"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.22),transparent_50%)]" />
-            </div>
-            {salesCount >= 100 && (
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                className="absolute top-4 left-4 px-4 py-2 rounded-full bg-yellow-500 text-black text-sm font-bold shadow-lg shadow-yellow-500/30"
-              >
-                {salesCount >= 500 ? "👑 TOP SELLER" : "🔥 TRENDING"}
-              </motion.div>
-            )}
-            {/* Review badge on image */}
-            {avgRating && reviews.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.35 }}
-                className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-yellow-500/25 text-yellow-400 text-xs font-bold"
-              >
-                <Star className="h-3.5 w-3.5 fill-yellow-400" />
-                {avgRating}
-              </motion.div>
-            )}
+      {/* ═══════════════════════════════════════
+             HERO — product-centered, full viewport
+             ═══════════════════════════════════════ */}
+      <section className="relative z-10 min-h-screen flex items-center px-5 sm:px-8">
+        <div className="mx-auto w-full max-w-[900px]">
+          {/* Back */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-2">
+            <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-zinc-600 hover:text-purple-300 transition-colors">
+              <ArrowLeft className="h-3 w-3" /> Back
+            </Link>
           </motion.div>
 
-          {/* Info */}
+          {/* ─── PRODUCT IMAGE — centered, dominant ─── */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            ref={imgRef}
+            onMouseMove={onMove}
+            onMouseLeave={onLeave}
+            className="relative flex justify-center mb-6"
+          >
+            {/* Aura */}
+            <motion.div
+              className="absolute w-[130%] h-[130%] rounded-full"
+              style={{
+                background: "radial-gradient(circle, rgba(168,85,247,0.18) 0%, rgba(217,70,239,0.06) 40%, transparent 65%)",
+              }}
+              animate={{ scale: [1, 1.1, 1], opacity: [0.25, 0.5, 0.25] }}
+              transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+            />
+            {/* Frame */}
+            <motion.div
+              className="relative w-full max-w-[500px] aspect-square rounded-[2.5rem] border border-purple-500/10 bg-gradient-to-br from-zinc-900 to-black shadow-[0_60px_200px_rgba(0,0,0,0.7)] overflow-hidden"
+              style={{ rotateX: tilt.y, rotateY: tilt.x, transformStyle: "preserve-3d" }}
+              transition={{ type: "spring", stiffness: 120, damping: 12 }}
+            >
+              <motion.div
+                className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-purple-400/30 to-transparent"
+                animate={{ opacity: [0.3, 0.9, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+              <div className="w-full h-full flex items-center justify-center p-8 sm:p-12 md:p-16">
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="w-full h-full object-contain"
+                  style={{ filter: "drop-shadow(0 0 50px rgba(168,85,247,0.1))" }}
+                />
+                {salesCount >= 50 && (
+                  <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+                    className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-black text-[10px] font-bold shadow-[0_0_20px_rgba(251,191,36,0.2)]"
+                  >
+                    {salesCount >= 500 ? "Top Seller" : "Trending"}
+                  </motion.div>
+                )}
+                {avgRating && reviews.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }}
+                    className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-lg border border-amber-500/8 text-amber-400/60 text-[10px] font-bold"
+                  >
+                    <Star className="h-3 w-3 fill-amber-400/60" /> {avgRating}
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+
+          {/* ─── TITLE ─── */}
+          <motion.h1
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="space-y-6"
+            className="text-6xl sm:text-7xl md:text-8xl font-black leading-[0.92] tracking-[-0.02em] text-center mb-4"
           >
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-[1.05] break-words">
+            <span className="bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent drop-shadow-[0_2px_15px_rgba(168,85,247,0.15)]">
               {product.name}
-            </h1>
+            </span>
+          </motion.h1>
 
-            <div className="space-y-4">
-              {/* Price */}
-              <div className="flex items-baseline gap-3">
-                <span className="text-5xl sm:text-6xl lg:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-fuchsia-400 drop-shadow-[0_0_30px_rgba(168,85,247,0.3)]">
-                  {product.price}
-                </span>
-                <span className="text-xl font-bold text-purple-200/70">EGP</span>
-              </div>
+          {/* ─── RATING + SALES ─── */}
+          {(avgRating || salesCount > 0) && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, delay: 0.15 }}
+              className="flex items-center justify-center gap-5 mb-5"
+            >
+              {avgRating && reviews.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={`h-4 w-4 ${i < Math.round(Number(avgRating)) ? "fill-amber-400/70 text-amber-400/70" : "text-zinc-700"}`} />
+                    ))}
+                  </div>
+                  <span className="text-sm font-bold text-amber-400/70">{avgRating}</span>
+                  <span className="text-xs text-zinc-600">({reviews.length})</span>
+                </div>
+              )}
+              {salesCount > 0 && (
+                <span className="text-xs text-zinc-500 font-medium">{salesCount.toLocaleString()}+ sold</span>
+              )}
+            </motion.div>
+          )}
 
-              {/* 🔥 Sold Count */}
-              <div className="flex items-center gap-2">
-                <motion.span
-                  animate={{ scale: [1, 1.15, 1] }}
-                  transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-                  className="relative"
-                >
-                  <Flame className="h-6 w-6 text-orange-400 drop-shadow-[0_0_12px_rgba(251,146,60,0.5)]" />
-                </motion.span>
-                <span className="text-lg font-bold text-orange-300">
-                  {salesCount} {translate("product.sold")}
-                </span>
-              </div>
+          {/* ─── DESCRIPTION EXCERPT ─── */}
+          {descParagraphs.length > 0 && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+              className="text-sm text-zinc-500 text-center max-w-lg mx-auto mb-6 leading-relaxed"
+            >
+              {descParagraphs[0]}
+            </motion.p>
+          )}
+
+          {/* ─── PRICE ─── */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.25 }}
+            className="text-center mb-6"
+          >
+            <span className="text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-bold block mb-1">Price</span>
+            <div className="flex items-baseline justify-center gap-3">
+              <span
+                className="text-7xl sm:text-8xl md:text-9xl font-black leading-none"
+                style={{
+                  background: "linear-gradient(135deg, #fff 0%, #a78bfa 40%, #e879f9 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  filter: "drop-shadow(0 0 30px rgba(168,85,247,0.2))",
+                }}
+              >
+                {price.toLocaleString()}
+              </span>
+              <span className="text-xl font-bold text-zinc-500">EGP</span>
             </div>
+          </motion.div>
 
-            {/* Buy Now */}
+          {/* ─── CTA — full width, massive ─── */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+            className="text-center"
+          >
             <Link href={`/checkout?product=${product.id}`}>
               <motion.button
-                whileHover={{ boxShadow: "0 0 80px rgba(168,85,247,0.4)", y: -3 }}
-                whileTap={{ scale: 0.97 }}
-                className="w-full sm:w-auto rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-12 py-6 text-xl font-black text-white border border-purple-400/30 shadow-[0_0_50px_rgba(168,85,247,0.3)] transition-all duration-300 hover:from-purple-700 hover:to-fuchsia-700 flex items-center justify-center gap-3"
+                whileHover={{ scale: 1.03, boxShadow: "0 0 80px rgba(168,85,247,0.3)" }}
+                whileTap={{ scale: 0.95 }}
+                className="group inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-16 py-6 text-xl font-black text-white border border-purple-400/15 shadow-[0_0_50px_rgba(168,85,247,0.15)] hover:from-purple-700 hover:to-fuchsia-700 transition-all w-full sm:w-auto min-w-[320px]"
               >
                 <ShoppingBag className="h-6 w-6" />
                 {translate("nav.buyNow")}
+                <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </motion.button>
             </Link>
           </motion.div>
         </div>
+      </section>
 
-        {/* ─── DESCRIPTION SECTION ─── */}
-        <motion.section
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-          className="mb-20 lg:mb-28"
-        >
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-6 md:p-12 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.3)]">
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-black mb-8 tracking-tight">
-              {translate("product.description")}
-            </h2>
-            <div className="prose prose-invert prose-lg max-w-5xl text-zinc-300 leading-[1.8] space-y-4">
-              {(typeof product.full_description === "string" ? product.full_description : "").split("\n").map((paragraph, i) => (
-                <p key={i}>{paragraph || "\u00A0"}</p>
+      {/* ═══════════════════════════════════════
+             FULL DESCRIPTION
+             ═══════════════════════════════════════ */}
+      {descParagraphs.length > 1 && (
+        <section className="relative z-10 max-w-[900px] mx-auto px-5 sm:px-8 pb-12">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.35 }}
+            className="rounded-2xl border border-white/[0.03] bg-zinc-950/25 p-8 md:p-10 backdrop-blur-xl"
+          >
+            <h2 className="text-xl md:text-2xl font-black mb-5 tracking-tight">{translate("product.description")}</h2>
+            <div className="text-zinc-400 leading-[1.8] space-y-4 text-sm md:text-base max-w-3xl">
+              {descParagraphs.slice(1).map((p, i) => <p key={i}>{p}</p>)}
+            </div>
+          </motion.div>
+        </section>
+      )}
+
+      {/* ═══════════════════════════════════════
+             FEATURES
+             ═══════════════════════════════════════ */}
+      {features.length > 0 && (
+        <section className="relative z-10 max-w-[900px] mx-auto px-5 sm:px-8 pb-12">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.35 }}
+            className="rounded-2xl border border-white/[0.03] bg-zinc-950/25 p-8 md:p-10 backdrop-blur-xl"
+          >
+            <h2 className="text-xl md:text-2xl font-black mb-5 tracking-tight">{translate("product.whatsIncluded")}</h2>
+            <div className="grid sm:grid-cols-2 gap-2.5">
+              {features.map((f, i) => (
+                <motion.div
+                  key={`${f}-${i}`}
+                  initial={{ opacity: 0, y: 6 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.02, duration: 0.3 }}
+                  whileHover={{ y: -2, borderColor: "rgba(168,85,247,0.2)" }}
+                  className="flex items-center gap-3 rounded-xl border border-purple-500/5 bg-white/[0.015] px-4 py-3 transition-all"
+                >
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-purple-500/8 text-purple-300/50">
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="text-zinc-300 text-sm font-medium">{f}</span>
+                </motion.div>
               ))}
             </div>
-            <div className="mt-8 pt-6 border-t border-white/5">
-              <span className="text-sm text-zinc-500">
-                {translate("product.sold")} {salesCount} {translate("product.times")}
-              </span>
-            </div>
-          </div>
-        </motion.section>
+          </motion.div>
+        </section>
+      )}
 
-        {/* ─── FEATURES SECTION ─── */}
-        {features.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="mb-20 lg:mb-28"
-          >
-            <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-6 md:p-12 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.3)]">
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-black mb-10 tracking-tight">
-                {translate("product.whatsIncluded")}
-              </h2>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {features.map((feature, index) => (
-                  <motion.div
-                    key={`${feature}-${index}`}
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.25 + index * 0.04 }}
-                    whileHover={{ y: -4, borderColor: "rgba(168,85,247,0.4)", boxShadow: "0 0 40px rgba(168,85,247,0.12)" }}
-                    className="flex items-start gap-4 rounded-xl border border-purple-500/15 bg-white/[0.03] p-5 min-h-[80px] transition-all duration-300"
-                  >
-                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-purple-500/20 text-purple-300 flex-shrink-0 mt-0.5 shadow-[0_0_20px_rgba(168,85,247,0.15)]">
-                      <Zap className="h-4.5 w-4.5" />
-                    </span>
-                    <span className="text-zinc-200 font-medium leading-relaxed">{feature}</span>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </motion.section>
-        )}
-
-        {/* ─── REVIEWS SECTION ─── */}
-        <motion.section
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.25 }}
-          className="mb-20 lg:mb-28"
+      {/* ═══════════════════════════════════════
+             REVIEWS
+             ═══════════════════════════════════════ */}
+      <section className="relative z-10 max-w-[900px] mx-auto px-5 sm:px-8 pb-20">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.35 }}
+          className="rounded-2xl border border-white/[0.03] bg-zinc-950/25 p-8 md:p-10 backdrop-blur-xl"
         >
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-6 md:p-12 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.3)]">
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-black mb-10 flex items-center gap-4 tracking-tight">
-              <Star className="h-8 w-8 text-yellow-400 fill-yellow-400" />
-              Reviews
-              {avgRating && (
-                <span className="text-lg font-bold text-yellow-400 bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/20">
-                  {avgRating}
-                </span>
-              )}
-              <span className="text-base font-normal text-zinc-500">({reviews.length})</span>
-            </h2>
-
-            {/* Submit Review (auth only) */}
-            {isAuthenticated ? (
-              <form onSubmit={submitReview} className="mb-10 p-6 rounded-xl border border-purple-500/20 bg-purple-500/5 shadow-[0_0_30px_rgba(168,85,247,0.06)]">
-                <h3 className="text-lg font-bold mb-5">Write a review</h3>
-                <div className="mb-5">
-                  <label className="block text-sm text-zinc-400 mb-2">Rating</label>
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setNewRating(star)}
-                        className="p-1 transition-all hover:scale-110"
-                      >
-                        <Star
-                          className={`h-8 w-8 ${star <= newRating ? "fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.3)]" : "text-zinc-600"}`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="mb-5">
-                  <label className="block text-sm text-zinc-400 mb-2">Comment</label>
-                  <textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Share your experience with this product..."
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-white outline-none transition-all placeholder:text-zinc-600 focus:border-purple-500/40 focus:bg-purple-500/[0.04] min-h-[110px] resize-y"
-                    required
-                  />
-                </div>
-                {submitError && <p className="text-red-400 text-sm mb-3">{submitError}</p>}
-                {submitSuccess && <p className="text-emerald-400 text-sm mb-3">Review submitted successfully!</p>}
-                <button
-                  type="submit"
-                  disabled={submitting || !newComment.trim()}
-                  className="rounded-xl bg-purple-600 px-8 py-3.5 font-bold text-white transition-all hover:bg-purple-700 hover:shadow-[0_0_30px_rgba(168,85,247,0.25)] disabled:opacity-50"
-                >
-                  {submitting ? "Submitting..." : "Submit Review"}
-                </button>
-              </form>
-            ) : (
-              <div className="mb-10 p-6 rounded-xl border border-white/10 bg-white/5 text-center">
-                <Star className="h-8 w-8 text-zinc-600 mx-auto mb-3" />
-                <p className="text-zinc-400 mb-4">Login to write a review</p>
-                <Link href="/login">
-                  <button className="rounded-xl bg-purple-600 px-8 py-3.5 font-bold text-white transition-all hover:bg-purple-700 hover:shadow-[0_0_30px_rgba(168,85,247,0.25)]">
-                    {translate("nav.login")}
-                  </button>
-                </Link>
+          <div className="flex items-center gap-3 mb-6">
+            <h2 className="text-xl md:text-2xl font-black tracking-tight">Reviews</h2>
+            {avgRating && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/6 border border-amber-500/6">
+                <Star className="h-3 w-3 fill-amber-400/50 text-amber-400/50" />
+                <span className="text-[11px] font-bold text-amber-400/60">{avgRating}</span>
+                <span className="text-[11px] text-zinc-600">({reviews.length})</span>
               </div>
             )}
+          </div>
 
-            {/* Reviews List */}
-            {reviewsLoading ? (
-              <div className="flex items-center gap-3 text-zinc-400 py-8">
-                <LoaderCircle className="h-5 w-5 animate-spin" />
-                Loading reviews...
+          {isUser ? (
+            <form onSubmit={postReview} className="mb-8 p-5 rounded-xl border border-purple-500/5 bg-purple-500/[0.02]">
+              <h3 className="text-sm font-bold mb-3 text-zinc-200">Write a review</h3>
+              <div className="mb-3">
+                <label className="block text-[11px] text-zinc-600 mb-1.5 font-medium">Rating</label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <button key={s} type="button" onClick={() => setNewRating(s)} className="p-0.5 hover:scale-110 transition">
+                      <Star className={`h-5 w-5 ${s <= newRating ? "fill-amber-400/60 text-amber-400/60" : "text-zinc-700"}`} />
+                    </button>
+                  ))}
+                </div>
               </div>
-            ) : reviews.length === 0 ? (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-10 text-center">
-                <Star className="h-12 w-12 text-zinc-600 mx-auto mb-4" />
-                <p className="text-zinc-400 text-lg font-medium">No reviews yet.</p>
-                <p className="text-zinc-500 text-sm mt-2">Be the first customer to leave a review.</p>
+              <div className="mb-3">
+                <label className="block text-[11px] text-zinc-600 mb-1.5 font-medium">Comment</label>
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Share your experience..."
+                  className="w-full rounded-xl border border-white/5 bg-white/[0.015] px-4 py-3 text-white outline-none placeholder:text-zinc-700 focus:border-purple-500/20 text-sm min-h-[90px] resize-y leading-relaxed"
+                  required
+                />
               </div>
-            ) : (
-              <div className="space-y-5">
-                {reviews.map((review) => (
+              {submitError && <p className="text-red-400 text-xs mb-2">{submitError}</p>}
+              {submitDone && <p className="text-emerald-400 text-xs mb-2">Submitted!</p>}
+              <button type="submit" disabled={submitting || !newComment.trim()}
+                className="rounded-xl bg-purple-600 px-5 py-2.5 font-bold text-white text-xs hover:bg-purple-700 disabled:opacity-50 transition">
+                {submitting ? "Submitting..." : "Submit Review"}
+              </button>
+            </form>
+          ) : (
+            <div className="mb-8 p-5 rounded-xl border border-white/[0.03] bg-white/[0.01] text-center">
+              <Star className="h-7 w-7 text-zinc-700 mx-auto mb-2" />
+              <p className="text-zinc-500 mb-3 text-xs font-medium">Login to write a review</p>
+              <Link href="/login">
+                <button className="rounded-xl bg-purple-600 px-5 py-2.5 font-bold text-white text-xs hover:bg-purple-700 transition">{translate("nav.login")}</button>
+              </Link>
+            </div>
+          )}
+
+          {loadingReviews ? (
+            <div className="flex items-center justify-center gap-2 text-zinc-600 py-6">
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+              <span className="text-xs">Loading...</span>
+            </div>
+          ) : reviews.length === 0 ? (
+            <div className="rounded-xl border border-white/[0.03] bg-white/[0.01] p-10 text-center">
+              <Star className="h-8 w-8 text-zinc-800 mx-auto mb-2" />
+              <p className="text-zinc-500 text-xs font-medium">No reviews yet.</p>
+              <p className="text-zinc-700 text-[11px] mt-1">Be the first to leave one.</p>
+            </div>
+          ) : (
+            <div className="grid gap-2.5">
+              <AnimatePresence>
+                {reviews.map((rv) => (
                   <motion.div
-                    key={review.id}
-                    initial={{ opacity: 0, y: 8 }}
+                    key={rv.id}
+                    initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="rounded-xl border border-white/10 bg-white/5 p-5 hover:border-purple-500/15 transition-colors"
+                    exit={{ opacity: 0 }} layout
+                    className="rounded-xl border border-white/[0.03] bg-white/[0.015] p-4 transition-all hover:border-purple-500/5"
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-purple-500/30 to-fuchsia-500/30 text-purple-200 text-sm font-bold shadow-[0_0_20px_rgba(168,85,247,0.1)]">
-                          {review.authorName ? review.authorName.charAt(0).toUpperCase() : "?"}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-purple-600/12 to-fuchsia-600/12 text-purple-200/50 text-[10px] font-bold border border-purple-500/5">
+                          {rv.authorName ? rv.authorName.charAt(0).toUpperCase() : "?"}
                         </div>
-                        <span className="font-bold text-white">{review.authorName}</span>
+                        <div>
+                          <span className="font-bold text-white text-[11px]">{rv.authorName}</span>
+                          <div className="flex gap-0.5 mt-0.5">
+                            {Array.from({ length: rv.rating }).map((_, j) => (
+                              <Star key={j} className="h-2 w-2 fill-purple-400/40 text-purple-400/40" />
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                      <span className="text-xs text-zinc-500">
-                        {new Date(review.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                      <span className="text-[10px] text-zinc-600">
+                        {new Date(rv.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
                       </span>
                     </div>
-                    <div className="flex gap-0.5 mb-3">
-                      {Array.from({ length: review.rating }).map((_, j) => (
-                        <Star key={j} className="h-4 w-4 fill-purple-400 text-purple-400" />
-                      ))}
-                    </div>
-                    <p className="text-zinc-300 leading-relaxed">{review.comment}</p>
+                    <p className="text-zinc-400 leading-relaxed text-[12px]">{rv.comment}</p>
                   </motion.div>
                 ))}
-              </div>
-            )}
-          </div>
-        </motion.section>
-      </div>
+              </AnimatePresence>
+            </div>
+          )}
+        </motion.div>
+      </section>
     </div>
   );
 }

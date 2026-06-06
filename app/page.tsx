@@ -98,32 +98,35 @@ export default async function Home() {
   const featured = featuredProduct ? [featuredProduct] : [];
 
   return (
-    <main className="min-h-screen bg-black text-white overflow-hidden">
+    <>
+      {/* Navbar rendered OUTSIDE <main> to prevent any parent containment issues */}
       <StorefrontNavbar />
 
-      {/* Hero */}
-      <StorefrontHero />
+      <main className="min-h-screen bg-black text-white">
+        {/* Hero */}
+        <StorefrontHero />
 
-      {/* Stats directly below CTA — compact pills */}
-      <HomeLiveStats
-        activeCustomers={stats.activeCustomers}
-        totalCustomers={stats.totalCustomers}
-        totalProducts={productList.length}
-      />
+        {/* Stats directly below CTA — compact pills */}
+        <HomeLiveStats
+          activeCustomers={stats.activeCustomers}
+          totalCustomers={stats.totalCustomers}
+          totalProducts={productList.length}
+        />
 
-      {/* Featured Products — reduced vertical spacing */}
-      <section id="best-sellers" className="max-w-[1600px] mx-auto px-8 pt-10 pb-16">
-        <HomeFeaturedProductsHeading />
-        <FeaturedProductsGrid products={featured as any} variant="featured" />
-      </section>
+        {/* Featured Products — compact spacing */}
+        <section id="best-sellers" className="max-w-[1600px] mx-auto px-8 pt-4 pb-12">
+          <HomeFeaturedProductsHeading />
+          <FeaturedProductsGrid products={featured as any} variant="featured" />
+        </section>
 
-      {/* Products Grid — reduced vertical spacing */}
-      <section id="products" className="max-w-[1600px] mx-auto px-8 pb-28">
-        <HomeProductsHeading />
-        <FeaturedProductsGrid products={list as any} variant="all" />
-      </section>
+        {/* Products Grid */}
+        <section id="products" className="max-w-[1600px] mx-auto px-8 pb-28">
+          <HomeProductsHeading />
+          <FeaturedProductsGrid products={list as any} variant="all" />
+        </section>
 
-      <HomeFooter />
-    </main>
+        <HomeFooter />
+      </main>
+    </>
   );
 }

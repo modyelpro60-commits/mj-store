@@ -115,7 +115,7 @@ export const en = {
   "home.testimonials.title": "Reviews that feel real",
   "home.testimonials.avgLabel": "average rating",
   "home.testimonials.summary":
-    "Premium service. Instant access. Secure checkout. That’s what customers keep coming back for.",
+    "Premium service. Instant access. Secure checkout. That's what customers keep coming back for.",
   "home.testimonials.card.verifiedPill": "Verified",
   "home.testimonials.footer.title": "Trusted by verified customers",
   "home.testimonials.footer.subtitle": "Fast access, secure payments, premium support",
@@ -136,10 +136,11 @@ export const en = {
   "home.cta.button.shopBestSellers": "Shop Best Sellers",
 
   "home.cta.quickPromise.title": "Quick promise",
-  "home.cta.quickPromise.desc": "You’ll get access instantly after payment—clean, simple, premium.",
+  "home.cta.quickPromise.desc": "You'll get access instantly after payment—clean, simple, premium.",
 
   "home.hero.status.activeCustomersLabel": "Active Customers",
   "home.hero.status.totalCustomersLabel": "Total Customers",
+  "home.hero.status.totalProductsLabel": "Total Products",
 
   // Home V3
   "home.featured.title": "Featured Products",

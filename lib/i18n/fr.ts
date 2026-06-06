@@ -137,6 +137,7 @@ export const fr = {
   // Hero status indicators
   "home.hero.status.activeCustomersLabel": "Clients actifs",
   "home.hero.status.totalCustomersLabel": "Nombre total de clients",
+  "home.hero.status.totalProductsLabel": "Total produits",
 
   // Home V3
   "home.featured.title": "Produits à la une",
