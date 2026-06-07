@@ -39,19 +39,27 @@ export default async function Home() {
 
   const productIds = productList.map((p) => p.id).filter(Boolean);
 
-  const { data: featureRows } = productIds.length
-    ? await supabase
-        .from("product_features")
-        .select("product_id,name,sort_order")
-        .in("product_id", productIds)
-    : { data: [] as any[] };
+  // Safely fetch features - if product_features table doesn't exist, gracefully degrade
+  let featureMap = new Map<string | number, any[]>();
+  try {
+    const { data: featureRows } = productIds.length
+      ? await supabase
+          .from("product_features")
+          .select("product_id,name,sort_order")
+          .in("product_id", productIds)
+      : { data: [] as any[] };
 
-  const featureMap = new Map<string | number, any[]>();
-  for (const row of (featureRows ?? []) as any[]) {
-    const key = String(row.product_id);
-    const curr = featureMap.get(key) ?? [];
-    curr.push(row);
-    featureMap.set(key, curr);
+    if (featureRows) {
+      for (const row of featureRows as any[]) {
+        const key = String(row.product_id);
+        const curr = featureMap.get(key) ?? [];
+        curr.push(row);
+        featureMap.set(key, curr);
+      }
+    }
+  } catch (e) {
+    // product_features table likely doesn't exist - skip features gracefully
+    console.warn("[page.tsx] Failed to fetch product_features, continuing without:", e);
   }
 
   const list = productList.map((product) => {

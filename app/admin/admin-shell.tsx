@@ -18,11 +18,11 @@ import { useAuth } from "../../components/auth/AuthProvider";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 const NAV_ITEMS = [
-  { href: "/",               labelKey: "admin.nav.home" as const,     icon: Home },
-  { href: "/admin",          labelKey: "admin.nav.overview" as const,  icon: LayoutDashboard },
-  { href: "/admin/products", labelKey: "admin.nav.products" as const,  icon: Boxes },
-  { href: "/admin/users",    labelKey: "admin.nav.users" as const,     icon: Users },
-  { href: "/admin/orders",   labelKey: "admin.nav.orders" as const,    icon: ShoppingCart },
+  { href: "/",               labelKey: "admin.nav.home"     as const, icon: Home          },
+  { href: "/admin",          labelKey: "admin.nav.overview" as const, icon: LayoutDashboard },
+  { href: "/admin/products", labelKey: "admin.nav.products" as const, icon: Boxes          },
+  { href: "/admin/orders",   labelKey: "admin.nav.orders"   as const, icon: ShoppingCart   },
+  { href: "/admin/users",    labelKey: "admin.nav.users"    as const, icon: Users          },
 ] as const;
 
 export default function AdminShell({ children }: { children: ReactNode }) {
@@ -34,31 +34,28 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     (item) => isLoading || role === "admin" || item.href !== "/admin/users"
   );
 
-  const currentItem = visibleItems.find((item) => item.href === pathname);
-  const currentLabel = currentItem ? translate(currentItem.labelKey) : translate("admin.nav.overview");
+  const currentLabel = visibleItems.find((item) => item.href === pathname)?.labelKey;
 
   const initials = profile?.full_name
-    ? profile.full_name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
+    ? profile.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : (profile?.email?.[0]?.toUpperCase() ?? "A");
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#050507] text-white">
+
+      {/* Background */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(168,85,247,0.18),_transparent_35%),radial-gradient(circle_at_top_right,_rgba(124,58,237,0.16),_transparent_30%),linear-gradient(180deg,_rgba(255,255,255,0.02),_transparent_20%)]" />
-        <div className="absolute inset-0 opacity-[0.13] [background-image:linear-gradient(rgba(168,85,247,0.18)_1px,transparent_1px),linear-gradient(90deg,rgba(168,85,247,0.18)_1px,transparent_1px)] [background-size:72px_72px]" />
-        <div className="absolute left-[-10%] top-[-15%] h-[32rem] w-[32rem] rounded-full bg-purple-700/20 blur-[160px]" />
-        <div className="absolute right-[-12%] top-[18%] h-[26rem] w-[26rem] rounded-full bg-fuchsia-500/10 blur-[140px]" />
-        <div className="absolute bottom-[-18%] left-[18%] h-[28rem] w-[28rem] rounded-full bg-violet-500/10 blur-[160px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(168,85,247,0.15),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(124,58,237,0.12),_transparent_30%)]" />
+        <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(rgba(168,85,247,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(168,85,247,0.2)_1px,transparent_1px)] [background-size:72px_72px]" />
+        <div className="absolute left-[-10%] top-[-15%] h-[32rem] w-[32rem] rounded-full bg-purple-700/15 blur-[160px]" />
+        <div className="absolute right-[-12%] top-[20%] h-[26rem] w-[26rem] rounded-full bg-fuchsia-500/8 blur-[140px]" />
+        <div className="absolute bottom-[-18%] left-[18%] h-[28rem] w-[28rem] rounded-full bg-violet-500/8 blur-[160px]" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1720px] flex-col gap-4 px-3 py-3 sm:px-4 sm:py-4 lg:flex-row lg:px-8 lg:py-6">
-        {/* Mobile bottom nav */}
-        <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-purple-500/20 bg-zinc-950/95 px-2 py-2 backdrop-blur-xl lg:hidden">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1720px] flex-col gap-4 px-3 py-3 sm:px-4 sm:py-4 lg:flex-row lg:px-6 lg:py-5">
+
+        {/* ── Mobile bottom nav ── */}
+        <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-purple-500/15 bg-[#050507]/95 px-2 py-2 backdrop-blur-xl lg:hidden">
           {visibleItems.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
@@ -70,11 +67,9 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                   active ? "text-purple-200" : "text-zinc-500 hover:text-zinc-300"
                 }`}
               >
-                <span
-                  className={`grid h-8 w-8 place-items-center rounded-xl transition-all duration-200 ${
-                    active ? "bg-purple-500/20 text-purple-200" : "text-zinc-400"
-                  }`}
-                >
+                <span className={`grid h-8 w-8 place-items-center rounded-xl transition-all duration-200 ${
+                  active ? "bg-purple-500/25 text-purple-200" : "text-zinc-500"
+                }`}>
                   <Icon className="h-4 w-4" />
                 </span>
                 <span>{translate(item.labelKey)}</span>
@@ -83,21 +78,22 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        {/* Desktop sidebar */}
-        <aside className="hidden lg:flex lg:flex-col rounded-[2rem] border border-white/10 bg-zinc-950/80 p-5 shadow-[0_0_0_1px_rgba(168,85,247,0.06),0_30px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:w-[280px] lg:flex-shrink-0">
+        {/* ── Desktop sidebar ── */}
+        <aside className="hidden lg:flex lg:flex-col rounded-[2rem] border border-white/[0.08] bg-zinc-950/85 p-4 shadow-[0_0_0_1px_rgba(168,85,247,0.05),0_30px_80px_rgba(0,0,0,0.6)] backdrop-blur-xl lg:sticky lg:top-5 lg:h-[calc(100vh-2.5rem)] lg:w-[264px] lg:shrink-0">
+
           {/* Logo */}
-          <div className="flex items-center gap-3 rounded-[1.5rem] border border-purple-500/15 bg-white/5 px-4 py-4">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl border border-purple-400/30 bg-purple-500/15 text-purple-200 shadow-[0_0_30px_rgba(168,85,247,0.25)]">
+          <div className="flex items-center gap-3 rounded-[1.5rem] border border-purple-500/15 bg-purple-500/[0.06] px-4 py-3.5">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl border border-purple-400/30 bg-purple-500/20 text-purple-200 shadow-[0_0_24px_rgba(168,85,247,0.2)]">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-purple-300/70">MJ Store</p>
-              <h1 className="text-lg font-black tracking-tight">{translate("admin.title")}</h1>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-purple-300/60">MJ Store</p>
+              <p className="text-base font-black tracking-tight">{translate("admin.title")}</p>
             </div>
           </div>
 
-          {/* Navigation */}
-          <nav className="mt-6 flex-1 space-y-2">
+          {/* Nav */}
+          <nav className="mt-5 flex-1 space-y-1">
             {visibleItems.map((item) => {
               const active = pathname === item.href;
               const Icon = item.icon;
@@ -105,117 +101,115 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`group flex items-center gap-3 rounded-2xl border px-4 py-3 transition-all duration-300 ${
+                  className={`group relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold transition-all duration-300 ${
                     active
-                      ? "border-purple-400/35 bg-purple-500/15 text-white shadow-[0_0_30px_rgba(168,85,247,0.22)]"
-                      : "border-transparent bg-white/0 text-zinc-400 hover:border-purple-500/20 hover:bg-white/5 hover:text-white"
+                      ? "border-purple-400/30 bg-purple-500/15 text-white shadow-[0_0_24px_rgba(168,85,247,0.18)]"
+                      : "border-transparent text-zinc-500 hover:border-white/[0.08] hover:bg-white/[0.04] hover:text-zinc-200"
                   }`}
                 >
-                  <span
-                    className={`grid h-10 w-10 place-items-center rounded-2xl transition-all duration-300 ${
-                      active
-                        ? "bg-purple-500/20 text-purple-200"
-                        : "bg-white/5 text-zinc-300 group-hover:bg-purple-500/10 group-hover:text-purple-200"
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" />
+                  {active && (
+                    <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-purple-400" />
+                  )}
+                  <span className={`grid h-9 w-9 place-items-center rounded-xl transition-all duration-300 ${
+                    active
+                      ? "bg-purple-500/25 text-purple-200"
+                      : "bg-white/[0.04] text-zinc-500 group-hover:bg-purple-500/10 group-hover:text-purple-300"
+                  }`}>
+                    <Icon className="h-4 w-4" />
                   </span>
-                  <span className="font-semibold">{translate(item.labelKey)}</span>
+                  {translate(item.labelKey)}
                 </Link>
               );
             })}
           </nav>
 
-          {/* User profile card */}
-          {profile && (
-            <div className="mt-6 rounded-[1.5rem] border border-purple-500/15 bg-white/[0.03] p-4">
+          {/* User card */}
+          {profile ? (
+            <div className="mt-4 rounded-[1.5rem] border border-white/[0.07] bg-white/[0.03] p-3.5">
               <div className="flex items-center gap-3">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-purple-500/20 text-sm font-black text-purple-200 ring-1 ring-purple-400/30">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-sm font-black text-white">
                   {initials}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-bold text-white">
+                  <p className="truncate text-sm font-bold text-white">
                     {profile.full_name ?? profile.email ?? "Admin"}
                   </p>
-                  <p className="truncate text-xs text-zinc-500">{profile.email}</p>
+                  <p className="truncate text-xs text-zinc-600">{profile.email}</p>
                 </div>
               </div>
 
               <div className="mt-3 flex items-center justify-between gap-2">
-                <span
-                  className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${
-                    role === "admin"
-                      ? "border-purple-400/30 bg-purple-500/15 text-purple-200"
-                      : "border-blue-400/30 bg-blue-500/15 text-blue-200"
-                  }`}
-                >
-                  {role === "admin"
-                    ? translate("admin.role.admin")
-                    : translate("admin.role.moderator")}
+                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                  role === "admin"
+                    ? "border-purple-400/25 bg-purple-500/15 text-purple-200"
+                    : "border-blue-400/25 bg-blue-500/10 text-blue-200"
+                }`}>
+                  {role === "admin" ? translate("admin.role.admin") : translate("admin.role.moderator")}
                 </span>
 
                 <button
                   type="button"
                   onClick={() => { void signOut(); }}
-                  className="flex items-center gap-1.5 rounded-xl border border-transparent px-3 py-1.5 text-xs font-semibold text-zinc-400 transition-all hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-300"
+                  className="flex items-center gap-1.5 rounded-xl border border-transparent px-2.5 py-1.5 text-xs font-semibold text-zinc-500 transition-all hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-300"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                   {translate("nav.logout")}
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
+
         </aside>
 
-        {/* Content area */}
-        <div className="flex min-w-0 flex-1 flex-col gap-4 pb-16 lg:pb-0">
-          {/* Header */}
-          <header className="rounded-[2rem] border border-white/10 bg-zinc-950/70 px-5 py-4 shadow-[0_0_0_1px_rgba(168,85,247,0.04),0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:px-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              {/* Breadcrumb */}
-              <div className="flex items-center gap-2 text-sm">
-                <span className="font-medium text-zinc-500">MJ Store</span>
-                <ChevronRight className="h-4 w-4 text-zinc-700" />
-                <span className="font-bold text-white">{currentLabel}</span>
-              </div>
+        {/* ── Content area ── */}
+        <div className="flex min-w-0 flex-1 flex-col gap-4 pb-20 lg:pb-0">
 
-              {/* Nav pills */}
-              <div className="flex flex-wrap gap-2">
-                {visibleItems
-                  .filter((item) => item.href !== "/")
-                  .map((item) => {
-                    const active = pathname === item.href;
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-300 ${
-                          active
-                            ? "border-purple-400/40 bg-purple-500/15 text-white shadow-[0_0_20px_rgba(168,85,247,0.22)]"
-                            : "border-white/10 bg-white/5 text-zinc-300 hover:border-purple-500/25 hover:bg-purple-500/10 hover:text-white"
-                        }`}
-                      >
-                        {translate(item.labelKey)}
-                      </Link>
-                    );
-                  })}
-              </div>
+          {/* Header */}
+          <header className="flex items-center justify-between gap-4 rounded-[1.75rem] border border-white/[0.08] bg-zinc-950/80 px-5 py-3.5 backdrop-blur-xl">
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-semibold text-zinc-600">MJ Store</span>
+              <ChevronRight className="h-4 w-4 text-zinc-800" />
+              <span className="font-bold text-white">
+                {currentLabel ? translate(currentLabel) : translate("admin.nav.overview")}
+              </span>
+            </div>
+
+            {/* Nav pills (desktop) */}
+            <div className="hidden flex-wrap gap-2 xl:flex">
+              {visibleItems.filter((item) => item.href !== "/").map((item) => {
+                const active = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-all duration-300 ${
+                      active
+                        ? "border-purple-400/35 bg-purple-500/15 text-white"
+                        : "border-white/[0.08] bg-white/[0.03] text-zinc-500 hover:border-purple-500/20 hover:text-zinc-300"
+                    }`}
+                  >
+                    {translate(item.labelKey)}
+                  </Link>
+                );
+              })}
             </div>
           </header>
 
-          {/* Page content */}
+          {/* Page */}
           <AnimatePresence mode="wait">
             <motion.main
               key={pathname}
-              initial={{ opacity: 0, y: 18, filter: "blur(10px)" }}
+              initial={{ opacity: 0, y: 16, filter: "blur(8px)" }}
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              exit={{ opacity: 0, y: -14, filter: "blur(10px)" }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
+              exit={{ opacity: 0, y: -12, filter: "blur(8px)" }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
               className="min-w-0 flex-1"
             >
               {children}
             </motion.main>
           </AnimatePresence>
+
         </div>
       </div>
     </div>

@@ -16,7 +16,7 @@ function isValidPhone(value: string): boolean {
 }
 
 export async function POST(req: Request) {
-  await requireRole(req, ORDER_CREATION_ROLES);
+  const { userId } = await requireRole(req, ORDER_CREATION_ROLES);
 
   const body = await req.json();
 
@@ -51,6 +51,7 @@ export async function POST(req: Request) {
 
   const { error } = await supabase.from("orders").insert([
     {
+      user_id: userId,
       customer_name: customerName,
       customer_phone: customerPhone,
       product_id: body.product_id,
