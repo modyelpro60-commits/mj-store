@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 
 /* ── Types ──────────────────────────────────────────── */
 
@@ -42,6 +43,7 @@ function parseFeatures(raw: string | string[] | null | undefined): string[] {
 export default function CipherCard({ product, size = "support" }: CipherCardProps) {
   const [hovered, setHovered] = useState(false);
   const price = useMemo(() => toNumber(product.price), [product.price]);
+  const sales = useMemo(() => toNumber(product.sales_count), [product.sales_count]);
   const tags  = useMemo(() => parseFeatures(product.features).slice(0, 2), [product.features]);
 
   return (
@@ -54,24 +56,27 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
     <motion.div
       className="relative h-full"
       animate={{
-        y: hovered ? -6 : 0,
+        y: hovered ? -8 : 0,
         boxShadow: hovered
-          ? "0 0 40px rgba(168,85,247,0.28), 0 24px 60px rgba(0,0,0,0.72)"
-          : "0 4px 24px rgba(0,0,0,0.50), 0 0 0 1px rgba(168,85,247,0.07)",
+          ? "0 0 52px rgba(168,85,247,0.34), 0 30px 70px rgba(0,0,0,0.78), 0 0 0 1px rgba(168,85,247,0.40)"
+          : "0 6px 26px rgba(0,0,0,0.55), 0 0 0 1px rgba(168,85,247,0.12)",
       }}
       transition={{ duration: 0.32, ease: "easeOut" }}
     >
       <div
-        className="group relative cut-corner bg-void-surface flex flex-col h-full overflow-hidden"
+        className="group relative cut-corner flex flex-col h-full overflow-hidden"
+        style={{ background: "linear-gradient(162deg, #0C0C22 0%, #08081A 60%, #060612 100%)" }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
+        {/* Top edge highlight — always-on definition line */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-0 left-0 h-px w-[70%] bg-gradient-to-r from-white/25 via-purple-400/20 to-transparent"
+        />
+
         {/* ══ PERIMETER CHARGE ═══════════════════════════════════
          *  Four spans trace the cut-corner perimeter clockwise.
-         *  Each span starts at scaleX/Y 0 and expands to 1 with
-         *  a 0.22s stagger, creating a "charge running around
-         *  the edge" effect. clip-path naturally clips the top
-         *  and right spans at the cut corner.
          * ════════════════════════════════════════════════════════ */}
 
         {/* Top — left to right */}
@@ -79,9 +84,9 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
           aria-hidden
           className="pointer-events-none absolute top-0 left-0 h-px w-full bg-purple-400"
           style={{ transformOrigin: "left" }}
-          initial={{ scaleX: 0, opacity: 0.18 }}
-          animate={{ scaleX: hovered ? 1 : 0, opacity: hovered ? 1 : 0.18 }}
-          transition={{ duration: 0.28, delay: hovered ? 0 : 0 }}
+          initial={{ scaleX: 0, opacity: 0.28 }}
+          animate={{ scaleX: hovered ? 1 : 0, opacity: hovered ? 1 : 0.28 }}
+          transition={{ duration: 0.28 }}
         />
 
         {/* Right — top to bottom (starts at 24px to clear the cut) */}
@@ -89,8 +94,8 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
           aria-hidden
           className="pointer-events-none absolute right-0 top-[24px] w-px bg-purple-400"
           style={{ height: "calc(100% - 24px)", transformOrigin: "top" }}
-          initial={{ scaleY: 0, opacity: 0.18 }}
-          animate={{ scaleY: hovered ? 1 : 0, opacity: hovered ? 1 : 0.18 }}
+          initial={{ scaleY: 0, opacity: 0.28 }}
+          animate={{ scaleY: hovered ? 1 : 0, opacity: hovered ? 1 : 0.28 }}
           transition={{ duration: 0.28, delay: hovered ? 0.22 : 0 }}
         />
 
@@ -99,8 +104,8 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
           aria-hidden
           className="pointer-events-none absolute bottom-0 right-0 h-px w-full bg-fuchsia-400"
           style={{ transformOrigin: "right" }}
-          initial={{ scaleX: 0, opacity: 0.18 }}
-          animate={{ scaleX: hovered ? 1 : 0, opacity: hovered ? 1 : 0.18 }}
+          initial={{ scaleX: 0, opacity: 0.28 }}
+          animate={{ scaleX: hovered ? 1 : 0, opacity: hovered ? 1 : 0.28 }}
           transition={{ duration: 0.28, delay: hovered ? 0.44 : 0 }}
         />
 
@@ -109,9 +114,19 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
           aria-hidden
           className="pointer-events-none absolute left-0 bottom-0 w-px h-full bg-fuchsia-400"
           style={{ transformOrigin: "bottom" }}
-          initial={{ scaleY: 0, opacity: 0.18 }}
-          animate={{ scaleY: hovered ? 1 : 0, opacity: hovered ? 1 : 0.18 }}
+          initial={{ scaleY: 0, opacity: 0.28 }}
+          animate={{ scaleY: hovered ? 1 : 0, opacity: hovered ? 1 : 0.28 }}
           transition={{ duration: 0.28, delay: hovered ? 0.66 : 0 }}
+        />
+
+        {/* Cut-corner accent glow (top-right) */}
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute -top-6 -right-6 h-24 w-24 rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(217,70,239,0.30) 0%, transparent 70%)" }}
+          initial={{ opacity: 0.25 }}
+          animate={{ opacity: hovered ? 0.9 : 0.25 }}
+          transition={{ duration: 0.35 }}
         />
 
         {/* Ambient purple glow — fades in on hover */}
@@ -120,7 +135,7 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(circle at 30% 0%, rgba(168,85,247,0.07) 0%, transparent 65%)",
+              "radial-gradient(circle at 30% 0%, rgba(168,85,247,0.10) 0%, transparent 60%)",
           }}
           initial={{ opacity: 0 }}
           animate={{ opacity: hovered ? 1 : 0 }}
@@ -128,47 +143,45 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
         />
 
         {/* ══ CARD CONTENT (link) ═════════════════════════════════ */}
-        <Link href={`/product/${product.id}`} className="flex flex-col flex-1 p-5 gap-4">
+        <Link href={`/product/${product.id}`} className="relative flex flex-col flex-1 p-5 gap-4">
 
           {/* ── Status LED + Category tags ── */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Status LED: pulsing green dot — availability signal */}
-            <span
-              aria-label="Available"
-              className="h-[7px] w-[7px] rounded-full bg-state-success animate-signal-pulse shrink-0"
-            />
-
-            {tags.length > 0 ? (
-              tags.map((tag, i) => (
-                <span
-                  key={i}
-                  className="mono-label text-text-muted border border-void-line px-1.5 py-[3px] truncate max-w-[130px]"
-                  style={{ borderRadius: "var(--radius-badge)" }}
-                >
-                  {tag}
-                </span>
-              ))
-            ) : (
+            {/* Status LED: pulsing green dot with halo — availability signal */}
+            <span className="relative shrink-0 grid place-items-center">
+              <span className="h-[7px] w-[7px] rounded-full bg-state-success animate-signal-pulse" />
               <span
-                className="mono-label text-text-muted border border-void-line px-1.5 py-[3px]"
+                aria-hidden
+                className="absolute h-[7px] w-[7px] rounded-full bg-state-success blur-[4px] opacity-70"
+              />
+            </span>
+
+            {(tags.length > 0 ? tags : ["DIGITAL"]).map((tag, i) => (
+              <span
+                key={i}
+                className="mono-label text-purple-200/90 border border-purple-500/25 bg-purple-500/[0.08] px-1.5 py-[3px] truncate max-w-[130px]"
                 style={{ borderRadius: "var(--radius-badge)" }}
               >
-                DIGITAL
+                {tag}
               </span>
-            )}
+            ))}
           </div>
 
           {/* ── Product image ── */}
           <div
-            className="relative aspect-video w-full overflow-hidden bg-void-elevated border border-void-line"
-            style={{ borderRadius: "var(--radius-panel)" }}
+            className="relative aspect-video w-full overflow-hidden border border-void-line transition-colors duration-300 group-hover:border-purple-500/40"
+            style={{
+              borderRadius: "var(--radius-panel)",
+              background:
+                "radial-gradient(circle at 50% 38%, rgba(124,58,237,0.16) 0%, rgba(10,10,28,0) 68%), linear-gradient(180deg, #0B0B1E 0%, #070714 100%)",
+            }}
           >
             {product.image ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={product.image}
                 alt={product.name}
-                className="h-full w-full object-contain transition-transform duration-600 group-hover:scale-[1.06]"
+                className="h-full w-full object-contain p-3 transition-transform duration-700 ease-out group-hover:scale-[1.08]"
               />
             ) : (
               <div className="h-full w-full flex items-center justify-center">
@@ -176,18 +189,39 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
               </div>
             )}
 
+            {/* Bottom depth fade */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/45 to-transparent"
+            />
+
+            {/* Sold badge — social proof */}
+            {sales > 0 && (
+              <span
+                className="absolute top-2 right-2 mono-label text-[10px] flex items-center gap-1 px-1.5 py-[3px] border backdrop-blur-sm"
+                style={{
+                  borderRadius: "var(--radius-badge)",
+                  color: "#A3FF47",
+                  borderColor: "rgba(163,255,71,0.30)",
+                  background: "rgba(163,255,71,0.10)",
+                }}
+              >
+                {sales} SOLD
+              </span>
+            )}
+
             {/* Scan line — sweeps top-to-bottom on hover */}
             {hovered && (
               <span
                 aria-hidden
-                className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-purple-400/50 to-transparent animate-scan-line pointer-events-none"
+                className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-purple-400/60 to-transparent animate-scan-line pointer-events-none"
               />
             )}
           </div>
 
           {/* ── Name ── */}
           <h3
-            className={`font-bold text-text-primary leading-tight line-clamp-2 ${
+            className={`font-black tracking-tight text-text-primary leading-tight line-clamp-2 transition-colors duration-200 group-hover:text-white ${
               size === "dominant" ? "text-xl" : "text-lg"
             }`}
           >
@@ -200,37 +234,50 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
           </p>
 
           {/* ── Price ── */}
-          <div>
-            <p className="mono-label text-text-muted mb-1">UNIT COST</p>
+          <div className="relative mt-auto pt-4">
+            {/* Divider */}
+            <span
+              aria-hidden
+              className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-void-line to-transparent"
+            />
+            <p className="mono-label text-text-muted mb-1.5">UNIT COST</p>
             <div className="flex items-baseline gap-1.5">
-              <span className="data-readout text-[1.6rem] font-bold text-text-primary leading-none">
-                {price}
+              <span
+                className="data-readout font-black text-white leading-none"
+                style={{
+                  fontSize: size === "dominant" ? "2.1rem" : "1.85rem",
+                  textShadow: "0 0 26px rgba(168,85,247,0.45)",
+                }}
+              >
+                {price.toLocaleString()}
               </span>
               <span className="mono-label text-purple-300">EGP</span>
             </div>
           </div>
         </Link>
 
-        {/* ══ ACQUIRE BUTTON ══════════════════════════════════════
-         *  Separate link so it renders as <a>, not nested inside
-         *  the content <a> above — keeps the HTML valid.
-         * ════════════════════════════════════════════════════════ */}
-        <div className="px-5 pb-5">
+        {/* ══ ACQUIRE BUTTON ══════════════════════════════════════ */}
+        <div className="px-5 pb-5 pt-1">
           <Link
             href={`/product/${product.id}`}
             className="
-              flex w-full h-10 items-center justify-center
+              group/btn relative flex w-full h-11 items-center justify-center gap-2 overflow-hidden
               mono-label tracking-[0.22em] text-white
               bg-gradient-to-r from-purple-600 to-fuchsia-600
-              hover:from-purple-700 hover:to-fuchsia-700
+              hover:from-purple-500 hover:to-fuchsia-500
               transition-all duration-200
-              shadow-[0_0_20px_rgba(168,85,247,0.25)]
-              hover:shadow-[0_0_35px_rgba(168,85,247,0.40)]
-              group-hover:shadow-[0_0_30px_rgba(168,85,247,0.45)]
+              shadow-[0_0_20px_rgba(168,85,247,0.30)]
+              hover:shadow-[0_0_38px_rgba(168,85,247,0.55)]
             "
             style={{ borderRadius: "var(--radius-btn)" }}
           >
-            ACQUIRE
+            {/* Shine sweep */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-out group-hover/btn:translate-x-full"
+            />
+            <span className="relative">ACQUIRE</span>
+            <ArrowRight className="relative h-3.5 w-3.5 transition-transform duration-200 group-hover/btn:translate-x-1" />
           </Link>
         </div>
       </div>

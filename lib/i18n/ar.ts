@@ -264,6 +264,8 @@ export const ar = {
   "admin.nav.overview": "نظرة عامة",
   "admin.nav.products": "المنتجات",
   "admin.nav.orders": "الطلبات",
+  "admin.nav.chat": "المحادثات",
+  "admin.nav.logs": "السجل",
   "admin.nav.users": "المستخدمون",
   "admin.role.admin": "مدير",
   "admin.role.moderator": "مشرف",

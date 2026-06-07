@@ -18,22 +18,55 @@ export async function GET(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const { data: reviews, error } = await supabase
+  // Try with replies join first; fall back to simple query if table doesn't exist yet
+  let rawReviews: any[] = [];
+
+  const withReplies = await supabase
     .from("product_reviews")
-    .select("id, rating, comment, created_at, user_id, profiles(full_name)")
+    .select(`
+      id, rating, comment, created_at, user_id,
+      profiles(full_name, role),
+      review_replies(
+        id, body, created_at, user_id,
+        profiles(full_name, role)
+      )
+    `)
     .eq("product_id", productId)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  if (!withReplies.error) {
+    rawReviews = withReplies.data ?? [];
+  } else {
+    // review_replies table may not exist yet — fall back to simple query
+    const simple = await supabase
+      .from("product_reviews")
+      .select("id, rating, comment, created_at, user_id, profiles(full_name)")
+      .eq("product_id", productId)
+      .order("created_at", { ascending: false });
+
+    if (simple.error) {
+      return NextResponse.json({ success: false, error: simple.error.message }, { status: 500 });
+    }
+    rawReviews = simple.data ?? [];
   }
 
-  const normalized = (reviews ?? []).map((r: any) => ({
+  const normalized = rawReviews.map((r: any) => ({
     id: r.id,
     rating: r.rating,
     comment: r.comment,
     authorName: r.profiles?.full_name ?? "Anonymous",
+    authorRole: (r.profiles?.role as string) ?? null,
     createdAt: r.created_at,
+    replies: ((r.review_replies ?? []) as any[])
+      .slice()
+      .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .map((reply: any) => ({
+        id: reply.id,
+        body: reply.body,
+        authorName: reply.profiles?.full_name ?? "فريق الدعم",
+        role: (reply.profiles?.role as string) ?? "helper",
+        createdAt: reply.created_at,
+      })),
   }));
 
   return NextResponse.json({ success: true, data: normalized });

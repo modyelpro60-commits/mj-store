@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireRole, type UserRole } from "../../lib/auth/requireAuthContext";
 import { buildFeatureRows } from "../../lib/products/featureHelpers";
+import { logActivity } from "../../lib/logs/logActivity";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,7 +13,7 @@ const PRODUCT_MUTATION_ROLES: UserRole[] = ["admin", "moderator"];
 
 export async function POST(req: Request) {
   // Admin + Moderator
-  await requireRole(req, PRODUCT_MUTATION_ROLES);
+  const ctx = await requireRole(req, PRODUCT_MUTATION_ROLES);
 
   try {
     const body = await req.json();
@@ -82,6 +83,15 @@ export async function POST(req: Request) {
       console.warn("[update-product] Non-critical feature operation failed:", featureError instanceof Error ? featureError.message : "Unknown feature error");
       console.warn("[update-product] Continuing with product update success regardless.");
     }
+
+    await logActivity({
+      actorId:     ctx.userId,
+      actorRole:   ctx.role,
+      action:      "product.update",
+      targetType:  "product",
+      targetId:    id,
+      targetLabel: name,
+    });
 
     console.log("[update-product] Product update completed successfully for ID:", id);
     return NextResponse.json({ success: true });

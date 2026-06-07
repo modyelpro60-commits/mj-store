@@ -263,6 +263,8 @@ export const fr = {
   "admin.nav.overview": "Aperçu",
   "admin.nav.products": "Produits",
   "admin.nav.orders": "Commandes",
+  "admin.nav.chat": "Messagerie",
+  "admin.nav.logs": "Journal",
   "admin.nav.users": "Utilisateurs",
   "admin.role.admin": "Admin",
   "admin.role.moderator": "Modérateur",

@@ -4,30 +4,15 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Award,
-  BadgeCheck,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  Clock,
-  Gift,
-  Headphones,
-  LoaderCircle,
-  Package,
-  Share2,
-  Shield,
-  ShoppingBag,
-  Sparkles,
-  Star,
-  TrendingUp,
-  Users,
-  Zap,
+  ArrowRight, Check, ChevronLeft, CornerDownLeft,
+  Crown, LoaderCircle, MessageSquare, Share2,
+  ShieldCheck, ShoppingBag, ShoppingCart, Star, Trash2, Wrench,
 } from "lucide-react";
 import { normalizeProductFeatures } from "../../app/lib/products/featureHelpers";
-import { useLanguage } from "../../lib/i18n/LanguageProvider";
-import { useAuth } from "../auth/AuthProvider";
+import { useLanguage }              from "../../lib/i18n/LanguageProvider";
+import { useAuth }                  from "../auth/AuthProvider";
 
-/* ─── Types ────────────────────────────────────────────────────────────────── */
+/* ── Types ──────────────────────────────────────────────────────────── */
 
 type Product = {
   id: number | string;
@@ -36,8 +21,15 @@ type Product = {
   full_description: string;
   price: number | string;
   sales_count: number | string;
-  category?: string;
   features?: string | string[] | null;
+};
+
+type Reply = {
+  id: number;
+  body: string;
+  authorName: string;
+  role: string;
+  createdAt: string;
 };
 
 type Review = {
@@ -45,35 +37,51 @@ type Review = {
   rating: number;
   comment: string;
   authorName: string;
+  authorRole?: string | null;
   createdAt: string;
+  replies: Reply[];
 };
 
-/* ─── Helpers ──────────────────────────────────────────────────────────────── */
+type Tab = "details" | "features" | "reviews";
+
+/* ── Role badge ─────────────────────────────────────────────────────── */
+
+const ROLE_META: Record<string, { label: string; style: string; icon: React.ElementType }> = {
+  admin:     { label: "أدمن",      style: "border-amber-500/30  bg-amber-500/10  text-amber-300",   icon: Crown       },
+  moderator: { label: "مشرف",      style: "border-blue-500/30   bg-blue-500/10   text-blue-300",    icon: ShieldCheck },
+  helper:    { label: "مساعد",     style: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300", icon: Wrench     },
+};
+
+function RoleBadge({ role }: { role: string }) {
+  const meta = ROLE_META[role];
+  if (!meta) return null;
+  const Icon = meta.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-black tracking-wide ${meta.style}`}>
+      <Icon className="h-2.5 w-2.5" />
+      {meta.label}
+    </span>
+  );
+}
+
+/* ── Helpers ────────────────────────────────────────────────────────── */
 
 function toNum(v: unknown): number {
   const n = typeof v === "number" ? v : Number(v ?? 0);
   return Number.isFinite(n) ? n : 0;
 }
 
-/* ─── Stars ────────────────────────────────────────────────────────────────── */
-
-function Stars({
-  rating,
-  size = "sm",
-}: {
-  rating: number;
-  size?: "sm" | "md" | "lg" | "xl";
-}) {
-  const sz = { xl: "h-6 w-6", lg: "h-5 w-5", md: "h-4 w-4", sm: "h-3.5 w-3.5" }[size];
+function Stars({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" | "lg" }) {
+  const cls = size === "lg" ? "h-5 w-5" : size === "md" ? "h-4 w-4" : "h-3.5 w-3.5";
   return (
     <div className="flex gap-0.5" aria-label={`${rating} out of 5`}>
       {[1, 2, 3, 4, 5].map((s) => (
         <Star
           key={s}
-          className={`${sz} ${
+          className={`${cls} ${
             s <= Math.round(rating)
               ? "fill-amber-400 text-amber-400"
-              : "fill-white/5 text-white/10"
+              : "fill-white/[0.06] text-white/[0.06]"
           }`}
         />
       ))}
@@ -81,863 +89,707 @@ function Stars({
   );
 }
 
-/* ─── Trust config ─────────────────────────────────────────────────────────── */
-
-const TRUST = [
-  { icon: Zap, label: "تسليم فوري", sub: "في ثوانٍ" },
-  { icon: Shield, label: "دفع آمن", sub: "100% مضمون" },
-  { icon: Award, label: "وصول مميز", sub: "حصري" },
-  { icon: Headphones, label: "دعم مستمر", sub: "24/7" },
-];
-
-/* ─── Feature icon picker ──────────────────────────────────────────────────── */
-
-function pickIcon(text: string) {
-  const t = text.toLowerCase();
-  if (t.includes("أمان") || t.includes("سري") || t.includes("حماية")) return Shield;
-  if (t.includes("سريع") || t.includes("فوري") || t.includes("آني")) return Zap;
-  if (t.includes("مستخدم") || t.includes("مشترك") || t.includes("فريق")) return Users;
-  if (t.includes("وقت") || t.includes("ساعة") || t.includes("دائم")) return Clock;
-  if (t.includes("جائزة") || t.includes("مميز") || t.includes("حصري") || t.includes("بريميوم")) return Award;
-  if (t.includes("باقة") || t.includes("محتوى") || t.includes("اشتراك")) return Package;
-  if (t.includes("تحديث") || t.includes("جديد") || t.includes("نمو")) return TrendingUp;
-  if (t.includes("تقييم") || t.includes("تحقق") || t.includes("موثق")) return BadgeCheck;
-  return Sparkles;
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════════════
  *  MAIN COMPONENT
- * ══════════════════════════════════════════════════════════════════════════════ */
+ * ══════════════════════════════════════════════════════════════════════ */
 
 export default function ProductDetailsViewV2({ product }: { product: Product }) {
-  const { translate } = useLanguage();
-  const { accessToken, isLoading: authLoading } = useAuth();
-  const prefersReducedMotion = useReducedMotion();
+  const { translate }                                    = useLanguage();
+  const { accessToken, isLoading: authLoading, role }    = useAuth();
+  const prefersReducedMotion                             = useReducedMotion();
+  const isStaff = role === "admin" || role === "moderator" || role === "helper";
 
-  const price = toNum(product.price);
+  const price      = toNum(product.price);
   const salesCount = toNum(product.sales_count);
-  const features = normalizeProductFeatures(product ?? ({} as Product));
+  const features   = normalizeProductFeatures(product ?? ({} as Product));
 
-  /* ── State ─────────────────────────────────────────────────────────────── */
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [reviewsBusy, setReviewsBusy] = useState(true);
-  const [writeRating, setWriteRating] = useState(5);
-  const [hoverStar, setHoverStar] = useState(0);
+  /* ── State ──────────────────────────────────────────────────────── */
+  const [activeTab,    setActiveTab]    = useState<Tab>("details");
+  const [reviews,      setReviews]      = useState<Review[]>([]);
+  const [reviewsBusy,  setReviewsBusy]  = useState(true);
+  const [writeRating,  setWriteRating]  = useState(5);
+  const [hoverStar,    setHoverStar]    = useState(0);
   const [writeComment, setWriteComment] = useState("");
-  const [posting, setPosting] = useState(false);
-  const [postError, setPostError] = useState("");
-  const [postOk, setPostOk] = useState(false);
-  const [showSticky, setShowSticky] = useState(false);
+  const [posting,      setPosting]      = useState(false);
+  const [postError,    setPostError]    = useState("");
+  const [postOk,       setPostOk]       = useState(false);
+  const [showSticky,   setShowSticky]   = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
-  const [wishlisted, setWishlisted] = useState(false);
+  const [wishlisted,   setWishlisted]   = useState(false);
+
+  // Reply state — keyed by review id
+  const [replyOpen,    setReplyOpen]    = useState<Record<number, boolean>>({});
+  const [replyText,    setReplyText]    = useState<Record<number, string>>({});
+  const [replyBusy,    setReplyBusy]    = useState<Record<number, boolean>>({});
+  const [replyError,   setReplyError]   = useState<Record<number, string>>({});
+
+  // Delete state — keyed by review id
+  const [deletingId,   setDeletingId]   = useState<number | null>(null);
+  const [confirmId,    setConfirmId]    = useState<number | null>(null);
 
   const heroBuyRef = useRef<HTMLDivElement>(null);
 
-  /* ── Computed ──────────────────────────────────────────────────────────── */
   const parts = useMemo(
     () =>
       (typeof product.full_description === "string" ? product.full_description : "")
-        .split("\n")
-        .map((p) => p.trim())
-        .filter(Boolean),
+        .split("\n").map((p) => p.trim()).filter(Boolean),
     [product.full_description],
   );
-
-  const loggedIn = !authLoading && !!accessToken;
+  const hasDescription = parts.length > 0;
+  const hasFeatures    = features.length > 0;
+  const loggedIn       = !authLoading && !!accessToken;
 
   const avgRating = reviews.length
-    ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
-    : 0;
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+    : null;
 
-  const ratingDist = useMemo(
-    () =>
-      [5, 4, 3, 2, 1].map((star) => ({
-        star,
-        count: reviews.filter((r) => r.rating === star).length,
-      })),
-    [reviews],
-  );
+  /* ── Auto-select best tab ────────────────────────────────────────── */
+  useEffect(() => {
+    if (!hasDescription && hasFeatures) setActiveTab("features");
+    else if (!hasDescription && !hasFeatures) setActiveTab("reviews");
+  }, [hasDescription, hasFeatures]);
 
-  const hasDescription = parts.length > 0;
-  const hasFeatures = features.length > 0;
-  const checkoutHref = `/checkout?product=${product.id}`;
-  const PREVIEW = 3;
-
-  /* ── Effects ───────────────────────────────────────────────────────────── */
+  /* ── Fetch reviews ───────────────────────────────────────────────── */
   useEffect(() => {
     fetch(`/api/product/${product.id}/reviews`)
       .then((r) => r.json())
-      .then((d) => {
-        if (d.success) setReviews(d.data);
-      })
+      .then((d) => { if (d.success) setReviews(d.data); })
       .catch(() => {})
       .finally(() => setReviewsBusy(false));
   }, [product.id]);
 
+  /* ── Sticky IntersectionObserver ─────────────────────────────────── */
   useEffect(() => {
     const el = heroBuyRef.current;
     if (!el) return;
-    const io = new IntersectionObserver(([e]) => setShowSticky(!e.isIntersecting), {
-      rootMargin: "0px",
-    });
+    const io = new IntersectionObserver(([e]) => setShowSticky(!e.isIntersecting), { rootMargin: "0px" });
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
-  /* ── Submit review ─────────────────────────────────────────────────────── */
+  /* ── Submit review ───────────────────────────────────────────────── */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (posting || !accessToken) return;
-    setPosting(true);
-    setPostError("");
-    setPostOk(false);
+    setPosting(true); setPostError(""); setPostOk(false);
     try {
       const r = await fetch(`/api/product/${product.id}/reviews`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ rating: writeRating, comment: writeComment.trim() }),
       });
       const d = await r.json();
-      if (!d.success) {
-        setPostError(d.error || "خطأ");
-        return;
+      if (!d.success) { setPostError(d.error || "خطأ"); return; }
+      setPostOk(true); setWriteComment("");
+      const rd = await (await fetch(`/api/product/${product.id}/reviews`)).json();
+      if (rd.success) setReviews(rd.data);
+    } catch { setPostError("خطأ في الاتصال"); }
+    finally { setPosting(false); }
+  }
+
+  /* ── Delete review ──────────────────────────────────────────────── */
+  async function deleteReview(reviewId: number) {
+    if (!accessToken) return;
+    setDeletingId(reviewId);
+    try {
+      const r = await fetch(`/api/product/${product.id}/reviews/${reviewId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const d = await r.json();
+      if (d.success) {
+        setReviews((prev) => prev.filter((rv) => rv.id !== reviewId));
+        setConfirmId(null);
       }
-      setPostOk(true);
-      setWriteComment("");
+    } catch {}
+    finally { setDeletingId(null); }
+  }
+
+  /* ── Submit reply ───────────────────────────────────────────────── */
+  async function submitReply(reviewId: number) {
+    const body = (replyText[reviewId] ?? "").trim();
+    if (!body || !accessToken) return;
+    setReplyBusy((p) => ({ ...p, [reviewId]: true }));
+    setReplyError((p) => ({ ...p, [reviewId]: "" }));
+    try {
+      const r = await fetch(`/api/product/${product.id}/reviews/${reviewId}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ body }),
+      });
+      const d = await r.json();
+      if (!d.success) { setReplyError((p) => ({ ...p, [reviewId]: d.error ?? "خطأ" })); return; }
+      setReplyText((p) => ({ ...p, [reviewId]: "" }));
+      setReplyOpen((p) => ({ ...p, [reviewId]: false }));
+      // Refresh reviews
       const rd = await (await fetch(`/api/product/${product.id}/reviews`)).json();
       if (rd.success) setReviews(rd.data);
     } catch {
-      setPostError("خطأ في الاتصال");
+      setReplyError((p) => ({ ...p, [reviewId]: "خطأ في الاتصال" }));
     } finally {
-      setPosting(false);
+      setReplyBusy((p) => ({ ...p, [reviewId]: false }));
     }
   }
 
-  /* ══════════════════════════════════════════════════════════════════════════
-   *  RENDER
-   * ══════════════════════════════════════════════════════════════════════════ */
-  return (
-    <div className="bg-[#08080E] text-white min-h-screen selection:bg-purple-500/25" dir="rtl">
+  const checkoutHref = `/checkout?product=${product.id}`;
 
-      {/* ── Breadcrumb ──────────────────────────────────────────────────── */}
-      <div className="border-b border-white/[0.05] bg-[#0A0A14]/90 backdrop-blur-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 py-3">
-          <ol className="flex items-center gap-1.5 text-xs text-white/30 flex-wrap">
-            <li>
-              <Link href="/" className="hover:text-purple-300 transition-colors">
-                الرئيسية
-              </Link>
-            </li>
-            <li>
-              <ChevronLeft className="h-3 w-3" />
-            </li>
-            <li>
-              <Link href="/products" className="hover:text-purple-300 transition-colors">
-                المنتجات
-              </Link>
-            </li>
-            <li>
-              <ChevronLeft className="h-3 w-3" />
-            </li>
-            <li className="text-white/60 font-medium truncate max-w-[200px]">{product.name}</li>
+  /* ── RENDER ──────────────────────────────────────────────────────── */
+  return (
+    <div className="bg-[#07070D] text-white min-h-screen selection:bg-purple-500/25" dir="rtl">
+
+      {/* ── BREADCRUMB ───────────────────────────────────────────────── */}
+      <div className="border-b border-white/[0.04] bg-[#09090F]/90 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 py-3.5">
+          <ol className="flex items-center gap-1.5 text-xs text-white/25 flex-wrap">
+            <li><Link href="/" className="hover:text-purple-300 transition-colors">الرئيسية</Link></li>
+            <li><ChevronLeft className="h-3 w-3" /></li>
+            <li><Link href="/products" className="hover:text-purple-300 transition-colors">قسم المنتجات</Link></li>
+            <li><ChevronLeft className="h-3 w-3" /></li>
+            <li className="text-white/50 font-medium truncate max-w-[220px]">{product.name}</li>
           </ol>
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-       *  HERO — SPLIT LAYOUT
-       * ════════════════════════════════════════════════════════════════════ */}
-      <section className="max-w-7xl mx-auto min-h-[calc(100vh-45px)] grid lg:grid-cols-[55fr_45fr]">
+      {/* ── MAIN GRID ────────────────────────────────────────────────── */}
+      <div className="max-w-7xl mx-auto">
+        <div className="grid lg:grid-cols-[45fr_55fr] lg:min-h-[calc(100vh-48px)]">
 
-        {/* ╔══════════════════════════════╗
-         * ║  LEFT — image showcase       ║
-         * ╚══════════════════════════════╝ */}
-        <div className="relative flex items-center justify-center overflow-hidden bg-[#060610] min-h-[320px] sm:min-h-[420px] lg:min-h-0 order-first border-b lg:border-b-0 lg:border-l border-white/[0.05]">
-
-          {/* Ambient background */}
-          <div className="absolute inset-0 pointer-events-none" aria-hidden>
-            <img
-              src={product.image}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover scale-150 blur-[110px] opacity-30 saturate-[3]"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#060610]/60 via-transparent to-[#060610]/90" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#060610]/70 via-transparent to-transparent" />
-            {/* subtle grid */}
-            <div
-              className="absolute inset-0 opacity-[0.025]"
-              style={{
-                backgroundImage:
-                  "linear-gradient(rgba(168,85,247,0.6) 1px,transparent 1px),linear-gradient(90deg,rgba(168,85,247,0.6) 1px,transparent 1px)",
-                backgroundSize: "44px 44px",
-              }}
-            />
-          </div>
-
-          {/* Image + rings */}
-          <div className="relative z-10 flex items-center justify-center w-full h-full p-14 sm:p-20 lg:p-24">
-
-            {/* Outer pulsing ring */}
-            <motion.div
-              aria-hidden
-              className="absolute rounded-full border border-purple-500/[0.13]"
-              style={{ width: "min(460px,78vw)", height: "min(460px,78vw)" }}
-              animate={prefersReducedMotion ? {} : { scale: [1, 1.06, 1], opacity: [0.25, 0.65, 0.25] }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            />
-            {/* Mid ring */}
-            <motion.div
-              aria-hidden
-              className="absolute rounded-full border border-fuchsia-500/[0.08]"
-              style={{ width: "min(340px,60vw)", height: "min(340px,60vw)" }}
-              animate={prefersReducedMotion ? {} : { scale: [1.05, 1, 1.05], opacity: [0.15, 0.45, 0.15] }}
-              transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
-            />
-            {/* Core glow */}
-            <motion.div
-              aria-hidden
-              className="absolute rounded-full bg-purple-600/25 blur-[90px]"
-              style={{ width: "min(240px,45vw)", height: "min(240px,45vw)" }}
-              animate={prefersReducedMotion ? {} : { scale: [0.85, 1.15, 0.85], opacity: [0.35, 0.75, 0.35] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-            />
-
-            {/* Product image with premium frame */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.82 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-              className="relative"
-            >
-              {/* Gradient border glow */}
-              <div
-                className="absolute inset-[-3px] rounded-3xl opacity-70 blur-sm pointer-events-none"
-                style={{ background: "linear-gradient(135deg,rgba(168,85,247,0.5),rgba(217,70,239,0.25),transparent 60%)" }}
-                aria-hidden
+          {/* ╔════════════════════════════════════════╗
+           * ║  RIGHT — image showcase                ║
+           * ╚════════════════════════════════════════╝ */}
+          <div className="order-first lg:order-last relative flex items-center justify-center min-h-[280px] sm:min-h-[360px] lg:min-h-0 overflow-hidden lg:sticky lg:top-[48px] lg:h-[calc(100vh-48px)]"
+            style={{ background: "radial-gradient(ellipse at 60% 50%, #130a24 0%, #07070D 65%)" }}
+          >
+            {/* Ambient image blur */}
+            <div className="absolute inset-0 overflow-hidden" aria-hidden>
+              <img
+                src={product.image} alt=""
+                className="absolute inset-0 w-full h-full object-cover scale-125 blur-[100px] opacity-25 saturate-[2.5]"
               />
-              {/* Frame */}
-              <div className="relative rounded-3xl border border-white/[0.08] bg-white/[0.025] p-3 backdrop-blur-sm shadow-[0_0_80px_rgba(0,0,0,0.8)]">
+              <div className="absolute inset-0 bg-gradient-to-b from-[#07070D]/20 via-transparent to-[#07070D]/70" />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#07070D]/60 via-transparent to-transparent" />
+            </div>
+
+            {/* Rings + image */}
+            <div className="relative z-10 flex items-center justify-center w-full h-full p-10 sm:p-14 lg:p-16">
+
+              {/* Outer ring */}
+              <motion.div aria-hidden
+                className="absolute rounded-full border border-purple-500/[0.12]"
+                style={{ width: "min(400px,75vw)", height: "min(400px,75vw)" }}
+                animate={prefersReducedMotion ? {} : { scale: [1, 1.04, 1] }}
+                transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+              />
+              {/* Mid glow */}
+              <motion.div aria-hidden
+                className="absolute rounded-full bg-purple-600/20 blur-[80px]"
+                style={{ width: "min(280px,55vw)", height: "min(280px,55vw)" }}
+                animate={prefersReducedMotion ? {} : { scale: [0.9, 1.1, 0.9] }}
+                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+              />
+
+              {/* Product image */}
+              <div className="relative overflow-hidden rounded-2xl">
                 <motion.img
                   src={product.image}
                   alt={product.name}
-                  className="w-[170px] h-[170px] sm:w-[230px] sm:h-[230px] lg:w-[290px] lg:h-[290px] object-contain rounded-2xl"
-                  style={{ filter: "drop-shadow(0 30px 60px rgba(0,0,0,0.9))" }}
-                  animate={prefersReducedMotion ? {} : { y: [0, -9, 0] }}
-                  transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+                  className="w-[200px] h-[200px] sm:w-[260px] sm:h-[260px] lg:w-[320px] lg:h-[320px] object-contain drop-shadow-[0_24px_64px_rgba(0,0,0,0.95)]"
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 1.4, ease: [0.25, 0.46, 0.45, 0.94] }}
                 />
-              </div>
-            </motion.div>
-
-            {/* Sales float badge */}
-            {salesCount > 0 && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.78, y: 14 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ delay: 0.55, duration: 0.45, ease: "backOut" }}
-                className="absolute bottom-8 left-8 sm:bottom-10 sm:left-10 rounded-2xl border border-purple-400/20 bg-[#0D0D1C]/85 backdrop-blur-xl px-4 py-3"
-              >
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-400/50 mb-0.5">
-                  المبيعات
-                </p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-black text-purple-200">
-                    {salesCount.toLocaleString()}
-                  </span>
-                  <span className="text-sm font-black text-purple-400/50">+</span>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Premium stamp */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.78, rotate: -8 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              transition={{ delay: 0.7, duration: 0.4, ease: "backOut" }}
-              className="absolute top-8 right-8 sm:top-10 sm:right-10 rounded-xl border border-fuchsia-500/25 bg-fuchsia-950/70 backdrop-blur-xl px-3 py-2 flex items-center gap-1.5"
-            >
-              <Sparkles className="h-3 w-3 text-fuchsia-400" />
-              <span className="text-[10px] font-black text-fuchsia-300 tracking-wide">Premium</span>
-            </motion.div>
-          </div>
-        </div>
-
-        {/* ╔══════════════════════════════╗
-         * ║  RIGHT — product info        ║
-         * ╚══════════════════════════════╝ */}
-        <div className="order-last flex flex-col justify-center px-6 sm:px-10 lg:px-12 py-10 lg:py-14 gap-6">
-
-          {/* Category + actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="flex items-center justify-between"
-          >
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs font-black text-purple-300 tracking-wide">
-              <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
-              {product.category || "منتج رقمي"}
-            </span>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                aria-label="مشاركة"
-                onClick={() =>
-                  navigator.share?.({ title: product.name, url: window.location.href }).catch(() => {})
-                }
-                className="h-8 w-8 grid place-items-center rounded-lg border border-white/[0.07] bg-white/[0.02] text-white/30 hover:text-white/70 hover:border-white/15 transition-all"
-              >
-                <Share2 className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                aria-label="إضافة للمفضلة"
-                onClick={() => setWishlisted((v) => !v)}
-                className={`h-8 w-8 grid place-items-center rounded-lg border transition-all ${
-                  wishlisted
-                    ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-400"
-                    : "border-white/[0.07] bg-white/[0.02] text-white/30 hover:text-fuchsia-400 hover:border-fuchsia-500/30"
-                }`}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-3.5 w-3.5"
-                  fill={wishlisted ? "currentColor" : "none"}
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-              </button>
-            </div>
-          </motion.div>
-
-          {/* Product name + rating */}
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.06, duration: 0.5 }}
-          >
-            <h1 className="text-3xl sm:text-4xl lg:text-[2.6rem] font-black leading-[1.08] tracking-tight text-white">
-              {product.name}
-            </h1>
-
-            {!reviewsBusy && reviews.length > 0 && (
-              <div className="flex items-center gap-2.5 mt-3 flex-wrap">
-                <Stars rating={avgRating} size="md" />
-                <span className="text-sm font-black text-amber-400">{avgRating.toFixed(1)}</span>
-                <span className="text-xs text-white/25">
-                  ({reviews.length} {reviews.length === 1 ? "تقييم" : "تقييمات"})
-                </span>
-                {salesCount > 0 && (
-                  <>
-                    <span className="text-white/10">·</span>
-                    <span className="text-xs text-white/25">{salesCount.toLocaleString()}+ مبيعة</span>
-                  </>
-                )}
-              </div>
-            )}
-            {!reviewsBusy && reviews.length === 0 && salesCount > 0 && (
-              <p className="mt-2 text-xs text-white/25">{salesCount.toLocaleString()}+ مبيعة</p>
-            )}
-          </motion.div>
-
-          {/* Price */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.4 }}
-            className="py-5 border-y border-white/[0.06]"
-          >
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-1.5">
-              السعر
-            </p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-5xl sm:text-6xl font-black leading-none text-transparent bg-clip-text bg-gradient-to-r from-white via-purple-100 to-fuchsia-200">
-                {price.toLocaleString("en")}
-              </span>
-              <span className="text-xl font-black text-white/30">EGP</span>
-            </div>
-          </motion.div>
-
-          {/* CTA buttons — observed by IntersectionObserver */}
-          <motion.div
-            ref={heroBuyRef}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.14, duration: 0.4 }}
-            className="space-y-3"
-          >
-            <Link href={checkoutHref} className="block">
-              <motion.button
-                whileHover={
-                  prefersReducedMotion
-                    ? undefined
-                    : { scale: 1.02, boxShadow: "0 0 64px rgba(168,85,247,0.55)" }
-                }
-                whileTap={{ scale: 0.98 }}
-                className="relative overflow-hidden group w-full flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-l from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 px-8 py-[18px] text-lg font-black text-white shadow-[0_0_44px_rgba(168,85,247,0.38)] transition-all duration-300"
-              >
-                <span
-                  aria-hidden
-                  className="absolute inset-0 translate-x-[110%] group-hover:translate-x-[-110%] bg-gradient-to-l from-transparent via-white/15 to-transparent transition-transform duration-700"
-                />
-                <ShoppingBag className="h-5 w-5 relative shrink-0" />
-                <span className="relative">اشتري الآن</span>
-              </motion.button>
-            </Link>
-
-            <Link href={`/gift?product=${product.id}`} className="block">
-              <motion.button
-                whileHover={prefersReducedMotion ? undefined : { scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full flex items-center justify-center gap-2.5 rounded-2xl border border-fuchsia-500/25 bg-fuchsia-500/[0.05] hover:border-fuchsia-400/40 hover:bg-fuchsia-500/10 px-8 py-3.5 text-sm font-bold text-fuchsia-300/80 hover:text-fuchsia-200 transition-all duration-200"
-              >
-                <Gift className="h-4 w-4" />
-                أرسلها كهدية
-              </motion.button>
-            </Link>
-          </motion.div>
-
-          {/* Trust grid */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.24, duration: 0.5 }}
-            className="grid grid-cols-4 gap-2"
-          >
-            {TRUST.map(({ icon: Icon, label, sub }) => (
-              <div
-                key={label}
-                className="flex flex-col items-center gap-1.5 rounded-xl border border-white/[0.05] bg-white/[0.02] px-2 py-3 text-center hover:border-purple-500/15 hover:bg-purple-500/[0.03] transition-all"
-              >
-                <div className="h-8 w-8 rounded-lg bg-purple-500/10 border border-purple-500/15 grid place-items-center">
-                  <Icon className="h-4 w-4 text-purple-400" />
-                </div>
-                <p className="text-[10px] font-black text-white/60 leading-tight">{label}</p>
-                <p className="text-[9px] text-white/25 leading-tight">{sub}</p>
-              </div>
-            ))}
-          </motion.div>
-
-          {/* Availability */}
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-bold text-emerald-400">متوفر الآن</span>
-            <span className="text-white/15 text-xs mx-0.5">·</span>
-            <span className="text-xs text-white/25">وصول فوري بعد الشراء</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════════════════
-       *  PRODUCT STORY
-       * ════════════════════════════════════════════════════════════════════ */}
-      {hasDescription && (
-        <section className="border-t border-white/[0.05] bg-[#0A0A14]/50">
-          <div className="max-w-4xl mx-auto px-6 sm:px-10 py-16 sm:py-20">
-            <motion.div
-              initial={{ opacity: 0, y: 22 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-            >
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-purple-400/50 mb-3">
-                عن المنتج
-              </p>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white mb-8 leading-tight">
-                لماذا{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-fuchsia-400">
-                  {product.name}
-                </span>
-                ؟
-              </h2>
-
-              <div className="relative">
-                <div
-                  className={`space-y-5 text-[15px] text-white/55 leading-[2.1] overflow-hidden transition-all duration-500 ${
-                    !descExpanded && parts.length > PREVIEW ? "max-h-[240px]" : ""
-                  }`}
-                >
-                  {parts.map((p, i) => (
-                    <p key={i} className="text-right">
-                      {p}
-                    </p>
-                  ))}
-                </div>
-
-                {parts.length > PREVIEW && !descExpanded && (
-                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#0A0A14] to-transparent pointer-events-none" />
-                )}
-              </div>
-
-              {parts.length > PREVIEW && (
-                <button
-                  type="button"
-                  onClick={() => setDescExpanded((v) => !v)}
-                  className="mt-6 flex items-center gap-1.5 text-sm font-black text-purple-400 hover:text-purple-300 transition-colors group"
-                >
-                  {descExpanded ? "عرض أقل" : "اقرأ المزيد"}
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform duration-300 ${
-                      descExpanded ? "rotate-180" : "group-hover:translate-y-0.5"
-                    }`}
+                {!prefersReducedMotion && (
+                  <motion.span aria-hidden
+                    className="pointer-events-none absolute inset-0"
+                    style={{ background: "linear-gradient(110deg,transparent 30%,rgba(255,255,255,0.12) 50%,transparent 70%)" }}
+                    initial={{ x: "-100%" }}
+                    animate={{ x: "100%" }}
+                    transition={{ duration: 1.6, ease: [0.4, 0, 0.2, 1], delay: 1.8, repeat: Infinity, repeatDelay: 5 }}
                   />
-                </button>
-              )}
-            </motion.div>
-          </div>
-        </section>
-      )}
+                )}
+              </div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-       *  FEATURES
-       * ════════════════════════════════════════════════════════════════════ */}
-      {hasFeatures && (
-        <section className="border-t border-white/[0.05]">
-          <div className="max-w-6xl mx-auto px-6 sm:px-10 py-16 sm:py-20">
-            <motion.div
-              initial={{ opacity: 0, y: 22 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="mb-10"
-            >
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-purple-400/50 mb-3">
-                ما الذي تحصل عليه
-              </p>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white">
-                المميزات الحصرية
-              </h2>
-            </motion.div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {features.map((f, i) => {
-                const Icon = pickIcon(f);
-                return (
-                  <motion.div
-                    key={`${f}-${i}`}
-                    initial={{ opacity: 0, y: 16 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.055, duration: 0.4 }}
-                    className="group relative rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:border-purple-500/25 hover:bg-purple-500/[0.04] p-5 transition-all duration-300"
-                  >
-                    {/* hover glow layer */}
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/0 to-fuchsia-500/0 group-hover:from-purple-500/[0.06] group-hover:to-fuchsia-500/[0.03] transition-all duration-300 pointer-events-none" />
-
-                    <div className="flex items-start gap-4">
-                      <div className="shrink-0 h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-fuchsia-500/10 border border-purple-500/20 grid place-items-center">
-                        <Icon className="h-5 w-5 text-purple-400" />
-                      </div>
-                      <p className="text-sm font-bold text-white/75 leading-snug pt-1.5 flex-1 min-w-0">
-                        {f}
-                      </p>
-                    </div>
-
-                    {/* check tick appears on hover */}
-                    <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <Check className="h-3 w-3 text-purple-400/50" />
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════════
-       *  SOCIAL PROOF STRIP
-       * ════════════════════════════════════════════════════════════════════ */}
-      {(reviews.length > 0 || salesCount > 0) && (
-        <section className="border-t border-white/[0.05] bg-gradient-to-r from-purple-950/20 via-[#0A0A14]/60 to-fuchsia-950/20">
-          <div className="max-w-5xl mx-auto px-6 sm:px-10 py-12">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-8 text-center">
-              {avgRating > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-amber-500 leading-none mb-2">
-                    {avgRating.toFixed(1)}
-                  </p>
-                  <div className="flex justify-center mb-1.5">
-                    <Stars rating={avgRating} size="md" />
-                  </div>
-                  <p className="text-xs text-white/30">متوسط التقييم</p>
-                </motion.div>
-              )}
-
-              {reviews.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.08, duration: 0.4 }}
-                >
-                  <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-purple-300 to-purple-500 leading-none mb-2">
-                    {reviews.length}
-                  </p>
-                  <div className="flex justify-center mb-1.5">
-                    <Star className="h-4 w-4 text-purple-400 fill-purple-400" />
-                  </div>
-                  <p className="text-xs text-white/30">تقييم موثق</p>
-                </motion.div>
-              )}
-
+              {/* Sales badge */}
               {salesCount > 0 && (
                 <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.16, duration: 0.4 }}
-                  className={reviews.length > 0 && avgRating > 0 ? "" : "col-span-2 sm:col-span-1"}
+                  initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ delay: 0.6, duration: 0.4, ease: "backOut" }}
+                  className="absolute bottom-8 left-8 rounded-2xl border border-purple-400/20 bg-black/50 backdrop-blur-xl px-4 py-3"
                 >
-                  <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-fuchsia-300 to-fuchsia-500 leading-none mb-2">
-                    {salesCount.toLocaleString()}+
-                  </p>
-                  <div className="flex justify-center mb-1.5">
-                    <Users className="h-4 w-4 text-fuchsia-400" />
-                  </div>
-                  <p className="text-xs text-white/30">عميل راضٍ</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-400/50 mb-0.5">المبيعات</p>
+                  <p className="text-xl font-black text-purple-200 leading-none">{salesCount.toLocaleString()}+</p>
                 </motion.div>
               )}
             </div>
           </div>
-        </section>
-      )}
 
-      {/* ════════════════════════════════════════════════════════════════════
-       *  REVIEWS
-       * ════════════════════════════════════════════════════════════════════ */}
-      <section className="border-t border-white/[0.05]">
-        <div className="max-w-4xl mx-auto px-6 sm:px-10 py-16 sm:py-20">
-
-          {/* Heading */}
-          <motion.div
-            initial={{ opacity: 0, y: 22 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="mb-10"
+          {/* ╔════════════════════════════════════════╗
+           * ║  LEFT — product info                   ║
+           * ╚════════════════════════════════════════╝ */}
+          <div className="order-last lg:order-first flex flex-col border-t lg:border-t-0 lg:border-l border-white/[0.04]"
+            style={{ background: "linear-gradient(160deg,#0C0C18 0%,#07070D 60%)" }}
           >
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-purple-400/50 mb-3">
-              تجارب العملاء
-            </p>
-            <h2 className="text-2xl sm:text-3xl font-black text-white">
-              ما يقوله المستخدمون
-              {reviews.length > 0 && (
-                <span className="mr-3 text-lg font-bold text-white/20">({reviews.length})</span>
-              )}
-            </h2>
-          </motion.div>
+            <div className="px-7 sm:px-10 py-8 sm:py-10 flex flex-col gap-7 flex-1">
 
-          {reviewsBusy ? (
-            <div className="flex items-center justify-center gap-3 py-16 text-white/20">
-              <LoaderCircle className="h-5 w-5 animate-spin" />
-              <span className="text-sm">جاري تحميل التقييمات…</span>
-            </div>
-          ) : (
-            <>
-              {reviews.length === 0 ? (
-                <div className="rounded-2xl border border-white/[0.05] bg-white/[0.015] py-14 text-center mb-10">
-                  <Star className="h-10 w-10 text-white/[0.05] mx-auto mb-3" />
-                  <p className="text-white/30 text-sm font-bold">لا توجد تقييمات بعد</p>
-                  <p className="text-white/15 text-xs mt-1">كن أول من يقيّم هذا المنتج</p>
-                </div>
-              ) : (
-                <>
-                  {/* Rating summary card */}
-                  <motion.div
+              {/* ── Name + actions ─────────────────────────────────── */}
+              <div>
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <motion.h1
                     initial={{ opacity: 0, y: 14 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.45 }}
-                    className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 mb-8 grid sm:grid-cols-[auto_1fr] gap-6 items-center"
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                    className="text-3xl sm:text-4xl lg:text-[2.6rem] font-black leading-[1.08] tracking-tight"
+                    style={{
+                      background: "linear-gradient(135deg, #ffffff 30%, #d8b4fe 70%, #e879f9 100%)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                    }}
                   >
-                    <div className="text-center sm:border-l sm:border-white/[0.06] sm:pl-6">
-                      <p className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-amber-500 leading-none">
-                        {avgRating.toFixed(1)}
-                      </p>
-                      <div className="flex justify-center mt-2 mb-1.5">
-                        <Stars rating={avgRating} size="lg" />
-                      </div>
-                      <p className="text-xs text-white/30">{reviews.length} تقييم</p>
-                    </div>
+                    {product.name}
+                  </motion.h1>
 
-                    <div className="space-y-2.5">
-                      {ratingDist.map(({ star, count }) => {
-                        const pct = reviews.length ? (count / reviews.length) * 100 : 0;
-                        return (
-                          <div key={star} className="flex items-center gap-3">
-                            <span className="text-xs text-white/30 w-4 text-right leading-none">
-                              {star}
-                            </span>
-                            <Star className="h-3 w-3 text-amber-400/50 fill-amber-400/50 shrink-0" />
-                            <div className="flex-1 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
-                              <motion.div
-                                className="h-full rounded-full bg-gradient-to-r from-amber-500/70 to-amber-400/60"
-                                initial={{ width: 0 }}
-                                whileInView={{ width: `${pct}%` }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.75, delay: (5 - star) * 0.07 }}
-                              />
-                            </div>
-                            <span className="text-xs text-white/20 w-5 text-left">{count}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-
-                  {/* Review cards */}
-                  <div className="space-y-4 mb-12">
-                    {reviews.map((rv, i) => (
-                      <motion.article
-                        key={rv.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: i * 0.05, duration: 0.35 }}
-                        className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5"
-                      >
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-purple-600/30 to-fuchsia-600/20 border border-purple-500/20 grid place-items-center text-sm font-black text-purple-300/80 shrink-0">
-                              {rv.authorName ? rv.authorName.charAt(0).toUpperCase() : "?"}
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-white/70 leading-tight">
-                                {rv.authorName}
-                              </p>
-                              <div className="mt-0.5">
-                                <Stars rating={rv.rating} size="sm" />
-                              </div>
-                            </div>
-                          </div>
-                          <time className="text-[11px] text-white/20 shrink-0 mt-0.5">
-                            {new Date(rv.createdAt).toLocaleDateString("ar-EG", {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </time>
-                        </div>
-                        <p className="text-sm text-white/45 leading-relaxed">{rv.comment}</p>
-                      </motion.article>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Write review */}
-              <div className="border-t border-white/[0.05] pt-10">
-                <h3 className="text-lg font-black text-white mb-6">أضف تقييمك</h3>
-
-                {loggedIn ? (
-                  <motion.form
-                    onSubmit={handleSubmit}
-                    initial={{ opacity: 0, y: 14 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.45 }}
-                    className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 space-y-5"
-                  >
-                    {/* Star picker */}
-                    <div>
-                      <p className="text-xs font-bold text-white/30 mb-3">تقييمك</p>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <button
-                            key={s}
-                            type="button"
-                            aria-label={`تقييم ${s} نجوم`}
-                            onClick={() => setWriteRating(s)}
-                            onMouseEnter={() => setHoverStar(s)}
-                            onMouseLeave={() => setHoverStar(0)}
-                            className="p-0.5 hover:scale-110 transition-transform"
-                          >
-                            <Star
-                              className={`h-7 w-7 transition-colors ${
-                                s <= (hoverStar || writeRating)
-                                  ? "fill-amber-400 text-amber-400"
-                                  : "text-white/10 fill-white/5"
-                              }`}
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Comment */}
-                    <div>
-                      <p className="text-xs font-bold text-white/30 mb-2">تعليقك</p>
-                      <textarea
-                        value={writeComment}
-                        onChange={(e) => setWriteComment(e.target.value)}
-                        placeholder="شارك تجربتك مع هذا المنتج…"
-                        required
-                        className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-sm text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/40 focus:bg-purple-500/[0.03] min-h-[100px] resize-none transition-all"
-                      />
-                    </div>
-
-                    {postError && <p className="text-red-400/80 text-sm">{postError}</p>}
-                    {postOk && (
-                      <p className="text-emerald-400/80 text-sm flex items-center gap-2">
-                        <Check className="h-4 w-4" />
-                        تم إرسال تقييمك بنجاح!
-                      </p>
-                    )}
-
+                  <div className="flex gap-2 shrink-0 pt-1">
                     <button
-                      type="submit"
-                      disabled={posting || !writeComment.trim()}
-                      className="rounded-xl bg-gradient-to-l from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 px-7 py-2.5 text-sm font-black text-white disabled:opacity-40 transition-all flex items-center gap-2"
+                      type="button"
+                      aria-label="مشاركة"
+                      onClick={() => navigator.share?.({ title: product.name, url: window.location.href }).catch(() => {})}
+                      className="h-9 w-9 grid place-items-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-white/25 hover:text-white/60 hover:border-purple-500/30 hover:bg-purple-500/[0.06] transition-all"
                     >
-                      {posting && <LoaderCircle className="h-4 w-4 animate-spin" />}
-                      {posting ? "جاري الإرسال…" : "إرسال التقييم"}
+                      <Share2 className="h-3.5 w-3.5" />
                     </button>
-                  </motion.form>
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.4 }}
-                    className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-center"
+                    <button
+                      type="button"
+                      aria-label="إضافة للمفضلة"
+                      onClick={() => setWishlisted((v) => !v)}
+                      className={`h-9 w-9 grid place-items-center rounded-xl border transition-all ${
+                        wishlisted
+                          ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-400"
+                          : "border-white/[0.06] bg-white/[0.03] text-white/25 hover:text-fuchsia-400 hover:border-fuchsia-500/30"
+                      }`}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill={wishlisted ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Rating row */}
+                {!reviewsBusy && reviews.length > 0 && avgRating && (
+                  <motion.button
+                    type="button"
+                    onClick={() => setActiveTab("reviews")}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex items-center gap-2.5 group"
                   >
-                    <Star className="h-8 w-8 text-white/[0.05] mx-auto mb-3" />
-                    <p className="text-white/40 text-sm font-bold mb-1">
-                      سجل دخول لكتابة تقييم
-                    </p>
-                    <p className="text-white/20 text-xs mb-5">
-                      تجربتك تساعد الآخرين على اتخاذ قرارهم
-                    </p>
-                    <Link href="/login">
-                      <button
-                        type="button"
-                        className="rounded-xl bg-gradient-to-l from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 px-7 py-2.5 text-sm font-black text-white transition-all"
-                      >
-                        {translate("nav.login")}
-                      </button>
-                    </Link>
-                  </motion.div>
+                    <Stars rating={Number(avgRating)} size="md" />
+                    <span className="text-sm font-black text-amber-400">{avgRating}</span>
+                    <span className="text-xs text-white/20 group-hover:text-purple-400 transition-colors">
+                      ({reviews.length} {reviews.length === 1 ? "تقييم" : "تقييمات"})
+                    </span>
+                  </motion.button>
                 )}
               </div>
-            </>
-          )}
-        </div>
-      </section>
 
-      {/* ════════════════════════════════════════════════════════════════════
-       *  STICKY BUY BAR
-       * ════════════════════════════════════════════════════════════════════ */}
+              {/* ── Price + status ──────────────────────────────────── */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.45 }}
+                className="rounded-2xl border border-white/[0.06] bg-white/[0.025] px-5 py-4 flex items-center justify-between gap-4"
+                style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+              >
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-1.5">السعر</p>
+                  <p
+                    className="text-4xl sm:text-5xl font-black leading-none tracking-tight"
+                    style={{
+                      background: "linear-gradient(90deg,#f5f5f5 0%,#e2d9f3 50%,#c084fc 100%)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                    }}
+                  >
+                    EGP {price.toLocaleString("en")}
+                  </p>
+                </div>
+                <div className="shrink-0 flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.08] px-3.5 py-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-bold text-emerald-400">متوفر</span>
+                </div>
+              </motion.div>
+
+              {/* ── Tabs ────────────────────────────────────────────── */}
+              <div>
+                {/* Tab pills */}
+                <div className="flex gap-1.5 p-1 rounded-xl bg-white/[0.03] border border-white/[0.05] w-fit mb-5">
+                  {(
+                    [
+                      { id: "details"  as const, label: "التفاصيل",  show: hasDescription },
+                      { id: "features" as const, label: "المميزات",  show: hasFeatures    },
+                      {
+                        id: "reviews" as const,
+                        label: reviews.length > 0 ? `التقييمات (${reviews.length})` : "التقييمات",
+                        show: true,
+                      },
+                    ] satisfies { id: Tab; label: string; show: boolean }[]
+                  )
+                    .filter((t) => t.show)
+                    .map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setActiveTab(t.id)}
+                        className={`relative px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200 ${
+                          activeTab === t.id
+                            ? "text-white shadow-sm"
+                            : "text-white/30 hover:text-white/60"
+                        }`}
+                      >
+                        {activeTab === t.id && (
+                          <motion.span
+                            layoutId="tab-pill"
+                            className="absolute inset-0 rounded-lg"
+                            style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)" }}
+                            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                          />
+                        )}
+                        <span className="relative">{t.label}</span>
+                      </button>
+                    ))}
+                </div>
+
+                {/* Tab content */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeTab}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.18 }}
+                    className="min-h-[120px]"
+                  >
+
+                    {/* Details */}
+                    {activeTab === "details" && (
+                      <div className="space-y-3.5 text-[13.5px] text-white/45 leading-[1.9]">
+                        {(descExpanded ? parts : parts.slice(0, 4)).map((p, i) => (
+                          <p key={i}>{p}</p>
+                        ))}
+                        {parts.length > 4 && (
+                          <button
+                            type="button"
+                            onClick={() => setDescExpanded((v) => !v)}
+                            className="flex items-center gap-1.5 text-sm font-bold text-purple-400 hover:text-purple-300 transition-colors mt-1"
+                          >
+                            {descExpanded ? "عرض أقل" : "اقرأ المزيد"}
+                            <ArrowRight className={`h-3.5 w-3.5 transition-transform ${descExpanded ? "-rotate-90" : "rotate-90"}`} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Features */}
+                    {activeTab === "features" && (
+                      <ul className="grid sm:grid-cols-2 gap-2 list-none">
+                        {features.map((f, i) => (
+                          <li key={`${f}-${i}`}>
+                            <motion.div
+                              initial={{ opacity: 0, y: 6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: i * 0.04, duration: 0.22 }}
+                              className="flex items-center gap-3 text-[13px] text-white/55 rounded-xl border border-white/[0.05] bg-white/[0.02] hover:border-purple-500/20 hover:bg-purple-500/[0.04] px-4 py-3 h-full transition-all duration-200"
+                            >
+                              <span className="h-5 w-5 rounded-md bg-purple-500/15 border border-purple-500/20 grid place-items-center shrink-0">
+                                <Check className="h-3 w-3 text-purple-400" />
+                              </span>
+                              {f}
+                            </motion.div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {/* Reviews */}
+                    {activeTab === "reviews" && (
+                      <div className="space-y-3">
+                        {reviewsBusy ? (
+                          <div className="flex items-center gap-2 text-white/20 py-8">
+                            <LoaderCircle className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">جاري التحميل…</span>
+                          </div>
+                        ) : reviews.length === 0 ? (
+                          <div className="py-10 text-center">
+                            <div className="h-14 w-14 rounded-2xl border border-white/[0.04] bg-white/[0.02] grid place-items-center mx-auto mb-3">
+                              <Star className="h-6 w-6 text-white/[0.08]" />
+                            </div>
+                            <p className="text-white/20 text-sm">لا توجد تقييمات بعد</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 max-h-[420px] overflow-y-auto pe-1">
+                            {reviews.map((rv) => (
+                              <div key={rv.id} className="space-y-1.5">
+
+                                {/* ── Review card ── */}
+                                <article
+                                  className="rounded-xl border border-white/[0.05] bg-white/[0.025] p-4"
+                                  style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)" }}
+                                >
+                                  <div className="flex items-center justify-between gap-3 mb-2.5">
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-purple-600/40 to-fuchsia-600/25 border border-purple-500/20 grid place-items-center text-xs font-black text-purple-200 shrink-0">
+                                        {rv.authorName ? rv.authorName.charAt(0).toUpperCase() : "?"}
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center gap-1.5 mb-1">
+                                          <p className="text-xs font-bold text-white/65 leading-none">{rv.authorName}</p>
+                                          {rv.authorRole && <RoleBadge role={rv.authorRole} />}
+                                        </div>
+                                        <Stars rating={rv.rating} size="sm" />
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <time className="text-[10px] text-white/15">
+                                        {new Date(rv.createdAt).toLocaleDateString("ar-EG", {
+                                          year: "numeric", month: "short", day: "numeric",
+                                        })}
+                                      </time>
+
+                                      {isStaff && (
+                                        <>
+                                          {/* Reply button */}
+                                          <button
+                                            type="button"
+                                            onClick={() => setReplyOpen((p) => ({ ...p, [rv.id]: !p[rv.id] }))}
+                                            className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold transition-all ${
+                                              replyOpen[rv.id]
+                                                ? "border-purple-500/40 bg-purple-500/15 text-purple-300"
+                                                : "border-white/[0.06] bg-white/[0.03] text-white/30 hover:border-purple-500/30 hover:text-purple-300"
+                                            }`}
+                                          >
+                                            <MessageSquare className="h-2.5 w-2.5" />
+                                            رد
+                                          </button>
+
+                                          {/* Delete — two-step confirm */}
+                                          {confirmId === rv.id ? (
+                                            <div className="flex items-center gap-1">
+                                              <button
+                                                type="button"
+                                                onClick={() => setConfirmId(null)}
+                                                className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[10px] text-white/30 hover:text-white/60 transition-all"
+                                              >
+                                                لا
+                                              </button>
+                                              <button
+                                                type="button"
+                                                disabled={deletingId === rv.id}
+                                                onClick={() => deleteReview(rv.id)}
+                                                className="flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/15 px-2 py-1 text-[10px] font-bold text-red-400 hover:bg-red-500/25 disabled:opacity-50 transition-all"
+                                              >
+                                                {deletingId === rv.id
+                                                  ? <LoaderCircle className="h-2.5 w-2.5 animate-spin" />
+                                                  : <Trash2 className="h-2.5 w-2.5" />}
+                                                تأكيد
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={() => setConfirmId(rv.id)}
+                                              className="flex items-center gap-1 rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[10px] font-bold text-white/25 hover:border-red-500/30 hover:text-red-400 transition-all"
+                                            >
+                                              <Trash2 className="h-2.5 w-2.5" />
+                                            </button>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <p className="text-xs text-white/38 leading-relaxed">{rv.comment}</p>
+                                </article>
+
+                                {/* ── Replies ── */}
+                                {rv.replies.length > 0 && (
+                                  <div className="mr-5 space-y-1.5">
+                                    {rv.replies.map((rep) => (
+                                      <div key={rep.id}
+                                        className="flex gap-2.5 rounded-xl border border-purple-500/[0.12] bg-purple-500/[0.04] px-4 py-3"
+                                      >
+                                        <CornerDownLeft className="h-3 w-3 text-purple-400/40 mt-0.5 shrink-0 rotate-180 scale-x-[-1]" />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                            <span className="text-xs font-bold text-purple-200/80">{rep.authorName}</span>
+                                            <RoleBadge role={rep.role} />
+                                            <time className="text-[10px] text-white/15 mr-auto">
+                                              {new Date(rep.createdAt).toLocaleDateString("ar-EG", {
+                                                year: "numeric", month: "short", day: "numeric",
+                                              })}
+                                            </time>
+                                          </div>
+                                          <p className="text-xs text-white/45 leading-relaxed">{rep.body}</p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* ── Reply form (staff only) ── */}
+                                <AnimatePresence>
+                                  {replyOpen[rv.id] && (
+                                    <motion.div
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: "auto" }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="mr-5 overflow-hidden"
+                                    >
+                                      <div className="rounded-xl border border-purple-500/20 bg-purple-500/[0.05] p-3 space-y-2.5">
+                                        <div className="flex items-center gap-2">
+                                          <RoleBadge role={role ?? "helper"} />
+                                          <span className="text-[10px] text-white/30">ردك كـ {ROLE_META[role ?? ""]?.label ?? "فريق الدعم"}</span>
+                                        </div>
+                                        <textarea
+                                          value={replyText[rv.id] ?? ""}
+                                          onChange={(e) => setReplyText((p) => ({ ...p, [rv.id]: e.target.value }))}
+                                          placeholder="اكتب ردك هنا…"
+                                          rows={2}
+                                          className="w-full rounded-lg border border-white/[0.07] bg-white/[0.04] px-3 py-2 text-xs text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/40 resize-none transition-all"
+                                        />
+                                        {replyError[rv.id] && (
+                                          <p className="text-red-400/70 text-[10px]">{replyError[rv.id]}</p>
+                                        )}
+                                        <div className="flex items-center gap-2 justify-end">
+                                          <button
+                                            type="button"
+                                            onClick={() => setReplyOpen((p) => ({ ...p, [rv.id]: false }))}
+                                            className="px-3 py-1.5 text-[10px] font-bold text-white/30 hover:text-white/60 transition-colors"
+                                          >
+                                            إلغاء
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={replyBusy[rv.id] || !(replyText[rv.id] ?? "").trim()}
+                                            onClick={() => submitReply(rv.id)}
+                                            className="flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[10px] font-black text-white disabled:opacity-40 transition-all"
+                                            style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)" }}
+                                          >
+                                            {replyBusy[rv.id] ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
+                                            {replyBusy[rv.id] ? "جاري الإرسال…" : "إرسال الرد"}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Write review */}
+                        {loggedIn ? (
+                          <form onSubmit={handleSubmit}
+                            className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-4 space-y-3 mt-2"
+                          >
+                            <p className="text-xs font-bold text-white/35">أكتب تقييمك</p>
+                            <div className="flex gap-1">
+                              {[1, 2, 3, 4, 5].map((s) => (
+                                <button key={s} type="button" aria-label={`تقييم ${s} نجوم`}
+                                  onClick={() => setWriteRating(s)}
+                                  onMouseEnter={() => setHoverStar(s)}
+                                  onMouseLeave={() => setHoverStar(0)}
+                                  className="p-0.5 hover:scale-110 transition-transform"
+                                >
+                                  <Star className={`h-6 w-6 transition-colors ${
+                                    s <= (hoverStar || writeRating)
+                                      ? "fill-amber-400 text-amber-400"
+                                      : "fill-white/[0.06] text-white/[0.06]"
+                                  }`} />
+                                </button>
+                              ))}
+                            </div>
+                            <textarea
+                              value={writeComment}
+                              onChange={(e) => setWriteComment(e.target.value)}
+                              placeholder="شارك تجربتك مع هذا المنتج…"
+                              required
+                              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-xs text-white/65 placeholder:text-white/12 outline-none focus:border-purple-500/35 focus:bg-purple-500/[0.03] min-h-[72px] resize-none transition-all"
+                            />
+                            {postError && <p className="text-red-400/75 text-xs">{postError}</p>}
+                            {postOk    && <p className="text-emerald-400/75 text-xs flex items-center gap-1.5"><Check className="h-3 w-3" />تم إرسال تقييمك!</p>}
+                            <button type="submit" disabled={posting || !writeComment.trim()}
+                              className="rounded-lg px-5 py-2 text-xs font-black text-white disabled:opacity-35 transition-all flex items-center gap-1.5"
+                              style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)" }}
+                            >
+                              {posting ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : null}
+                              {posting ? "جاري الإرسال…" : "إرسال التقييم"}
+                            </button>
+                          </form>
+                        ) : (
+                          <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-5 text-center mt-2">
+                            <p className="text-white/22 text-xs mb-3">سجل دخول لكتابة تقييم</p>
+                            <Link href="/login">
+                              <button type="button"
+                                className="rounded-lg px-5 py-2 text-xs font-black text-white transition-all"
+                                style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)" }}
+                              >
+                                {translate("nav.login")}
+                              </button>
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+
+              {/* ── Buy section ─────────────────────────────────────── */}
+              <div ref={heroBuyRef} className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5 space-y-4"
+                style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03), 0 0 0 1px rgba(168,85,247,0.04)" }}
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/20">إتمام الشراء</p>
+                  <span className="text-base font-black text-white/80">EGP {price.toLocaleString("en")}</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Link href={checkoutHref} className="col-span-2 sm:col-span-1">
+                    <motion.button
+                      whileHover={prefersReducedMotion ? undefined : { scale: 1.02, boxShadow: "0 0 48px rgba(139,92,246,0.5)" }}
+                      whileTap={{ scale: 0.97 }}
+                      className="relative overflow-hidden group w-full flex items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-sm font-black text-white transition-all duration-300"
+                      style={{ background: "linear-gradient(135deg,#7c3aed 0%,#a855f7 50%,#d946ef 100%)", boxShadow: "0 0 32px rgba(139,92,246,0.35)" }}
+                    >
+                      <span aria-hidden className="absolute inset-0 translate-x-[110%] group-hover:translate-x-[-110%] bg-gradient-to-l from-transparent via-white/12 to-transparent transition-transform duration-600" />
+                      <ShoppingBag className="h-4 w-4 relative shrink-0" />
+                      <span className="relative">اشتري الآن</span>
+                    </motion.button>
+                  </Link>
+
+                  <Link href={checkoutHref} className="col-span-2 sm:col-span-1">
+                    <motion.button
+                      whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
+                      whileTap={{ scale: 0.97 }}
+                      className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-purple-500/25 bg-purple-500/[0.06] hover:border-purple-400/40 hover:bg-purple-500/10 px-6 py-3.5 text-sm font-bold text-white/60 hover:text-white/90 transition-all duration-200"
+                    >
+                      <ShoppingCart className="h-4 w-4" />
+                      أضف للسلة
+                    </motion.button>
+                  </Link>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── STICKY BAR ───────────────────────────────────────────────── */}
       <AnimatePresence>
         {showSticky && (
           <motion.div
@@ -947,27 +799,23 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             className="fixed bottom-0 left-0 right-0 z-50"
           >
-            <div className="border-t border-white/[0.07] bg-[#08080E]/96 backdrop-blur-2xl px-5 py-3.5">
+            <div className="border-t border-white/[0.06] bg-[#09090F]/96 backdrop-blur-2xl px-5 py-3.5">
               <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <img
-                    src={product.image}
-                    alt=""
-                    className="h-10 w-10 rounded-xl object-contain bg-white/[0.04] border border-white/[0.06] p-1.5 shrink-0"
-                  />
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="h-10 w-10 rounded-xl border border-white/[0.06] bg-white/[0.03] grid place-items-center shrink-0 overflow-hidden">
+                    <img src={product.image} alt="" className="h-8 w-8 object-contain" />
+                  </div>
                   <div className="min-w-0">
-                    <p className="text-xs text-white/30 truncate leading-tight">{product.name}</p>
-                    <p className="text-xl font-black leading-tight">
-                      EGP {price.toLocaleString("en")}
-                    </p>
+                    <p className="text-[11px] text-white/25 truncate leading-tight">{product.name}</p>
+                    <p className="text-lg font-black leading-tight">EGP {price.toLocaleString("en")}</p>
                   </div>
                 </div>
-
                 <Link href={checkoutHref} className="shrink-0">
                   <motion.button
                     whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    className="flex items-center gap-2 rounded-xl bg-gradient-to-l from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 px-6 py-3 text-sm font-black text-white shadow-[0_0_35px_rgba(168,85,247,0.38)] transition-all"
+                    className="flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-black text-white transition-all"
+                    style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", boxShadow: "0 0 28px rgba(139,92,246,0.4)" }}
                   >
                     <ShoppingBag className="h-4 w-4" />
                     اشتري الآن

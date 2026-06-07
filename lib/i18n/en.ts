@@ -266,6 +266,8 @@ export const en = {
   "admin.nav.overview": "Overview",
   "admin.nav.products": "Products",
   "admin.nav.orders": "Orders",
+  "admin.nav.chat": "Chat",
+  "admin.nav.logs": "Activity Log",
   "admin.nav.users": "Users",
   "admin.role.admin": "Admin",
   "admin.role.moderator": "Moderator",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireRole, type UserRole } from "../../lib/auth/requireAuthContext";
 import { buildFeatureRows } from "../../lib/products/featureHelpers";
+import { logActivity } from "../../lib/logs/logActivity";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,7 +13,7 @@ const PRODUCT_MUTATION_ROLES: UserRole[] = ["admin", "moderator"];
 
 export async function POST(req: Request) {
   // Admin + Moderator can create products
-  await requireRole(req, PRODUCT_MUTATION_ROLES);
+  const ctx = await requireRole(req, PRODUCT_MUTATION_ROLES);
 
   try {
     const body = await req.json();
@@ -76,6 +77,15 @@ export async function POST(req: Request) {
       console.warn("[create-product] Non-critical feature operation failed:", featureError instanceof Error ? featureError.message : "Unknown");
       console.warn("[create-product] Product was created successfully; continuing without features.");
     }
+
+    await logActivity({
+      actorId:     ctx.userId,
+      actorRole:   ctx.role,
+      action:      "product.create",
+      targetType:  "product",
+      targetId:    productId,
+      targetLabel: body.name,
+    });
 
     console.log("[create-product] Product creation completed successfully for ID:", productId);
     return NextResponse.json({ success: true });

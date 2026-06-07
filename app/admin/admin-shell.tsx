@@ -10,11 +10,14 @@ import {
   Home,
   LayoutDashboard,
   LogOut,
+  MessageCircle,
+  ScrollText,
   ShoppingCart,
   Sparkles,
   Users,
 } from "lucide-react";
 import { useAuth } from "../../components/auth/AuthProvider";
+import { useChatUnread } from "../../components/chat/useChatUnread";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 const NAV_ITEMS = [
@@ -22,13 +25,16 @@ const NAV_ITEMS = [
   { href: "/admin",          labelKey: "admin.nav.overview" as const, icon: LayoutDashboard },
   { href: "/admin/products", labelKey: "admin.nav.products" as const, icon: Boxes          },
   { href: "/admin/orders",   labelKey: "admin.nav.orders"   as const, icon: ShoppingCart   },
+  { href: "/admin/chat",     labelKey: "admin.nav.chat"     as const, icon: MessageCircle  },
+  { href: "/admin/logs",     labelKey: "admin.nav.logs"     as const, icon: ScrollText     },
   { href: "/admin/users",    labelKey: "admin.nav.users"    as const, icon: Users          },
 ] as const;
 
 export default function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { role, profile, isLoading, signOut } = useAuth();
+  const { role, profile, isLoading, signOut, accessToken } = useAuth();
   const { translate } = useLanguage();
+  const chatUnread = useChatUnread(accessToken, !!accessToken);
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => isLoading || role === "admin" || item.href !== "/admin/users"
@@ -67,10 +73,15 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                   active ? "text-purple-200" : "text-zinc-500 hover:text-zinc-300"
                 }`}
               >
-                <span className={`grid h-8 w-8 place-items-center rounded-xl transition-all duration-200 ${
+                <span className={`relative grid h-8 w-8 place-items-center rounded-xl transition-all duration-200 ${
                   active ? "bg-purple-500/25 text-purple-200" : "text-zinc-500"
                 }`}>
                   <Icon className="h-4 w-4" />
+                  {item.href === "/admin/chat" && chatUnread > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full border-2 border-[#050507] bg-red-500 grid place-items-center text-[9px] font-black text-white">
+                      {chatUnread > 9 ? "9+" : chatUnread}
+                    </span>
+                  )}
                 </span>
                 <span>{translate(item.labelKey)}</span>
               </Link>
@@ -110,12 +121,17 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                   {active && (
                     <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-purple-400" />
                   )}
-                  <span className={`grid h-9 w-9 place-items-center rounded-xl transition-all duration-300 ${
+                  <span className={`relative grid h-9 w-9 place-items-center rounded-xl transition-all duration-300 ${
                     active
                       ? "bg-purple-500/25 text-purple-200"
                       : "bg-white/[0.04] text-zinc-500 group-hover:bg-purple-500/10 group-hover:text-purple-300"
                   }`}>
                     <Icon className="h-4 w-4" />
+                    {item.href === "/admin/chat" && chatUnread > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full border-2 border-zinc-950 bg-red-500 grid place-items-center text-[9px] font-black text-white">
+                        {chatUnread > 9 ? "9+" : chatUnread}
+                      </span>
+                    )}
                   </span>
                   {translate(item.labelKey)}
                 </Link>
@@ -183,13 +199,18 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-all duration-300 ${
+                    className={`relative rounded-full border px-4 py-1.5 text-xs font-semibold transition-all duration-300 ${
                       active
                         ? "border-purple-400/35 bg-purple-500/15 text-white"
                         : "border-white/[0.08] bg-white/[0.03] text-zinc-500 hover:border-purple-500/20 hover:text-zinc-300"
                     }`}
                   >
                     {translate(item.labelKey)}
+                    {item.href === "/admin/chat" && chatUnread > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full border-2 border-zinc-950 bg-red-500 grid place-items-center text-[9px] font-black text-white">
+                        {chatUnread > 9 ? "9+" : chatUnread}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

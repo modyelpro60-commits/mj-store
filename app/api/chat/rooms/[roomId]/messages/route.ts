@@ -1,0 +1,259 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { requireActiveUser } from "../../../../../lib/auth/requireAuthContext";
+
+const STAFF_ROLES = ["admin", "moderator", "helper"];
+
+function serviceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
+
+/* ─── GET /api/chat/rooms/[roomId]/messages ──────────────────────────────────
+ * Returns the last 100 messages in a room, with sender profile info.
+ * Staff can read any room. Users can only read their own room.
+ * ─────────────────────────────────────────────────────────────────────────── */
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ roomId: string }> }
+) {
+  const { roomId } = await params;
+
+  let ctx;
+  try {
+    ctx = await requireActiveUser(req);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const supabase = serviceClient();
+  const isStaff  = STAFF_ROLES.includes(ctx.role);
+
+  const isAdmin = ctx.role === "admin";
+
+  // Try to read the room with the new columns; fall back to base columns if the
+  // close/status migration hasn't been applied yet (keeps core chat working).
+  let room: any = null;
+  const fullRoom = await supabase
+    .from("chat_rooms")
+    .select("id, user_id, status, closed_by, closed_by_name, closed_at, customer_cleared_at")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (!fullRoom.error) {
+    room = fullRoom.data;
+  } else {
+    const baseRoom = await supabase
+      .from("chat_rooms")
+      .select("id, user_id")
+      .eq("id", roomId)
+      .maybeSingle();
+    room = baseRoom.data;
+  }
+
+  if (!room) {
+    return NextResponse.json({ success: false, error: "Room not found" }, { status: 404 });
+  }
+  if (!isStaff && room.user_id !== ctx.userId) {
+    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+  }
+
+  // Grace / clear logic. On close we stamp customer_cleared_at = closed_at + 60s.
+  //   • before that moment → chat still shown, with a "closing" banner
+  //   • after that moment  → chat disappears (cleared) for everyone but admins
+  const isClosed = room.status === "closed";
+  const clearAt  = (room.customer_cleared_at as string | null) ?? null;
+  const cleared  = !!clearAt && Date.now() >= new Date(clearAt).getTime();
+  const inGrace  = isClosed && !!clearAt && !cleared;
+
+  // Role of whoever closed the chat (for the banner text)
+  let closedByRole: string | null = null;
+  if (isClosed && room.closed_by) {
+    const { data: closer } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", room.closed_by)
+      .maybeSingle();
+    closedByRole = (closer?.role as string) ?? null;
+  }
+
+  // Only the actual customer loses the history once the grace period ends.
+  // Staff (admin/moderator/helper) always see the full message history; for
+  // moderators/helpers the conversation instead disappears from their list.
+  let mq = supabase
+    .from("chat_messages")
+    .select(`id, body, created_at, sender_id`)
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: true })
+    .limit(100);
+  if (!isStaff && cleared && clearAt) {
+    mq = mq.gt("created_at", clearAt);
+  }
+  const { data: messages, error } = await mq;
+
+  if (error) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+
+  const msgList = messages ?? [];
+
+  // Fetch sender profiles separately (no FK relationship chat_messages → profiles)
+  const senderIds = Array.from(new Set(msgList.map((m: any) => m.sender_id)));
+  const profMap = new Map<string, { full_name: string; role: string }>();
+  if (senderIds.length > 0) {
+    const { data: profs } = await supabase
+      .from("profiles")
+      .select("id, full_name, role")
+      .in("id", senderIds);
+    (profs ?? []).forEach((p: any) =>
+      profMap.set(p.id, { full_name: p.full_name, role: p.role })
+    );
+  }
+
+  const data = msgList.map((m: any) => {
+    const prof = profMap.get(m.sender_id);
+    return {
+      id:         m.id,
+      senderId:   m.sender_id,
+      senderName: prof?.full_name ?? "مستخدم",
+      senderRole: prof?.role ?? null,
+      body:       m.body,
+      createdAt:  m.created_at,
+      isOwn:      m.sender_id === ctx.userId,
+    };
+  });
+
+  // Room meta differs by viewer:
+  //   • admin       → real closed state (can reopen), full record kept
+  //   • others      → "closing" banner during the grace minute, then fresh chat
+  let roomMeta;
+  if (isAdmin) {
+    roomMeta = {
+      status:       (room.status as string) ?? "open",
+      closing:      false,
+      closedByName: (room.closed_by_name as string) ?? null,
+      closedByRole,
+      closedAt:     (room.closed_at as string) ?? null,
+      clearAt:      null as string | null,
+    };
+  } else if (inGrace) {
+    roomMeta = {
+      status:       "closing",
+      closing:      true,
+      closedByName: (room.closed_by_name as string) ?? null,
+      closedByRole,
+      closedAt:     (room.closed_at as string) ?? null,
+      clearAt,
+    };
+  } else {
+    roomMeta = { status: "open", closing: false, closedByName: null, closedByRole: null, closedAt: null, clearAt: null as string | null };
+  }
+
+  return NextResponse.json({ success: true, data, room: roomMeta });
+}
+
+/* ─── POST /api/chat/rooms/[roomId]/messages ─────────────────────────────────
+ * Send a message to a room.
+ * Staff can send to any room. Users can only send to their own room.
+ * ─────────────────────────────────────────────────────────────────────────── */
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ roomId: string }> }
+) {
+  const { roomId } = await params;
+
+  let ctx;
+  try {
+    ctx = await requireActiveUser(req);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const supabase = serviceClient();
+  const isStaff  = STAFF_ROLES.includes(ctx.role);
+
+  // For customers: verify ownership and read the pending-clear time so we can
+  // decide whether their message cancels a pending close.
+  let custClearedAt: string | null = null;
+  if (!isStaff) {
+    let r = await supabase
+      .from("chat_rooms")
+      .select("id, customer_cleared_at")
+      .eq("id", roomId)
+      .eq("user_id", ctx.userId)
+      .maybeSingle();
+    if (r.error) {
+      // customer_cleared_at column missing (pre-migration) — fall back
+      r = await supabase
+        .from("chat_rooms")
+        .select("id")
+        .eq("id", roomId)
+        .eq("user_id", ctx.userId)
+        .maybeSingle();
+    }
+    if (!r.data) {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    }
+    custClearedAt = ((r.data as any).customer_cleared_at as string | null) ?? null;
+  }
+
+  let raw: { body?: string };
+  try {
+    raw = await req.json();
+  } catch {
+    return NextResponse.json({ success: false, error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const body = (raw.body ?? "").trim();
+
+  if (!body) {
+    return NextResponse.json({ success: false, error: "Message is empty" }, { status: 400 });
+  }
+  if (body.length > 2000) {
+    return NextResponse.json({ success: false, error: "Message too long" }, { status: 400 });
+  }
+
+  const { error: insertErr } = await supabase
+    .from("chat_messages")
+    .insert({ room_id: roomId, sender_id: ctx.userId, body });
+
+  if (insertErr) {
+    return NextResponse.json({ success: false, error: insertErr.message }, { status: 500 });
+  }
+
+  // Bump room metadata. The sender just "read" everything.
+  const now = new Date().toISOString();
+  const roomPatch: Record<string, unknown> = {
+    last_message_at:      now,
+    last_sender_is_staff: isStaff,
+  };
+  if (isStaff) {
+    roomPatch.staff_last_read_at = now;
+  } else {
+    // A customer reply re-opens the chat. If a close is still within its
+    // 1-minute grace window, the reply cancels it (keep the full history).
+    // If the grace already passed, keep customer_cleared_at so old messages
+    // stay hidden and the customer just continues with a fresh thread.
+    roomPatch.user_last_read_at = now;
+    roomPatch.status = "open";
+    roomPatch.closed_at = null;
+    roomPatch.closed_by = null;
+    roomPatch.closed_by_name = null;
+    const graceStillActive =
+      custClearedAt && Date.now() < new Date(custClearedAt).getTime();
+    if (graceStillActive) {
+      roomPatch.customer_cleared_at = null;
+    }
+  }
+
+  const upd = await supabase.from("chat_rooms").update(roomPatch).eq("id", roomId);
+  if (upd.error) {
+    // New columns may not exist yet (migration pending) — at least bump the time
+    await supabase.from("chat_rooms").update({ last_message_at: now }).eq("id", roomId);
+  }
+
+  return NextResponse.json({ success: true });
+}
