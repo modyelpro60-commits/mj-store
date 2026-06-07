@@ -1,6 +1,6 @@
 import { supabase } from "../../../lib/supabase";
 import { normalizeProductFeatures } from "../../lib/products/featureHelpers";
-import ProductDetailsView from "../../../components/storefront/ProductDetailsView";
+import ProductDetailsViewV2 from "../../../components/storefront/ProductDetailsViewV2";
 
 export default async function ProductPage({
   params,
@@ -37,7 +37,7 @@ export default async function ProductPage({
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <ProductDetailsView product={product as any} />
+      <ProductDetailsViewV2 product={product as any} />
     </main>
   );
 }

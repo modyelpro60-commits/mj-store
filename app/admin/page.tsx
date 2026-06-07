@@ -11,10 +11,10 @@ import {
   PackageCheck,
   ShoppingCart,
   Sparkles,
-  TrendingUp,
 } from "lucide-react";
 import AnimatedNumber from "./animated-number";
 import { useAuth } from "../../components/auth/AuthProvider";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 interface ProductRecord {
   id: number;
@@ -52,6 +52,7 @@ const cardVariants: Variants = {
 
 export default function AdminPage() {
   const { accessToken } = useAuth();
+  const { translate } = useLanguage();
 
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -75,9 +76,7 @@ export default function AdminPage() {
 
       const [productsRes, statsRes] = await Promise.all([
         fetch("/api/get-products"),
-        fetch("/api/admin/dashboard-stats", {
-          headers: authHeader,
-        }),
+        fetch("/api/admin/dashboard-stats", { headers: authHeader }),
       ]);
 
       const productsData = (await productsRes.json()) as ProductsApiResponse;
@@ -102,28 +101,28 @@ export default function AdminPage() {
   const quickMetrics = useMemo(
     () => [
       {
-        label: "Products",
+        key: "admin.stat.products" as const,
         value: stats?.totalProducts ?? products.length,
         suffix: "",
         icon: Boxes,
         accent: "from-purple-500/30 via-purple-500/15 to-white/5",
       },
       {
-        label: "Orders",
+        key: "admin.stat.orders" as const,
         value: stats?.totalOrders ?? 0,
         suffix: "",
         icon: ShoppingCart,
         accent: "from-fuchsia-500/25 via-purple-500/15 to-white/5",
       },
       {
-        label: "Revenue",
+        key: "admin.stat.revenue" as const,
         value: stats?.totalRevenue ?? 0,
         suffix: " EGP",
         icon: Coins,
         accent: "from-violet-500/25 via-purple-500/15 to-white/5",
       },
       {
-        label: "Active Listings",
+        key: "admin.stat.activeListings" as const,
         value: products.length,
         suffix: "",
         icon: PackageCheck,
@@ -135,6 +134,7 @@ export default function AdminPage() {
 
   return (
     <div className="space-y-6">
+      {/* Hero section */}
       <motion.section
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -145,17 +145,12 @@ export default function AdminPage() {
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-200">
               <Sparkles className="h-4 w-4" />
-              Premium Admin Overview
+              {translate("admin.overview.badge")}
             </div>
 
             <h1 className="mt-5 text-4xl font-black tracking-tight text-white sm:text-5xl">
-              MJ Store Admin Dashboard
+              MJ Store
             </h1>
-
-            <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
-              High-clarity dashboard for products, orders, and revenue with neon gaming polish,
-              strong spacing, and smooth motion hierarchy.
-            </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:w-[420px]">
@@ -165,9 +160,11 @@ export default function AdminPage() {
             >
               <span>
                 <span className="block text-sm uppercase tracking-[0.24em] text-zinc-500">
-                  Manage
+                  {translate("admin.overview.manage")}
                 </span>
-                <span className="mt-1 block text-lg font-bold">Products</span>
+                <span className="mt-1 block text-lg font-bold">
+                  {translate("admin.nav.products")}
+                </span>
               </span>
               <ArrowRight className="h-5 w-5 text-purple-300 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
@@ -178,9 +175,11 @@ export default function AdminPage() {
             >
               <span>
                 <span className="block text-sm uppercase tracking-[0.24em] text-zinc-500">
-                  Manage
+                  {translate("admin.overview.manage")}
                 </span>
-                <span className="mt-1 block text-lg font-bold">Orders</span>
+                <span className="mt-1 block text-lg font-bold">
+                  {translate("admin.nav.orders")}
+                </span>
               </span>
               <ArrowRight className="h-5 w-5 text-purple-300 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
@@ -188,13 +187,13 @@ export default function AdminPage() {
         </div>
       </motion.section>
 
+      {/* Stat cards */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {quickMetrics.map((metric, index) => {
           const Icon = metric.icon;
-
           return (
             <motion.article
-              key={metric.label}
+              key={metric.key}
               custom={index * 0.08}
               variants={cardVariants}
               initial="hidden"
@@ -207,7 +206,7 @@ export default function AdminPage() {
               <div className="relative z-10 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm uppercase tracking-[0.26em] text-zinc-500">
-                    {metric.label}
+                    {translate(metric.key)}
                   </p>
                   <div className="mt-3 text-4xl font-black tracking-tight text-white">
                     {loading ? (
@@ -227,6 +226,7 @@ export default function AdminPage() {
         })}
       </section>
 
+      {/* Store snapshot + Recent inventory */}
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <motion.section
           initial={{ opacity: 0, y: 16 }}
@@ -236,34 +236,38 @@ export default function AdminPage() {
         >
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-black tracking-tight">Store Snapshot</h2>
+              <h2 className="text-2xl font-black tracking-tight">
+                {translate("admin.store.snapshot")}
+              </h2>
               <p className="mt-2 text-sm leading-6 text-zinc-400">
-                A quick view of live inventory and business performance.
+                {translate("admin.store.snapshotDesc")}
               </p>
             </div>
 
-            <div className="rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-200">
-              Live data
+            <div className="shrink-0 rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-200">
+              {translate("admin.stat.liveData")}
             </div>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
               <p className="text-sm uppercase tracking-[0.24em] text-zinc-500">
-                Best Seller
+                {translate("admin.store.bestSeller")}
               </p>
               <h3 className="mt-3 text-2xl font-black tracking-tight">
-                {stats?.bestSellingProduct?.name || "No sales yet"}
+                {stats?.bestSellingProduct?.name ?? translate("admin.store.noSales")}
               </h3>
               <p className="mt-2 text-zinc-400">
                 {stats?.bestSellingProduct
-                  ? `${stats.bestSellingProduct.sales} orders`
-                  : "Orders will appear here once customers start buying."}
+                  ? `${stats.bestSellingProduct.sales} ${translate("admin.store.orders")}`
+                  : translate("admin.store.noSalesYet")}
               </p>
             </div>
 
             <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
-              <p className="text-sm uppercase tracking-[0.24em] text-zinc-500">Revenue</p>
+              <p className="text-sm uppercase tracking-[0.24em] text-zinc-500">
+                {translate("admin.store.revenue")}
+              </p>
               <h3 className="mt-3 text-2xl font-black tracking-tight">
                 {loading ? (
                   <LoaderCircle className="h-7 w-7 animate-spin text-purple-300" />
@@ -271,21 +275,7 @@ export default function AdminPage() {
                   <AnimatedNumber value={stats?.totalRevenue ?? 0} suffix=" EGP" />
                 )}
               </h3>
-              <p className="mt-2 text-zinc-400">Total income across all completed orders.</p>
-            </div>
-          </div>
-
-          <div className="mt-6 rounded-[1.5rem] border border-purple-500/15 bg-gradient-to-br from-purple-500/10 via-white/5 to-transparent p-5">
-            <div className="flex items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-purple-500/15 text-purple-200">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold">Dashboard hierarchy tuned for fast scanning</h3>
-                <p className="mt-1 text-sm text-zinc-400">
-                  Big numbers, focused card grouping, and clean contrast for a premium admin feel.
-                </p>
-              </div>
+              <p className="mt-2 text-zinc-400">{translate("admin.store.revenueDesc")}</p>
             </div>
           </div>
 
@@ -302,9 +292,11 @@ export default function AdminPage() {
           transition={{ duration: 0.45, delay: 0.14 }}
           className="rounded-[2rem] border border-white/10 bg-zinc-950/75 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
         >
-          <h2 className="text-2xl font-black tracking-tight">Recent Inventory</h2>
+          <h2 className="text-2xl font-black tracking-tight">
+            {translate("admin.recent.inventory")}
+          </h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Clean overview of the current catalog with sharper spacing and more readable grouping.
+            {translate("admin.recent.inventoryDesc")}
           </p>
 
           <div className="mt-6 space-y-3">
@@ -319,7 +311,7 @@ export default function AdminPage() {
               </div>
             ) : products.length === 0 ? (
               <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 text-zinc-400">
-                No products available yet.
+                {translate("admin.recent.noProducts")}
               </div>
             ) : (
               products.slice(0, 5).map((product, index) => (
@@ -332,10 +324,12 @@ export default function AdminPage() {
                 >
                   <div className="min-w-0">
                     <p className="truncate text-lg font-bold">{product.name}</p>
-                    <p className="mt-1 text-sm text-zinc-400">Product ID #{product.id}</p>
+                    <p className="mt-1 text-sm text-zinc-400">
+                      {translate("admin.recent.productId")}{product.id}
+                    </p>
                   </div>
 
-                  <div className="rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-200">
+                  <div className="shrink-0 rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-200">
                     {product.price} EGP
                   </div>
                 </motion.div>

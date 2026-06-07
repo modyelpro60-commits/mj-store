@@ -41,9 +41,6 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
 
   const glowPurple =
     "0 0 60px rgba(168,85,247,0.22), 0 0 26px rgba(168,85,247,0.12)";
-  const imageFloat = prefersReducedMotion
-    ? undefined
-    : { y: [0, -8, 0], transition: { duration: 3.6, repeat: Infinity } };
 
   return (
     <motion.div
@@ -51,8 +48,16 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="h-full"
+      className="h-full relative"
     >
+      {/* Ambient glow — breathes continuously, always visible */}
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute -inset-6 rounded-[3.5rem] bg-purple-600/[0.08] blur-[60px]"
+        animate={prefersReducedMotion ? {} : { opacity: [0.4, 0.85, 0.4], scale: [0.98, 1.02, 0.98] }}
+        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+      />
+
       <motion.div
         whileHover={
           prefersReducedMotion
@@ -68,7 +73,7 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
         {/* Depth layers */}
         <div aria-hidden className="absolute inset-0 pointer-events-none opacity-70">
           <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-purple-500/10 blur-3xl" />
-          <div className="absolute -bottom-40 -right-28 h-[520px] w-[520px] rounded-full bg-purple-500/5 blur-[180px]" />
+          <div className="absolute -bottom-40 -right-28 h-[420px] w-[420px] rounded-full bg-purple-500/[0.07] blur-[100px]" />
           <div
             className="absolute inset-0 opacity-25"
             style={{
@@ -92,11 +97,13 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
             transition={{ type: "spring", stiffness: 120, damping: 18 }}
           >
             <motion.div
-              animate={imageFloat}
-              transition={prefersReducedMotion ? undefined : imageFloat?.transition}
+              animate={prefersReducedMotion ? undefined : { y: [0, -7, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
               className="relative overflow-hidden rounded-[2.1rem] border border-white/10 bg-black/25"
             >
               <div aria-hidden className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_30%_0%,rgba(168,85,247,0.28),transparent_55%)]" />
+              {/* Glass reflection — top-left highlight on the image frame */}
+              <div aria-hidden className="absolute inset-0 pointer-events-none rounded-[2.1rem] z-10 bg-[linear-gradient(135deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0.012)_25%,transparent_45%)]" />
               <motion.img
                 src={product.image}
                 alt={product.name}

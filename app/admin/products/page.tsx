@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { motion, type Variants } from "framer-motion";
 import { toast } from "sonner";
 import { useAuth } from "../../../components/auth/AuthProvider";
+import { useLanguage } from "../../../lib/i18n/LanguageProvider";
 import { normalizeProductFeatures } from "../../lib/products/featureHelpers";
 import {
   AlertCircle,
@@ -60,7 +61,9 @@ const panelVariants: Variants = {
 };
 
 export default function ProductsPage() {
-  const { accessToken, role, status, isLoading } = useAuth();
+  const { accessToken, role } = useAuth();
+  const { translate } = useLanguage();
+
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
   const [products, setProducts] = useState<ProductRecord[]>([]);
@@ -111,7 +114,7 @@ export default function ProductsPage() {
         const uploadData = (await uploadRes.json()) as UploadImageResponse;
 
         if (!uploadData.success || !uploadData.url) {
-          toast.error(uploadData.error || "Image upload failed");
+          toast.error(uploadData.error || translate("admin.toast.uploadFailed"));
           return;
         }
 
@@ -137,24 +140,21 @@ export default function ProductsPage() {
           "Content-Type": "application/json",
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify(
-          editingId
-            ? {
-                id: editingId,
-                ...payload,
-              }
-            : payload
-        ),
+        body: JSON.stringify(editingId ? { id: editingId, ...payload } : payload),
       });
 
       const data = (await res.json()) as SaveProductResponse;
 
       if (!data.success) {
-        toast.error(data.error || "Something went wrong");
+        toast.error(data.error || translate("admin.toast.error"));
         return;
       }
 
-      toast.success(editingId ? "Product Updated Successfully" : "Product Added Successfully");
+      toast.success(
+        editingId
+          ? translate("admin.toast.productUpdated")
+          : translate("admin.toast.productAdded")
+      );
 
       setName("");
       setPrice("");
@@ -170,7 +170,7 @@ export default function ProductsPage() {
       loadProducts();
     } catch (error) {
       console.error(error);
-      toast.error("Something went wrong");
+      toast.error(translate("admin.toast.error"));
     } finally {
       setLoading(false);
     }
@@ -178,7 +178,7 @@ export default function ProductsPage() {
 
   async function deleteProduct(id: number) {
     if (role !== "admin") {
-      toast.error("Only Admin can delete products.");
+      toast.error(translate("admin.toast.adminOnly"));
       return;
     }
 
@@ -198,16 +198,16 @@ export default function ProductsPage() {
 
       if (data.success) {
         setPendingDeleteId(null);
-        toast.success("Product deleted successfully");
+        toast.success(translate("admin.toast.productDeleted"));
         loadProducts();
       } else {
         setPendingDeleteId(null);
-        toast.error(data.error || "Something went wrong");
+        toast.error(data.error || translate("admin.toast.error"));
       }
     } catch (error) {
       console.error(error);
       setPendingDeleteId(null);
-      toast.error("Something went wrong");
+      toast.error(translate("admin.toast.error"));
     } finally {
       setSavingDeleteId(null);
     }
@@ -225,26 +225,14 @@ export default function ProductsPage() {
     setPreview(product.image || "");
     setImage(null);
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const stats = useMemo(
+  const statItems = useMemo(
     () => [
-      {
-        label: "Products",
-        value: products.length,
-      },
-      {
-        label: "Editing",
-        value: editingId ? 1 : 0,
-      },
-      {
-        label: "Features",
-        value: features.length,
-      },
+      { key: "products", labelKey: "admin.stat.products" as const, value: products.length },
+      { key: "editing",  labelKey: "admin.products.stat.editing" as const, value: editingId ? 1 : 0 },
+      { key: "features", labelKey: "admin.products.stat.features" as const, value: features.length },
     ],
     [editingId, features.length, products.length]
   );
@@ -257,6 +245,7 @@ export default function ProductsPage() {
         transition={{ duration: 0.35 }}
         className="space-y-6"
       >
+        {/* Hero */}
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -267,30 +256,26 @@ export default function ProductsPage() {
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-200">
                 <Sparkles className="h-4 w-4" />
-                Product Studio
+                {translate("admin.products.badge")}
               </div>
-
               <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl">
-                Product Management
+                {translate("admin.products.title")}
               </h1>
-
-              <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
-                Add, edit, and curate products with a cleaner hierarchy, stronger contrast, and
-                premium neon-accented controls.
-              </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 xl:w-[420px]">
-              {stats.map((item, index) => (
+              {statItems.map((item, index) => (
                 <motion.div
-                  key={item.label}
+                  key={item.key}
                   custom={index * 0.08}
                   variants={panelVariants}
                   initial="hidden"
                   animate="visible"
                   className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4"
                 >
-                  <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">{item.label}</p>
+                  <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+                    {translate(item.labelKey)}
+                  </p>
                   <p className="mt-2 text-2xl font-black">{item.value}</p>
                 </motion.div>
               ))}
@@ -299,6 +284,7 @@ export default function ProductsPage() {
         </motion.section>
 
         <div className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+          {/* Image panel */}
           <motion.section
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -311,9 +297,11 @@ export default function ProductsPage() {
                   <ImagePlus className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black tracking-tight">Product Image</h2>
+                  <h2 className="text-xl font-black tracking-tight">
+                    {translate("admin.products.image.title")}
+                  </h2>
                   <p className="mt-1 text-sm text-zinc-400">
-                    Preview media, then upload when you save.
+                    {translate("admin.products.image.subtitle")}
                   </p>
                 </div>
               </div>
@@ -328,9 +316,8 @@ export default function ProductsPage() {
                     <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-3xl border border-purple-500/20 bg-purple-500/10 text-purple-200">
                       <Upload className="h-7 w-7" />
                     </div>
-                    <p className="text-lg font-semibold text-zinc-200">Upload Preview Here</p>
-                    <p className="mt-2 text-sm leading-6 text-zinc-400">
-                      Use a crisp product image for the best storefront presentation.
+                    <p className="text-lg font-semibold text-zinc-200">
+                      {translate("admin.products.image.placeholder")}
                     </p>
                   </div>
                 )}
@@ -338,7 +325,7 @@ export default function ProductsPage() {
 
               <label className="mt-5 flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-purple-400/20 bg-purple-500/15 px-5 py-4 font-semibold text-purple-100 transition-all duration-300 hover:border-purple-400/40 hover:bg-purple-500/20 hover:shadow-[0_0_30px_rgba(168,85,247,0.16)]">
                 <Plus className="h-4 w-4" />
-                Upload Image
+                {translate("admin.products.image.uploadBtn")}
                 <input
                   type="file"
                   className="hidden"
@@ -353,6 +340,7 @@ export default function ProductsPage() {
             </div>
           </motion.section>
 
+          {/* Form panel */}
           <motion.section
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -363,58 +351,55 @@ export default function ProductsPage() {
               <div className="grid h-11 w-11 place-items-center rounded-2xl border border-purple-500/20 bg-purple-500/10 text-purple-200">
                 <Pencil className="h-5 w-5" />
               </div>
-              <div>
-                <h2 className="text-xl font-black tracking-tight">
-                  {editingId ? "Edit Product" : "Product Details"}
-                </h2>
-                <p className="mt-1 text-sm text-zinc-400">
-                  Keep descriptions concise, polished, and easy to scan.
-                </p>
-              </div>
+              <h2 className="text-xl font-black tracking-tight">
+                {editingId
+                  ? translate("admin.products.form.editTitle")
+                  : translate("admin.products.form.addTitle")}
+              </h2>
             </div>
 
             <div className="mt-6 space-y-4">
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Product Name"
+                placeholder={translate("admin.products.form.name")}
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-4 outline-none transition-all duration-300 placeholder:text-zinc-600 focus:border-purple-400/40 focus:bg-purple-500/10"
               />
               <input
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                placeholder="Price"
+                placeholder={translate("admin.products.form.price")}
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-4 outline-none transition-all duration-300 placeholder:text-zinc-600 focus:border-purple-400/40 focus:bg-purple-500/10"
               />
               <input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                placeholder="Category"
+                placeholder={translate("admin.products.form.category")}
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-4 outline-none transition-all duration-300 placeholder:text-zinc-600 focus:border-purple-400/40 focus:bg-purple-500/10"
               />
               <input
                 value={badge}
                 onChange={(e) => setBadge(e.target.value)}
-                placeholder="Badge"
+                placeholder={translate("admin.products.form.badge")}
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-4 outline-none transition-all duration-300 placeholder:text-zinc-600 focus:border-purple-400/40 focus:bg-purple-500/10"
               />
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Short Description"
+                placeholder={translate("admin.products.form.shortDesc")}
                 className="h-28 w-full resize-none rounded-2xl border border-white/10 bg-white/5 px-4 py-4 outline-none transition-all duration-300 placeholder:text-zinc-600 focus:border-purple-400/40 focus:bg-purple-500/10"
               />
               <textarea
                 value={fullDescription}
                 onChange={(e) => setFullDescription(e.target.value)}
-                placeholder="Full Description"
+                placeholder={translate("admin.products.form.fullDesc")}
                 className="h-40 w-full resize-none rounded-2xl border border-white/10 bg-white/5 px-4 py-4 outline-none transition-all duration-300 placeholder:text-zinc-600 focus:border-purple-400/40 focus:bg-purple-500/10"
               />
 
               <div className="border-t border-white/10 pt-6">
                 <div className="flex items-center gap-3">
                   <BadgePlus className="h-5 w-5 text-purple-300" />
-                  <h3 className="text-lg font-bold">Features</h3>
+                  <h3 className="text-lg font-bold">{translate("admin.products.form.features")}</h3>
                 </div>
 
                 <div className="mt-4 space-y-3">
@@ -427,10 +412,9 @@ export default function ProductsPage() {
                           updated[index] = e.target.value;
                           setFeatures(updated);
                         }}
-                        placeholder={`Feature ${index + 1}`}
+                        placeholder={`${translate("admin.products.form.featureN")} ${index + 1}`}
                         className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 outline-none transition-all duration-300 placeholder:text-zinc-600 focus:border-purple-400/40 focus:bg-purple-500/10"
                       />
-
                       <button
                         type="button"
                         onClick={() => {
@@ -450,7 +434,7 @@ export default function ProductsPage() {
                     className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 font-semibold text-zinc-200 transition-all duration-300 hover:border-purple-400/30 hover:bg-purple-500/10 hover:text-white"
                   >
                     <Plus className="h-4 w-4" />
-                    Add Feature
+                    {translate("admin.products.form.addFeature")}
                   </button>
                 </div>
               </div>
@@ -463,12 +447,14 @@ export default function ProductsPage() {
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <LoaderCircle className="h-5 w-5 animate-spin" />
-                    Saving...
+                    {translate("admin.products.form.saving")}
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
                     <Check className="h-5 w-5" />
-                    {editingId ? "Update Product" : "Save Product"}
+                    {editingId
+                      ? translate("admin.products.form.updateBtn")
+                      : translate("admin.products.form.saveBtn")}
                   </span>
                 )}
               </button>
@@ -476,6 +462,7 @@ export default function ProductsPage() {
           </motion.section>
         </div>
 
+        {/* Products list */}
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -486,12 +473,9 @@ export default function ProductsPage() {
             <div className="grid h-11 w-11 place-items-center rounded-2xl border border-purple-500/20 bg-purple-500/10 text-purple-200">
               <Sparkles className="h-5 w-5" />
             </div>
-            <div>
-              <h2 className="text-2xl font-black tracking-tight">All Products</h2>
-              <p className="mt-1 text-sm text-zinc-400">
-                Your catalog list with improved spacing and action clarity.
-              </p>
-            </div>
+            <h2 className="text-2xl font-black tracking-tight">
+              {translate("admin.products.list.title")}
+            </h2>
           </div>
 
           <div className="mt-6 grid gap-4">
@@ -504,7 +488,7 @@ export default function ProductsPage() {
               ))
             ) : products.length === 0 ? (
               <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 text-zinc-400">
-                No products available.
+                {translate("admin.products.list.noProducts")}
               </div>
             ) : (
               products.map((product) => (
@@ -518,11 +502,10 @@ export default function ProductsPage() {
                       alt={product.name}
                       className="h-20 w-20 rounded-2xl object-cover"
                     />
-
                     <div className="min-w-0">
                       <h3 className="truncate text-xl font-bold">{product.name}</h3>
                       <p className="mt-1 text-zinc-400">{product.category}</p>
-                      <p className="mt-1 text-purple-300 font-bold">{product.price} EGP</p>
+                      <p className="mt-1 font-bold text-purple-300">{product.price} EGP</p>
                     </div>
                   </div>
 
@@ -532,16 +515,15 @@ export default function ProductsPage() {
                       className="flex items-center gap-2 rounded-xl border border-blue-400/20 bg-blue-500/10 px-4 py-3 font-semibold text-blue-100 transition-all duration-300 hover:bg-blue-500/20"
                     >
                       <Pencil className="h-4 w-4" />
-                      Edit
+                      {translate("admin.products.list.edit")}
                     </button>
-
                     <button
                       onClick={() => setPendingDeleteId(product.id)}
                       disabled={savingDeleteId === product.id}
                       className="flex items-center gap-2 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 font-semibold text-red-100 transition-all duration-300 hover:bg-red-500/20 disabled:opacity-50"
                     >
                       <Trash2 className="h-4 w-4" />
-                      Delete
+                      {translate("admin.products.list.delete")}
                     </button>
                   </div>
                 </div>
@@ -551,11 +533,11 @@ export default function ProductsPage() {
         </motion.section>
       </motion.div>
 
-      {/* Delete confirmation modal — teleported to document.body */}
+      {/* Delete confirmation modal */}
       {typeof window !== "undefined" && pendingDeleteId !== null
         ? createPortal(
             <div
-              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
               onClick={() => setPendingDeleteId(null)}
             >
               <div
@@ -563,8 +545,12 @@ export default function ProductsPage() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
-                <h3 className="mt-4 text-lg font-bold text-white text-center">Delete Product?</h3>
-                <p className="mt-2 text-sm text-zinc-400 text-center">This action cannot be undone.</p>
+                <h3 className="mt-4 text-center text-lg font-bold text-white">
+                  {translate("admin.confirm.deleteProduct")}
+                </h3>
+                <p className="mt-2 text-center text-sm text-zinc-400">
+                  {translate("admin.confirm.cannotUndo")}
+                </p>
                 <div className="mt-6 flex gap-3">
                   <button
                     onClick={() => deleteProduct(pendingDeleteId)}
@@ -574,10 +560,10 @@ export default function ProductsPage() {
                     {savingDeleteId === pendingDeleteId ? (
                       <span className="flex items-center justify-center gap-2">
                         <LoaderCircle className="h-4 w-4 animate-spin" />
-                        Deleting...
+                        {translate("admin.confirm.deleting")}
                       </span>
                     ) : (
-                      "Delete"
+                      translate("admin.products.list.delete")
                     )}
                   </button>
                   <button
@@ -585,7 +571,7 @@ export default function ProductsPage() {
                     disabled={savingDeleteId === pendingDeleteId}
                     className="flex-1 rounded-xl bg-zinc-700 px-4 py-2.5 font-bold text-zinc-300 transition-all duration-200 hover:bg-zinc-600 disabled:opacity-50"
                   >
-                    Cancel
+                    {translate("admin.confirm.cancel")}
                   </button>
                 </div>
               </div>

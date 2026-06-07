@@ -1,7 +1,21 @@
 import type { Metadata } from "next";
+import { Geist, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import AppProviders from "../components/auth/AppProviders";
+
+const geistSans = Geist({
+  variable: "--font-geist",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   title: "MJ Store",
@@ -18,7 +32,7 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
       data-scroll-behavior="smooth"
-      className="h-full antialiased"
+      className={`h-full antialiased ${geistSans.variable} ${jetbrainsMono.variable}`}
     >
       <body className="min-h-full flex flex-col">
         <AppProviders>{children}</AppProviders>

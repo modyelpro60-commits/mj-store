@@ -3,11 +3,12 @@ import { getHomeStats } from "./lib/home/getHomeStats";
 import { normalizeProductFeatures } from "./lib/products/featureHelpers";
 import FeaturedProductsGrid from "../components/storefront/FeaturedProductsGrid";
 import StorefrontHero from "../components/storefront/StorefrontHero";
-import StorefrontNavbar from "../components/auth/StorefrontNavbar";
+import CommandBar from "../components/nav/CommandBar";
 import HomeProductsHeading from "../components/storefront/HomeProductsHeading";
 import HomeFooter from "../components/storefront/HomeFooter";
 import HomeFeaturedProductsHeading from "../components/storefront/HomeFeaturedProductsHeading";
 import HomeLiveStats from "../components/storefront/home/HomeLiveStats";
+import PageAmbient from "../components/storefront/PageAmbient";
 
 type Product = {
   id: number | string;
@@ -100,9 +101,10 @@ export default async function Home() {
   return (
     <>
       {/* Navbar rendered OUTSIDE <main> to prevent any parent containment issues */}
-      <StorefrontNavbar />
+      <CommandBar />
 
-      <main className="min-h-screen bg-black text-white">
+      <main className="relative min-h-screen bg-void-base">
+        <PageAmbient />
         {/* Hero */}
         <StorefrontHero />
 

@@ -1,134 +1,119 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Package, TrendingUp, Users } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
-import { useLanguage } from "../../../lib/i18n/LanguageProvider";
+import { Users, TrendingUp, Package } from "lucide-react";
 
-function FastCount({ value }: { value: number }) {
+/* ─── Viewport-triggered animated counter ─────────────────────────────────── */
+function FastCount({ value, triggered }: { value: number; triggered: boolean }) {
   const [display, setDisplay] = useState(0);
-  const hasAnimated = useRef(false);
+  const animated = useRef(false);
 
   useEffect(() => {
-    if (hasAnimated.current) {
-      setDisplay(value);
-      return;
-    }
-    hasAnimated.current = true;
-    const duration = 800;
-    const steps = 24;
-    const increment = value / steps;
-    let current = 0;
-
-    const interval = setInterval(() => {
-      current += increment;
-      if (current >= value) {
-        setDisplay(value);
-        clearInterval(interval);
-      } else {
-        setDisplay(Math.floor(current));
-      }
-    }, duration / steps);
-
-    return () => clearInterval(interval);
-  }, [value]);
+    if (!triggered || animated.current) return;
+    animated.current = true;
+    const STEPS = 30;
+    const inc = value / STEPS;
+    let cur = 0;
+    const id = setInterval(() => {
+      cur += inc;
+      if (cur >= value) { setDisplay(value); clearInterval(id); }
+      else setDisplay(Math.floor(cur));
+    }, 900 / STEPS);
+    return () => clearInterval(id);
+  }, [value, triggered]);
 
   return <>{display.toLocaleString()}</>;
 }
+
+/* ─── Props ────────────────────────────────────────────────────────────────── */
+type Props = {
+  activeCustomers: number;
+  totalCustomers: number;
+  totalProducts?: number;
+};
 
 export default function HomeLiveStats({
   activeCustomers,
   totalCustomers,
   totalProducts,
-}: {
-  activeCustomers: number;
-  totalCustomers: number;
-  totalProducts?: number;
-}) {
-  const { translate } = useLanguage();
+}: Props) {
+  const [triggered, setTriggered] = useState(false);
 
-  const activeValue = Number.isFinite(activeCustomers) ? activeCustomers : 0;
-  const totalValue = Number.isFinite(totalCustomers) ? totalCustomers : 0;
-  const productValue = Number.isFinite(totalProducts) ? (totalProducts as number) : 0;
+  const active   = Number.isFinite(activeCustomers) ? activeCustomers : 0;
+  const total    = Number.isFinite(totalCustomers)  ? totalCustomers  : 0;
+  const products = Number.isFinite(totalProducts)   ? (totalProducts as number) : 0;
 
   const items = [
     {
       icon: Users,
-      label: translate("home.hero.status.activeCustomersLabel"),
-      value: activeValue,
+      label: "Active Customers",
+      value: active,
       border: "border-emerald-500/20",
-      bg: "bg-emerald-500/5",
-      hoverBorder: "hover:border-emerald-500/35",
-      iconBorder: "border-emerald-500/25",
-      iconBg: "bg-emerald-500/15",
-      iconSvg: "text-emerald-300",
-      glowColor: "rgba(52,211,153,0.22)",
-      shadow: "shadow-emerald-500/10",
+      bg: "bg-emerald-500/[0.06]",
+      iconBorder: "border-emerald-500/20",
+      iconBg: "bg-emerald-500/[0.10]",
+      iconColor: "text-emerald-400",
+      glow: "rgba(16,185,129,0.25)",
     },
     {
       icon: TrendingUp,
-      label: translate("home.hero.status.totalCustomersLabel"),
-      value: totalValue,
+      label: "Total Customers",
+      value: total,
       border: "border-sky-500/20",
-      bg: "bg-sky-500/5",
-      hoverBorder: "hover:border-sky-500/35",
-      iconBorder: "border-sky-500/25",
-      iconBg: "bg-sky-500/15",
-      iconSvg: "text-sky-300",
-      glowColor: "rgba(96,165,250,0.22)",
-      shadow: "shadow-sky-500/10",
+      bg: "bg-sky-500/[0.06]",
+      iconBorder: "border-sky-500/20",
+      iconBg: "bg-sky-500/[0.10]",
+      iconColor: "text-sky-400",
+      glow: "rgba(14,165,233,0.25)",
     },
     {
       icon: Package,
-      label: translate("home.hero.status.totalProductsLabel") || "Total Products",
-      value: productValue,
+      label: "Total Products",
+      value: products,
       border: "border-purple-500/20",
-      bg: "bg-purple-500/5",
-      hoverBorder: "hover:border-purple-500/35",
-      iconBorder: "border-purple-500/25",
-      iconBg: "bg-purple-500/15",
-      iconSvg: "text-purple-300",
-      glowColor: "rgba(168,85,247,0.22)",
-      shadow: "shadow-purple-500/10",
+      bg: "bg-purple-500/[0.06]",
+      iconBorder: "border-purple-500/20",
+      iconBg: "bg-purple-500/[0.10]",
+      iconColor: "text-purple-400",
+      glow: "rgba(168,85,247,0.25)",
     },
   ];
 
   return (
     <section className="relative -mt-3 mb-2">
-      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 md:px-10">
+      <div className="max-w-[1600px] mx-auto px-8">
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-          viewport={{ once: true, margin: "-40px" }}
-          className="flex flex-wrap items-center justify-center gap-4"
+          onViewportEnter={() => setTriggered(true)}
+          viewport={{ once: true, margin: "-60px" }}
+          className="flex flex-wrap gap-4"
         >
-          {items.map((item) => {
+          {items.map((item, i) => {
             const Icon = item.icon;
             return (
               <motion.div
                 key={item.label}
+                initial={{ opacity: 0, y: 14 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ duration: 0.4, ease: "easeOut", delay: i * 0.1 }}
                 whileHover={{
                   scale: 1.03,
-                  boxShadow: `0 0 35px ${item.glowColor}`,
-                  borderColor: item.border.includes("emerald")
-                    ? "rgba(52,211,153,0.45)"
-                    : item.border.includes("sky")
-                    ? "rgba(96,165,250,0.45)"
-                    : "rgba(168,85,247,0.45)",
+                  boxShadow: `0 0 35px ${item.glow}`,
                 }}
-                transition={{ duration: 0.25, ease: "easeOut" }}
-                className={`inline-flex items-center gap-3 rounded-2xl border ${item.border} ${item.bg} ${item.hoverBorder} px-5 py-3.5 backdrop-blur-xl shadow-sm ${item.shadow} transition-all duration-300`}
+                className={`inline-flex items-center gap-3 rounded-2xl border ${item.border} ${item.bg} px-5 py-3.5 backdrop-blur-xl shadow-sm cursor-default`}
               >
-                <div className={`grid h-9 w-9 place-items-center rounded-xl border ${item.iconBorder} ${item.iconBg}`}>
-                  <Icon className={`h-4.5 w-4.5 ${item.iconSvg}`} strokeWidth={2.2} />
+                <div
+                  className={`grid h-9 w-9 place-items-center rounded-xl border ${item.iconBorder} ${item.iconBg}`}
+                >
+                  <Icon className={`h-[18px] w-[18px] ${item.iconColor}`} strokeWidth={2.2} />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 leading-tight">
                     {item.label}
                   </span>
                   <span className="text-lg font-black text-white tabular-nums leading-none">
-                    <FastCount value={item.value} />
+                    <FastCount value={item.value} triggered={triggered} />
                   </span>
                 </div>
               </motion.div>

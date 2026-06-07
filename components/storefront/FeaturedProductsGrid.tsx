@@ -2,7 +2,7 @@
 
 import { motion, type Variants } from "framer-motion";
 import Link from "next/link";
-import ProductCard from "./ProductCard";
+import CipherCard from "./CipherCard";
 import FeaturedProductsSpotlight from "./FeaturedProductsSpotlight";
 
 type FeaturedProduct = {
@@ -75,7 +75,7 @@ export default function FeaturedProductsGrid({
             variants={itemVariants}
             custom={index * 0.06}
           >
-            <ProductCard product={product} size="support" />
+            <CipherCard product={product} size="support" />
           </motion.div>
         );
       })}

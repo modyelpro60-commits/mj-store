@@ -1,38 +1,413 @@
 @import "tailwindcss";
 
-:root {
-  --background: #050507;
-  --foreground: #ffffff;
+/* ============================================================
+   MJ STORE — SIGNAL DESIGN SYSTEM
+   Tailwind CSS v4  ·  CSS-first token configuration
+   ============================================================
+   Palette: Void (foundations) + Signal (cyan / purple / lime)
+   Fonts:   Geist Sans (display/body) · JetBrains Mono (data)
+   Shape:   The Cut — angled clip-path signature
+   ============================================================ */
+
+
+/* ── FONT VARIABLES FROM next/font ─────────────────────────── */
+/* Populated at runtime by layout.tsx; referenced in @theme     */
+
+
+/* ── DESIGN TOKENS  ─────────────────────────────────────────── */
+/* All --color-*, --font-* entries in @theme become Tailwind    */
+/* utilities:  bg-void-base · text-signal-cyan · font-mono etc. */
+
+@theme {
+  /* ── Void palette — depth / background layers ─────────────── */
+  --color-void-base:     #04040A;   /* deepest background — not pure black */
+  --color-void-surface:  #09091A;   /* card backgrounds */
+  --color-void-elevated: #0D0D24;   /* hover / active surfaces */
+  --color-void-overlay:  #12122E;   /* modals, dropdowns */
+  --color-void-line:     #1A1A3A;   /* default border */
+
+  /* ── Signal palette — identity / interaction ──────────────── */
+  --color-signal-cyan:   #00D9FF;   /* PRIMARY — electric, AI, precision */
+  --color-signal-purple: #7C3AED;   /* SECONDARY — gaming depth, premium */
+  --color-signal-lime:   #A3FF47;   /* ACCENT — featured / new / hot */
+
+  /* ── State palette ────────────────────────────────────────── */
+  --color-state-success: #00FF94;   /* Completed, access granted */
+  --color-state-warning: #FFB547;   /* Pending, processing */
+  --color-state-danger:  #FF3A3A;   /* Cancelled, banned, error */
+  --color-state-neutral: #4A4A6A;   /* Inactive, disabled */
+
+  /* ── Text scale ───────────────────────────────────────────── */
+  --color-text-primary:   #E8E8FF;  /* Near-white with cool tint */
+  --color-text-secondary: #8888AA;  /* Secondary labels */
+  --color-text-muted:     #44445A;  /* Placeholders, captions */
+
+  /* ── Typography ───────────────────────────────────────────── */
+  /* Populated by CSS vars injected via next/font in layout.tsx  */
+  --font-sans: var(--font-geist, system-ui, "Helvetica Neue", Arial, sans-serif);
+  --font-mono: var(--font-jetbrains, "JetBrains Mono", ui-monospace, "Courier New", monospace);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+
+/* ── RAW CSS CUSTOM PROPERTIES ──────────────────────────────── */
+/* Glow / shadow / dim values — NOT Tailwind utilities           */
+/* Use these in component inline styles or @utility definitions  */
+
+:root {
+  /* ── Glow presets (box-shadow) ────────────────────────────── */
+  --glow-cyan-sm:   0 0 16px rgba(0, 217, 255, 0.25);
+  --glow-cyan-md:   0 0 40px rgba(0, 217, 255, 0.30), 0 0 80px rgba(0, 217, 255, 0.12);
+  --glow-cyan-lg:   0 0 80px rgba(0, 217, 255, 0.40), 0 0 160px rgba(0, 217, 255, 0.15);
+
+  --glow-purple-sm: 0 0 16px rgba(124, 58, 237, 0.25);
+  --glow-purple-md: 0 0 40px rgba(124, 58, 237, 0.30), 0 0 80px rgba(124, 58, 237, 0.12);
+  --glow-purple-lg: 0 0 80px rgba(124, 58, 237, 0.40), 0 0 160px rgba(124, 58, 237, 0.15);
+
+  --glow-lime-sm:   0 0 16px rgba(163, 255, 71, 0.30);
+  --glow-lime-md:   0 0 40px rgba(163, 255, 71, 0.35), 0 0 80px rgba(163, 255, 71, 0.12);
+  --glow-lime-lg:   0 0 80px rgba(163, 255, 71, 0.45), 0 0 160px rgba(163, 255, 71, 0.15);
+
+  /* ── Card shadows ─────────────────────────────────────────── */
+  --shadow-card:  0 4px 24px rgba(0, 0, 0, 0.60), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-float: 0 24px 80px rgba(0, 0, 0, 0.80), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  /* ── Semi-transparent tints (for ambient backgrounds) ─────── */
+  --tint-cyan:   rgba(0, 217, 255, 0.08);
+  --tint-purple: rgba(124, 58, 237, 0.08);
+  --tint-lime:   rgba(163, 255, 71,  0.08);
+
+  /* ── Border radii — MJ Store tight precision scale ────────── */
+  --radius-badge:  3px;
+  --radius-btn:    6px;
+  --radius-input:  4px;
+  --radius-panel:  2px;
+
+  /* ── Cut-corner sizes ─────────────────────────────────────── */
+  --cut-sm: 16px;
+  --cut-md: 24px;
+  --cut-lg: 40px;
+
+  /* ── Z-index scale ────────────────────────────────────────── */
+  --z-base:     0;
+  --z-raised:   10;
+  --z-overlay:  20;
+  --z-nav:      50;
+  --z-modal:    100;
 }
+
+
+/* ── SHAPE UTILITIES — THE CUT ──────────────────────────────── */
+/* Single cut: top-right corner removed at 45°                   */
+
+@utility cut-corner-sm {
+  clip-path: polygon(
+    0 0,
+    calc(100% - 16px) 0,
+    100% 16px,
+    100% 100%,
+    0 100%
+  );
+}
+
+@utility cut-corner {
+  clip-path: polygon(
+    0 0,
+    calc(100% - 24px) 0,
+    100% 24px,
+    100% 100%,
+    0 100%
+  );
+}
+
+@utility cut-corner-lg {
+  clip-path: polygon(
+    0 0,
+    calc(100% - 40px) 0,
+    100% 40px,
+    100% 100%,
+    0 100%
+  );
+}
+
+/* Double cut: top-right + bottom-left removed */
+
+@utility double-cut {
+  clip-path: polygon(
+    0 0,
+    calc(100% - 24px) 0,
+    100% 24px,
+    100% 100%,
+    24px 100%,
+    0 calc(100% - 24px)
+  );
+}
+
+@utility double-cut-lg {
+  clip-path: polygon(
+    0 0,
+    calc(100% - 40px) 0,
+    100% 40px,
+    100% 100%,
+    40px 100%,
+    0 calc(100% - 40px)
+  );
+}
+
+
+/* ── GLOW UTILITIES ─────────────────────────────────────────── */
+
+@utility glow-cyan-sm {
+  box-shadow: var(--glow-cyan-sm);
+}
+
+@utility glow-cyan {
+  box-shadow: var(--glow-cyan-md);
+}
+
+@utility glow-cyan-lg {
+  box-shadow: var(--glow-cyan-lg);
+}
+
+@utility glow-purple-sm {
+  box-shadow: var(--glow-purple-sm);
+}
+
+@utility glow-purple {
+  box-shadow: var(--glow-purple-md);
+}
+
+@utility glow-purple-lg {
+  box-shadow: var(--glow-purple-lg);
+}
+
+@utility glow-lime-sm {
+  box-shadow: var(--glow-lime-sm);
+}
+
+@utility glow-lime {
+  box-shadow: var(--glow-lime-md);
+}
+
+@utility glow-lime-lg {
+  box-shadow: var(--glow-lime-lg);
+}
+
+
+/* ── SHADOW UTILITIES ───────────────────────────────────────── */
+
+@utility shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+@utility shadow-float {
+  box-shadow: var(--shadow-float);
+}
+
+
+/* ── TEXTURE UTILITIES ──────────────────────────────────────── */
+/* signal-grid: micro-grid overlay for the void background       */
+
+@utility signal-grid {
+  background-image:
+    linear-gradient(rgba(0, 217, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 217, 255, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* film-grain: subtle noise texture overlay for void backgrounds  */
+
+@utility film-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+/* signal-grid-lg: wider grid for large panels / hero sections   */
+
+@utility signal-grid-lg {
+  background-image:
+    linear-gradient(rgba(0, 217, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 217, 255, 0.025) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+/* tint-cyan / tint-purple / tint-lime: ambient section tinting  */
+
+@utility tint-cyan {
+  background-color: var(--tint-cyan);
+}
+
+@utility tint-purple {
+  background-color: var(--tint-purple);
+}
+
+@utility tint-lime {
+  background-color: var(--tint-lime);
+}
+
+
+/* ── TYPOGRAPHY UTILITIES ───────────────────────────────────── */
+
+/* mono-label: the MJ Store "// TAG.FORMAT" convention           */
+@utility mono-label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;      /* 11px */
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* data-readout: price / ID / stat number display                */
+@utility data-readout {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+/* display-headline: hero / section title treatment              */
+@utility display-headline {
+  font-family: var(--font-sans);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 0.88;
+}
+
+
+/* ── ANIMATION KEYFRAMES ────────────────────────────────────── */
+
+/* Signal Pulse — status LED heartbeat                           */
+@keyframes mj-signal-pulse {
+  0%,  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(0, 255, 148, 0.6);
+  }
+  50% {
+    opacity: 0.75;
+    box-shadow: 0 0 0 5px rgba(0, 255, 148, 0);
+  }
+}
+
+/* Cursor Blink — terminal typing cursor                         */
+@keyframes mj-cursor-blink {
+  0%,  100% { opacity: 1; }
+  50%        { opacity: 0; }
+}
+
+/* Scan Line — horizontal sweep across product images            */
+@keyframes mj-scan-line {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(200%); }
+}
+
+/* Marquee — Signal Feed auto-scroll (CSS-only, no JS)           */
+@keyframes mj-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* Boot Text — single line types in (width expand)               */
+@keyframes mj-boot-expand {
+  from { max-width: 0; opacity: 0; }
+  to   { max-width: 100%; opacity: 1; }
+}
+
+/* Charge Fill — CTA button fill from left                       */
+@keyframes mj-charge-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* Counter Ascent — number count-up (used by FastCount)          */
+@keyframes mj-fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Hologram Rock — subtle Y-axis sway on product images          */
+@keyframes mj-hologram-rock {
+  0%,  100% { transform: perspective(800px) rotateY(-3deg); }
+  50%        { transform: perspective(800px) rotateY( 3deg); }
+}
+
+
+/* ── ANIMATION UTILITIES ────────────────────────────────────── */
+
+@utility animate-signal-pulse {
+  animation: mj-signal-pulse 2.4s ease-in-out infinite;
+}
+
+@utility animate-cursor-blink {
+  animation: mj-cursor-blink 1s step-end infinite;
+}
+
+@utility animate-scan-line {
+  animation: mj-scan-line 1.2s linear;
+}
+
+@utility animate-marquee {
+  animation: mj-marquee 40s linear infinite;
+}
+
+@utility animate-marquee-paused {
+  animation-play-state: paused;
+}
+
+@utility animate-hologram {
+  animation: mj-hologram-rock 40s ease-in-out infinite;
+}
+
+@utility animate-fade-in-up {
+  animation: mj-fade-in-up 0.5s ease-out both;
+}
+
+
+/* ── BASE STYLES ─────────────────────────────────────────────── */
 
 html {
   scroll-behavior: smooth;
 }
 
 body {
-  background: #050507;
-  color: white;
+  background-color: var(--color-void-base);
+  color: var(--color-text-primary);
   overflow-x: hidden;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+
+/* ── SCROLLBAR ──────────────────────────────────────────────── */
+
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: var(--color-void-surface);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #7c3aed;
-  border-radius: 999px;
+  background: var(--color-signal-cyan);
+  border-radius: 0;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9333ea;
+  background: var(--color-signal-purple);
+}
+
+
+/* ── TEXT SELECTION ─────────────────────────────────────────── */
+
+::selection {
+  background-color: rgba(0, 217, 255, 0.22);
+  color: var(--color-text-primary);
+}
+
+
+/* ── FOCUS RING ─────────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 1px solid var(--color-signal-cyan);
+  outline-offset: 2px;
 }
