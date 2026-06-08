@@ -329,6 +329,12 @@
   50%        { transform: perspective(800px) rotateY( 3deg); }
 }
 
+/* Ping Ring — radar pulse for the floating chat button (GPU-only) */
+@keyframes mj-ping-ring {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  100% { transform: scale(1.8); opacity: 0;    }
+}
+
 
 /* ── ANIMATION UTILITIES ────────────────────────────────────── */
 

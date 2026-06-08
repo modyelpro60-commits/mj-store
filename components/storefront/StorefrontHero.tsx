@@ -12,6 +12,7 @@ import {
 } from "framer-motion";
 import { ArrowRight, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
+import MJHeroBrand from "./MJHeroBrand";
 
 export default function StorefrontHero() {
   const prefersReducedMotion = useReducedMotion();
@@ -79,8 +80,8 @@ export default function StorefrontHero() {
       <motion.div
         aria-hidden
         className="pointer-events-none absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full bg-purple-600/[0.12] blur-[130px]"
-        style={{ x: blob1X, y: blob1Y }}
-        animate={prefersReducedMotion ? {} : { scale: [1, 1.13, 1], opacity: [0.65, 1, 0.65] }}
+        style={{ x: blob1X, y: blob1Y, willChange: "opacity" }}
+        animate={prefersReducedMotion ? {} : { opacity: [0.7, 1, 0.7] }}
         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
       />
 
@@ -88,8 +89,8 @@ export default function StorefrontHero() {
       <motion.div
         aria-hidden
         className="pointer-events-none absolute -bottom-32 left-1/4 h-[500px] w-[500px] rounded-full bg-fuchsia-600/[0.08] blur-[110px]"
-        style={{ x: blob2X, y: blob2Y }}
-        animate={prefersReducedMotion ? {} : { scale: [1, 1.18, 1], opacity: [0.5, 0.85, 0.5] }}
+        style={{ x: blob2X, y: blob2Y, willChange: "opacity" }}
+        animate={prefersReducedMotion ? {} : { opacity: [0.5, 0.85, 0.5] }}
         transition={{ duration: 15, repeat: Infinity, ease: "easeInOut", delay: 2 }}
       />
 
@@ -97,8 +98,8 @@ export default function StorefrontHero() {
       <motion.div
         aria-hidden
         className="pointer-events-none absolute top-1/4 right-[-110px] h-[440px] w-[440px] rounded-full bg-purple-500/[0.08] blur-[120px]"
-        style={{ x: blob3X, y: blob3Y }}
-        animate={prefersReducedMotion ? {} : { scale: [1, 1.1, 1], opacity: [0.4, 0.76, 0.4] }}
+        style={{ x: blob3X, y: blob3Y, willChange: "opacity" }}
+        animate={prefersReducedMotion ? {} : { opacity: [0.4, 0.76, 0.4] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
       />
 
@@ -106,7 +107,8 @@ export default function StorefrontHero() {
       <motion.div
         aria-hidden
         className="pointer-events-none absolute -top-16 right-1/3 h-[340px] w-[340px] rounded-full bg-indigo-500/[0.06] blur-[100px]"
-        animate={prefersReducedMotion ? {} : { scale: [1, 1.22, 1], opacity: [0.32, 0.65, 0.32] }}
+        style={{ willChange: "opacity" }}
+        animate={prefersReducedMotion ? {} : { opacity: [0.32, 0.65, 0.32] }}
         transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 3 }}
       />
 
@@ -261,7 +263,8 @@ export default function StorefrontHero() {
               <motion.div
                 aria-hidden
                 className="pointer-events-none absolute inset-0 rounded-[2.5rem] bg-purple-500/[0.12] blur-[70px]"
-                animate={prefersReducedMotion ? {} : { opacity: [0.4, 0.82, 0.4], scale: [0.97, 1.03, 0.97] }}
+                style={{ willChange: "opacity" }}
+                animate={prefersReducedMotion ? {} : { opacity: [0.4, 0.82, 0.4] }}
                 transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
               />
 
@@ -281,12 +284,10 @@ export default function StorefrontHero() {
                   className="absolute inset-0 pointer-events-none rounded-[2rem] z-10 bg-[linear-gradient(135deg,rgba(255,255,255,0.038)_0%,rgba(255,255,255,0.010)_28%,transparent_48%)]"
                 />
 
-                {/* Hero image */}
-                <img
-                  src="/Hero.jpg"
-                  alt="MJ Store Premium Digital Products"
-                  className="relative w-full h-[280px] md:h-[360px] object-cover rounded-[1.5rem] border border-purple-500/10 bg-black/40"
-                />
+                {/* Hero brand panel (MJ STORE identity) */}
+                <div className="relative">
+                  <MJHeroBrand />
+                </div>
 
                 {/* Light sweep — slides across image every 8 s */}
                 {!prefersReducedMotion && (

@@ -22,6 +22,8 @@ export function useChatUnread(
     let alive = true;
 
     async function tick() {
+      // Skip while the tab is hidden — saves background CPU/network
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const res = await fetch("/api/chat/unread", {
           headers: { Authorization: `Bearer ${accessToken}` },

@@ -18,8 +18,12 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MJ Store",
-  description: "Premium Digital Marketplace",
+  title: {
+    default: "MJ STORE",
+    template: "%s · MJ STORE",
+  },
+  description:
+    "Instant delivery for premium subscriptions, digital services, and gaming perks — fast after payment.",
 };
 
 export default function RootLayout({

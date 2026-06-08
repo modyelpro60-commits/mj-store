@@ -2,8 +2,12 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { toast } from "sonner";
+import { ArrowRight, Check, Loader2, ShoppingBag } from "lucide-react";
+import { useAuth } from "../auth/AuthProvider";
+import { useCart } from "../cart/CartProvider";
 
 /* ── Types ──────────────────────────────────────────── */
 
@@ -46,6 +50,48 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
   const sales = useMemo(() => toNumber(product.sales_count), [product.sales_count]);
   const tags  = useMemo(() => parseFeatures(product.features).slice(0, 2), [product.features]);
 
+  const router = useRouter();
+  const { accessToken, isLoading } = useAuth();
+  const { add } = useCart();
+  const loggedIn = !isLoading && !!accessToken;
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [buying, setBuying] = useState(false);
+
+  function requireLogin(): boolean {
+    if (!loggedIn) {
+      toast.error("سجّل الدخول الأول لإضافة المنتجات للسلة");
+      router.push("/login");
+      return false;
+    }
+    return true;
+  }
+
+  async function handleAdd() {
+    if (adding || buying) return;
+    if (!requireLogin()) return;
+    setAdding(true);
+    const ok = await add(product.id);
+    setAdding(false);
+    if (ok) {
+      setAdded(true);
+      toast.success("تمت الإضافة إلى السلة 🛒");
+      setTimeout(() => setAdded(false), 1600);
+    } else {
+      toast.error("تعذّر الإضافة، حاول مجدداً");
+    }
+  }
+
+  async function handleBuyNow() {
+    if (adding || buying) return;
+    if (!requireLogin()) return;
+    setBuying(true);
+    const ok = await add(product.id);
+    setBuying(false);
+    if (ok) router.push("/cart");
+    else toast.error("تعذّر الإضافة، حاول مجدداً");
+  }
+
   return (
     /*
      * Two-layer structure:
@@ -73,6 +119,16 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
         <span
           aria-hidden
           className="pointer-events-none absolute top-0 left-0 h-px w-[70%] bg-gradient-to-r from-white/25 via-purple-400/20 to-transparent"
+        />
+
+        {/* Glass sheen — static premium reflection (cheap, no animation) */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.012) 20%, transparent 44%)",
+          }}
         />
 
         {/* ══ PERIMETER CHARGE ═══════════════════════════════════
@@ -174,6 +230,8 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
               borderRadius: "var(--radius-panel)",
               background:
                 "radial-gradient(circle at 50% 38%, rgba(124,58,237,0.16) 0%, rgba(10,10,28,0) 68%), linear-gradient(180deg, #0B0B1E 0%, #070714 100%)",
+              boxShadow:
+                "inset 0 0 0 1px rgba(255,255,255,0.04), inset 0 -22px 44px rgba(0,0,0,0.32)",
             }}
           >
             {product.image ? (
@@ -243,10 +301,10 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
             <p className="mono-label text-text-muted mb-1.5">UNIT COST</p>
             <div className="flex items-baseline gap-1.5">
               <span
-                className="data-readout font-black text-white leading-none"
+                className="data-readout font-black leading-none bg-gradient-to-b from-white to-purple-200 bg-clip-text text-transparent"
                 style={{
                   fontSize: size === "dominant" ? "2.1rem" : "1.85rem",
-                  textShadow: "0 0 26px rgba(168,85,247,0.45)",
+                  filter: "drop-shadow(0 0 16px rgba(168,85,247,0.40))",
                 }}
               >
                 {price.toLocaleString()}
@@ -257,28 +315,67 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
         </Link>
 
         {/* ══ ACQUIRE BUTTON ══════════════════════════════════════ */}
-        <div className="px-5 pb-5 pt-1">
-          <Link
-            href={`/product/${product.id}`}
+        <div className="px-5 pb-5 pt-1 space-y-2">
+          {/* Buy Now — primary, goes straight to the cart */}
+          <button
+            type="button"
+            onClick={handleBuyNow}
+            disabled={adding || buying}
             className="
               group/btn relative flex w-full h-11 items-center justify-center gap-2 overflow-hidden
-              mono-label tracking-[0.22em] text-white
+              mono-label tracking-[0.18em] text-white
               bg-gradient-to-r from-purple-600 to-fuchsia-600
               hover:from-purple-500 hover:to-fuchsia-500
               transition-all duration-200
               shadow-[0_0_20px_rgba(168,85,247,0.30)]
               hover:shadow-[0_0_38px_rgba(168,85,247,0.55)]
+              disabled:opacity-75
             "
             style={{ borderRadius: "var(--radius-btn)" }}
           >
-            {/* Shine sweep */}
             <span
               aria-hidden
               className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-out group-hover/btn:translate-x-full"
             />
-            <span className="relative">ACQUIRE</span>
-            <ArrowRight className="relative h-3.5 w-3.5 transition-transform duration-200 group-hover/btn:translate-x-1" />
-          </Link>
+            {buying ? (
+              <Loader2 className="relative h-4 w-4 animate-spin" />
+            ) : (
+              <span className="relative">BUY NOW</span>
+            )}
+            {!buying && <ArrowRight className="relative h-3.5 w-3.5 transition-transform duration-200 group-hover/btn:translate-x-1" />}
+          </button>
+
+          {/* Add to Cart — secondary */}
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={adding || buying}
+            className="
+              flex w-full h-10 items-center justify-center gap-2
+              mono-label tracking-[0.18em]
+              border border-purple-500/25 bg-purple-500/[0.06] text-purple-200
+              hover:bg-purple-500/[0.12] hover:text-white hover:border-purple-400/40
+              transition-all duration-200 disabled:opacity-75
+            "
+            style={{ borderRadius: "var(--radius-btn)" }}
+          >
+            {added ? (
+              <>
+                <Check className="h-4 w-4" />
+                ADDED
+              </>
+            ) : adding ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                ADDING
+              </>
+            ) : (
+              <>
+                <ShoppingBag className="h-3.5 w-3.5" />
+                ADD TO CART
+              </>
+            )}
+          </button>
         </div>
       </div>
     </motion.div>

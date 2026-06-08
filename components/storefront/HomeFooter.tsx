@@ -3,17 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
-
-/* Geometric MJ logo mark — purple identity */
-function FooterMark() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-hidden>
-      <polygon points="0,0 19,0 28,9 28,28 0,28" fill="#09091A" stroke="#3b0764" strokeWidth="1" />
-      <line x1="19" y1="0" x2="28" y2="9" stroke="#a855f7" strokeWidth="1.5" strokeLinecap="square" />
-      <path d="M5 20 L5 10 L14 17 L23 10 L23 20" stroke="#a855f7" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none" />
-    </svg>
-  );
-}
+import { MJMark } from "../brand/MJLogo";
 
 export default function HomeFooter() {
   const { translate } = useLanguage();
@@ -60,7 +50,7 @@ export default function HomeFooter() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2.5 mb-5">
-              <FooterMark />
+              <MJMark size={30} />
               <span className="text-sm font-black tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-300">
                 MJ&nbsp;<span className="bg-gradient-to-r from-purple-300 to-fuchsia-400 bg-clip-text text-transparent">STORE</span>
               </span>

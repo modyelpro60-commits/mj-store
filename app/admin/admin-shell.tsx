@@ -13,12 +13,12 @@ import {
   MessageCircle,
   ScrollText,
   ShoppingCart,
-  Sparkles,
   Users,
 } from "lucide-react";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { useChatUnread } from "../../components/chat/useChatUnread";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
+import { MJMark } from "../../components/brand/MJLogo";
 
 const NAV_ITEMS = [
   { href: "/",               labelKey: "admin.nav.home"     as const, icon: Home          },
@@ -94,9 +94,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
 
           {/* Logo */}
           <div className="flex items-center gap-3 rounded-[1.5rem] border border-purple-500/15 bg-purple-500/[0.06] px-4 py-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl border border-purple-400/30 bg-purple-500/20 text-purple-200 shadow-[0_0_24px_rgba(168,85,247,0.2)]">
-              <Sparkles className="h-5 w-5" />
-            </div>
+            <MJMark size={44} glow />
             <div>
               <p className="text-[10px] uppercase tracking-[0.3em] text-purple-300/60">MJ Store</p>
               <p className="text-base font-black tracking-tight">{translate("admin.title")}</p>

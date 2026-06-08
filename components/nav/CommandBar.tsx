@@ -20,7 +20,9 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "../auth/AuthProvider";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
+import { useCart } from "../cart/CartProvider";
 import ConfirmModal from "../ConfirmModal";
+import { MJMark } from "../brand/MJLogo";
 
 /* ── Config ─────────────────────────────────────────────────────── */
 
@@ -41,11 +43,10 @@ function OnlineDot() {
   return (
     <span className="relative inline-flex h-[7px] w-[7px] shrink-0">
       <span className="absolute inset-0 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.7)]" />
-      <motion.span
+      <span
         aria-hidden
         className="absolute inset-0 rounded-full bg-emerald-400"
-        animate={{ scale: [1, 2.2, 1], opacity: [0.55, 0, 0.55] }}
-        transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+        style={{ animation: "mj-ping-ring 2.6s ease-out infinite" }}
       />
     </span>
   );
@@ -99,6 +100,7 @@ export default function CommandBar() {
   const pathname = usePathname();
   const { role, isLoading, signOut, profile } = useAuth();
   const { language, setLanguage, translate }   = useLanguage();
+  const { count: cartCount }                   = useCart();
 
   /* ── State ──────────────────────────────────────────────────── */
   const [scrolled,       setScrolled]       = useState(false);
@@ -174,8 +176,8 @@ export default function CommandBar() {
         <div
           className={`relative h-[58px] rounded-2xl border border-white/[0.07] transition-all duration-500 ${
             scrolled
-              ? "bg-[rgba(6,6,14,0.92)] backdrop-blur-[44px] shadow-[0_8px_48px_rgba(0,0,0,0.6),0_0_0_1px_rgba(168,85,247,0.09)_inset]"
-              : "bg-[rgba(8,8,18,0.78)] backdrop-blur-[36px] shadow-[0_4px_32px_rgba(0,0,0,0.40),0_0_0_1px_rgba(168,85,247,0.05)_inset]"
+              ? "bg-[rgba(6,6,14,0.94)] backdrop-blur-[20px] shadow-[0_8px_48px_rgba(0,0,0,0.6),0_0_0_1px_rgba(168,85,247,0.09)_inset]"
+              : "bg-[rgba(8,8,18,0.84)] backdrop-blur-[16px] shadow-[0_4px_32px_rgba(0,0,0,0.40),0_0_0_1px_rgba(168,85,247,0.05)_inset]"
           }`}
         >
           {/* Top highlight shimmer */}
@@ -188,9 +190,9 @@ export default function CommandBar() {
 
             {/* ── LOGO ────────────────────────────────────────── */}
             <Link href="/" className="group flex items-center gap-2.5 shrink-0">
-              <div className="relative flex h-[34px] w-[34px] items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-fuchsia-500 shadow-[0_0_18px_rgba(168,85,247,0.30)] transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(168,85,247,0.55)] group-hover:scale-[1.06]">
-                <span className="text-[13px] font-black text-white tracking-tighter select-none">M</span>
-              </div>
+              <span className="transition-transform duration-300 group-hover:scale-[1.07]">
+                <MJMark size={34} glow />
+              </span>
               <span className="hidden sm:block text-[13px] font-black tracking-[0.28em] text-white">
                 MJ{" "}
                 <span className="bg-gradient-to-r from-purple-300 to-fuchsia-400 bg-clip-text text-transparent">
@@ -277,6 +279,22 @@ export default function CommandBar() {
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* ── CART ──────────────────────────────────────── */}
+              {isLoggedIn && (
+                <Link
+                  href="/cart"
+                  aria-label="Cart"
+                  className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-white/65 transition-all duration-200 hover:border-purple-500/25 hover:bg-purple-500/[0.08] hover:text-white"
+                >
+                  <ShoppingBag className="h-[18px] w-[18px]" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full border-2 border-[#08081A] bg-gradient-to-r from-purple-600 to-fuchsia-600 px-1 text-[10px] font-black leading-none text-white">
+                      {cartCount > 9 ? "9+" : cartCount}
+                    </span>
+                  )}
+                </Link>
+              )}
 
               {/* ── AUTH ──────────────────────────────────────── */}
               {!isLoading && (

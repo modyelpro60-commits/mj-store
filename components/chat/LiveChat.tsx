@@ -51,17 +51,16 @@ export default function LiveChat() {
       >
         {!open && (
           <>
-            <motion.span
+            {/* GPU-composited CSS pulses (no main-thread animation) */}
+            <span
+              aria-hidden
               className="absolute inset-0 rounded-2xl"
-              style={{ background: "rgba(139,92,246,0.35)" }}
-              animate={{ scale: [1, 1.45, 1], opacity: [0.6, 0, 0.6] }}
-              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+              style={{ background: "rgba(139,92,246,0.35)", animation: "mj-ping-ring 2.8s ease-out infinite" }}
             />
-            <motion.span
+            <span
+              aria-hidden
               className="absolute inset-0 rounded-2xl"
-              style={{ background: "rgba(168,85,247,0.2)" }}
-              animate={{ scale: [1, 1.7, 1], opacity: [0.4, 0, 0.4] }}
-              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+              style={{ background: "rgba(168,85,247,0.2)", animation: "mj-ping-ring 2.8s ease-out infinite", animationDelay: "0.9s" }}
             />
           </>
         )}

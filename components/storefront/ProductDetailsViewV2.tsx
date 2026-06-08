@@ -2,7 +2,9 @@
 
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   ArrowRight, Check, ChevronLeft, CornerDownLeft,
   Crown, LoaderCircle, MessageSquare, Share2,
@@ -11,6 +13,7 @@ import {
 import { normalizeProductFeatures } from "../../app/lib/products/featureHelpers";
 import { useLanguage }              from "../../lib/i18n/LanguageProvider";
 import { useAuth }                  from "../auth/AuthProvider";
+import { useCart }                  from "../cart/CartProvider";
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -231,7 +234,34 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
     }
   }
 
-  const checkoutHref = `/checkout?product=${product.id}`;
+  /* ── Cart actions ── */
+  const router = useRouter();
+  const { add } = useCart();
+  const [addingCart, setAddingCart] = useState(false);
+
+  async function addToCart(): Promise<boolean> {
+    if (!loggedIn) {
+      toast.error("سجّل الدخول الأول لإضافة المنتجات للسلة");
+      router.push("/login");
+      return false;
+    }
+    if (addingCart) return false;
+    setAddingCart(true);
+    const ok = await add(product.id);
+    setAddingCart(false);
+    if (!ok) toast.error("تعذّر الإضافة، حاول مجدداً");
+    return ok;
+  }
+
+  async function handleAddToCart() {
+    const ok = await addToCart();
+    if (ok) toast.success("تمت الإضافة إلى السلة 🛒");
+  }
+
+  async function handleBuyNow() {
+    const ok = await addToCart();
+    if (ok) router.push("/cart");
+  }
 
   /* ── RENDER ──────────────────────────────────────────────────────── */
   return (
@@ -758,29 +788,29 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Link href={checkoutHref} className="col-span-2 sm:col-span-1">
-                    <motion.button
-                      whileHover={prefersReducedMotion ? undefined : { scale: 1.02, boxShadow: "0 0 48px rgba(139,92,246,0.5)" }}
-                      whileTap={{ scale: 0.97 }}
-                      className="relative overflow-hidden group w-full flex items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-sm font-black text-white transition-all duration-300"
-                      style={{ background: "linear-gradient(135deg,#7c3aed 0%,#a855f7 50%,#d946ef 100%)", boxShadow: "0 0 32px rgba(139,92,246,0.35)" }}
-                    >
-                      <span aria-hidden className="absolute inset-0 translate-x-[110%] group-hover:translate-x-[-110%] bg-gradient-to-l from-transparent via-white/12 to-transparent transition-transform duration-600" />
-                      <ShoppingBag className="h-4 w-4 relative shrink-0" />
-                      <span className="relative">اشتري الآن</span>
-                    </motion.button>
-                  </Link>
+                  <motion.button
+                    onClick={handleBuyNow}
+                    disabled={addingCart}
+                    whileHover={prefersReducedMotion ? undefined : { scale: 1.02, boxShadow: "0 0 48px rgba(139,92,246,0.5)" }}
+                    whileTap={{ scale: 0.97 }}
+                    className="col-span-2 sm:col-span-1 relative overflow-hidden group w-full flex items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-sm font-black text-white transition-all duration-300 disabled:opacity-75"
+                    style={{ background: "linear-gradient(135deg,#7c3aed 0%,#a855f7 50%,#d946ef 100%)", boxShadow: "0 0 32px rgba(139,92,246,0.35)" }}
+                  >
+                    <span aria-hidden className="absolute inset-0 translate-x-[110%] group-hover:translate-x-[-110%] bg-gradient-to-l from-transparent via-white/12 to-transparent transition-transform duration-600" />
+                    {addingCart ? <LoaderCircle className="h-4 w-4 relative shrink-0 animate-spin" /> : <ShoppingBag className="h-4 w-4 relative shrink-0" />}
+                    <span className="relative">اشتري الآن</span>
+                  </motion.button>
 
-                  <Link href={checkoutHref} className="col-span-2 sm:col-span-1">
-                    <motion.button
-                      whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
-                      whileTap={{ scale: 0.97 }}
-                      className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-purple-500/25 bg-purple-500/[0.06] hover:border-purple-400/40 hover:bg-purple-500/10 px-6 py-3.5 text-sm font-bold text-white/60 hover:text-white/90 transition-all duration-200"
-                    >
-                      <ShoppingCart className="h-4 w-4" />
-                      أضف للسلة
-                    </motion.button>
-                  </Link>
+                  <motion.button
+                    onClick={handleAddToCart}
+                    disabled={addingCart}
+                    whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="col-span-2 sm:col-span-1 w-full flex items-center justify-center gap-2.5 rounded-xl border border-purple-500/25 bg-purple-500/[0.06] hover:border-purple-400/40 hover:bg-purple-500/10 px-6 py-3.5 text-sm font-bold text-white/60 hover:text-white/90 transition-all duration-200 disabled:opacity-75"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    أضف للسلة
+                  </motion.button>
                 </div>
               </div>
 
@@ -810,17 +840,17 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                     <p className="text-lg font-black leading-tight">EGP {price.toLocaleString("en")}</p>
                   </div>
                 </div>
-                <Link href={checkoutHref} className="shrink-0">
-                  <motion.button
-                    whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    className="flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-black text-white transition-all"
-                    style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", boxShadow: "0 0 28px rgba(139,92,246,0.4)" }}
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    اشتري الآن
-                  </motion.button>
-                </Link>
+                <motion.button
+                  onClick={handleBuyNow}
+                  disabled={addingCart}
+                  whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  className="shrink-0 flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-black text-white transition-all disabled:opacity-75"
+                  style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", boxShadow: "0 0 28px rgba(139,92,246,0.4)" }}
+                >
+                  {addingCart ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShoppingBag className="h-4 w-4" />}
+                  اشتري الآن
+                </motion.button>
               </div>
             </div>
           </motion.div>
