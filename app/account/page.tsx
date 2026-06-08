@@ -58,6 +58,7 @@ function fmtTime(v: string | null | undefined) {
 
 /* ─────────────────────── Status config ───────────────── */
 const orderStatus = {
+  "Awaiting Payment": { dot: "bg-orange-400", pill: "border-orange-500/25 bg-orange-500/10 text-orange-300" },
   Completed:  { dot: "bg-emerald-400", pill: "border-emerald-500/25 bg-emerald-500/10 text-emerald-300" },
   Processing: { dot: "bg-blue-400",    pill: "border-blue-500/25 bg-blue-500/10 text-blue-300" },
   Pending:    { dot: "bg-amber-400",   pill: "border-amber-500/25 bg-amber-500/10 text-amber-300" },
@@ -542,6 +543,7 @@ export default function AccountPage() {
           </div>
         </div>
       </div>
+
     </main>
   );
 }

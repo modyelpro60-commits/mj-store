@@ -60,8 +60,10 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
 
   function requireLogin(): boolean {
     if (!loggedIn) {
-      toast.error("سجّل الدخول الأول لإضافة المنتجات للسلة");
-      router.push("/login");
+      // Remember the product so it's waiting in the cart after they register
+      try { localStorage.setItem("mj_pending_product", String(product.id)); } catch {}
+      toast("سجّل عشان تكمّل الشراء 🛍️", { description: "المنتج هيتحط في سلتك بعد التسجيل." });
+      router.push("/register");
       return false;
     }
     return true;

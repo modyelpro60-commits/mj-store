@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
+  Camera,
   ChevronRight,
   CheckCheck,
   Crown,
+  ImagePlus,
   Loader2,
   Lock,
   MessageCircle,
@@ -26,6 +28,7 @@ type Message = {
   senderName: string;
   senderRole: string | null;
   body: string;
+  imageUrl?: string | null;
   createdAt: string;
   isOwn: boolean;
 };
@@ -106,9 +109,11 @@ function Avatar({ name, role, size = "sm" }: { name: string; role?: string | nul
 export default function ChatWorkspace({
   variant = "floating",
   onRequestClose,
+  paymentPrompt = false,
 }: {
   variant?: "floating" | "page";
   onRequestClose?: () => void;
+  paymentPrompt?: boolean;
 }) {
   const { accessToken, role } = useAuth();
   const isStaff = role === "admin" || role === "moderator" || role === "helper";
@@ -127,10 +132,12 @@ export default function ChatWorkspace({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting]         = useState(false);
   const [countdown, setCountdown]       = useState<number | null>(null);
+  const [uploading, setUploading]       = useState(false);
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const stickRef    = useRef(true); // are we "stuck" to the bottom?
   const inputRef    = useRef<HTMLTextAreaElement>(null);
+  const fileRef     = useRef<HTMLInputElement>(null);
   const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastReadId  = useRef<number>(0);
   const activeRef   = useRef<string | null>(null);
@@ -347,6 +354,57 @@ export default function ChatWorkspace({
     inputRef.current?.focus();
   }
 
+  async function sendImage(file: File) {
+    if (!accessToken || uploading) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("اختر صورة");
+      return;
+    }
+    let roomId = activeRoomId;
+    if (!roomId && !isStaff) {
+      roomId = await ensureRoom();
+      if (roomId) setActiveRoomId(roomId);
+    }
+    if (!roomId) {
+      toast.error("تعذّر بدء المحادثة");
+      return;
+    }
+    setUploading(true);
+    stickRef.current = true;
+    try {
+      // 1) upload the image
+      const fd = new FormData();
+      fd.append("file", file);
+      const up = await fetch("/api/chat/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: fd,
+      });
+      const ud = await up.json().catch(() => ({ success: false }));
+      if (!ud.success || !ud.url) {
+        toast.error(ud.error ?? "تعذّر رفع الصورة");
+        setUploading(false);
+        return;
+      }
+      // 2) send a message carrying the image
+      const res = await fetch(`/api/chat/rooms/${roomId}/messages`, {
+        method: "POST",
+        headers: hdrs(),
+        body: JSON.stringify({ imageUrl: ud.url }),
+      });
+      const d = await res.json().catch(() => ({ success: false }));
+      if (!d.success) {
+        toast.error(d.error ?? "فشل إرسال الصورة");
+      } else {
+        await fetchMessages(roomId, true);
+        if (isStaff) fetchRooms(true);
+      }
+    } catch {
+      toast.error("تعذّر رفع الصورة");
+    }
+    setUploading(false);
+  }
+
   async function setClosed(action: "close" | "reopen") {
     if (!activeRoomId || !accessToken) return;
     setClosing(true);
@@ -406,6 +464,8 @@ export default function ChatWorkspace({
   const title = isStaff ? activeRoom?.userName ?? "المحادثات" : "الدعم الفني";
   const isClosed = roomMeta.status === "closed";
   const hasActive = isStaff ? !!activeRoomId : true;
+  const customerSentImage = messages.some((m) => m.isOwn && m.imageUrl);
+  const showPaymentBanner = paymentPrompt && !isStaff;
 
   // Full static class strings so Tailwind's JIT can see them
   const expanded  = showSidebar || !activeRoomId;
@@ -642,14 +702,22 @@ export default function ChatWorkspace({
                           <span className="text-[10px] text-white/35 font-bold">{msg.isOwn ? "أنت" : msg.senderName}</span>
                           {msg.senderRole && <RoleBadge role={msg.senderRole} />}
                         </div>
-                        <div
-                          className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed break-words ${
-                            msg.isOwn ? "rounded-tr-sm text-white" : "rounded-tl-sm border border-white/[0.06] bg-white/[0.04] text-white/75"
-                          }`}
-                          style={msg.isOwn ? { background: "linear-gradient(135deg,#7c3aed,#a855f7)", boxShadow: "0 4px 20px rgba(168,85,247,0.3)" } : {}}
-                        >
-                          {msg.body}
-                        </div>
+                        {msg.imageUrl ? (
+                          <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer"
+                            className="block overflow-hidden rounded-2xl border border-white/[0.08]">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={msg.imageUrl} alt="مرفق" className="max-h-56 w-auto max-w-[220px] object-cover" />
+                          </a>
+                        ) : (
+                          <div
+                            className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed break-words ${
+                              msg.isOwn ? "rounded-tr-sm text-white" : "rounded-tl-sm border border-white/[0.06] bg-white/[0.04] text-white/75"
+                            }`}
+                            style={msg.isOwn ? { background: "linear-gradient(135deg,#7c3aed,#a855f7)", boxShadow: "0 4px 20px rgba(168,85,247,0.3)" } : {}}
+                          >
+                            {msg.body}
+                          </div>
+                        )}
                         <span className="text-[9px] text-white/15 px-0.5">{fmtTime(msg.createdAt)}</span>
                       </div>
                     </div>
@@ -671,9 +739,52 @@ export default function ChatWorkspace({
               </div>
             )}
 
+            {/* Payment-proof prompt (customer, after a manual payment) */}
+            {showPaymentBanner && (
+              <div className="shrink-0 border-t-2 border-amber-500/40 bg-amber-500/[0.10] px-4 py-3 text-center">
+                {customerSentImage ? (
+                  <p className="text-sm font-black text-emerald-300">
+                    ✅ شكراً! سيتم التواصل معك من الإدارة في أقرب وقت
+                  </p>
+                ) : (
+                  <>
+                    <p className="flex items-center justify-center gap-1.5 text-base font-black text-amber-200">
+                      <Camera className="h-4 w-4" /> الرجاء إرسال صورة إثبات الدفع
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-amber-100/70">ارفق سكرين شوت التحويل من زرار الصورة 👇</p>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Input */}
             <div className="shrink-0 px-3 py-3 border-t border-white/[0.05]">
               <div className="flex items-end gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 focus-within:border-purple-500/30 transition-colors">
+                {/* Attach image */}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) sendImage(f);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  title="إرفاق صورة"
+                  className={`h-8 w-8 shrink-0 grid place-items-center rounded-lg border transition-all disabled:opacity-40 ${
+                    showPaymentBanner && !customerSentImage
+                      ? "border-amber-500/50 bg-amber-500/15 text-amber-300 animate-pulse"
+                      : "border-white/[0.08] bg-white/[0.04] text-white/40 hover:text-white"
+                  }`}
+                >
+                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                </button>
+
                 <textarea
                   ref={inputRef}
                   value={input}

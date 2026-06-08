@@ -71,11 +71,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, [accessToken]);
 
-  // Load the cart once auth is resolved and whenever the token changes
+  // Load the cart once auth is resolved and whenever the token changes.
+  // Also restore a product the user tried to buy before registering.
   useEffect(() => {
     if (isLoading) return;
-    refresh();
-  }, [isLoading, accessToken, refresh]);
+    if (!accessToken) {
+      refresh();
+      return;
+    }
+    (async () => {
+      try {
+        const pending =
+          typeof window !== "undefined" ? localStorage.getItem("mj_pending_product") : null;
+        if (pending) {
+          localStorage.removeItem("mj_pending_product");
+          await fetch("/api/cart", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ productId: pending, quantity: 1 }),
+          }).catch(() => {});
+        }
+      } catch {
+        /* ignore */
+      }
+      await refresh();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, accessToken]);
 
   const add = useCallback(
     async (productId: number | string, quantity = 1): Promise<boolean> => {

@@ -241,8 +241,9 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
 
   async function addToCart(): Promise<boolean> {
     if (!loggedIn) {
-      toast.error("سجّل الدخول الأول لإضافة المنتجات للسلة");
-      router.push("/login");
+      try { localStorage.setItem("mj_pending_product", String(product.id)); } catch {}
+      toast("سجّل عشان تكمّل الشراء 🛍️", { description: "المنتج هيتحط في سلتك بعد التسجيل." });
+      router.push("/register");
       return false;
     }
     if (addingCart) return false;

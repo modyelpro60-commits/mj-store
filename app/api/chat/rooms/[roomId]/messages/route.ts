@@ -84,7 +84,7 @@ export async function GET(
   // moderators/helpers the conversation instead disappears from their list.
   let mq = supabase
     .from("chat_messages")
-    .select(`id, body, created_at, sender_id`)
+    .select("*")
     .eq("room_id", roomId)
     .order("created_at", { ascending: true })
     .limit(100);
@@ -120,6 +120,7 @@ export async function GET(
       senderName: prof?.full_name ?? "مستخدم",
       senderRole: prof?.role ?? null,
       body:       m.body,
+      imageUrl:   m.image_url ?? null,
       createdAt:  m.created_at,
       isOwn:      m.sender_id === ctx.userId,
     };
@@ -200,25 +201,33 @@ export async function POST(
     custClearedAt = ((r.data as any).customer_cleared_at as string | null) ?? null;
   }
 
-  let raw: { body?: string };
+  let raw: { body?: string; imageUrl?: string };
   try {
     raw = await req.json();
   } catch {
     return NextResponse.json({ success: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const body = (raw.body ?? "").trim();
+  const imageUrl = typeof raw.imageUrl === "string" && raw.imageUrl.trim() ? raw.imageUrl.trim() : null;
+  // Image-only messages get a small caption to satisfy the body NOT NULL check.
+  const body = ((raw.body ?? "").trim()) || (imageUrl ? "📷 صورة" : "");
 
-  if (!body) {
+  if (!body && !imageUrl) {
     return NextResponse.json({ success: false, error: "Message is empty" }, { status: 400 });
   }
   if (body.length > 2000) {
     return NextResponse.json({ success: false, error: "Message too long" }, { status: 400 });
   }
 
-  const { error: insertErr } = await supabase
-    .from("chat_messages")
-    .insert({ room_id: roomId, sender_id: ctx.userId, body });
+  // Try to store the image; fall back without it if the column isn't migrated yet.
+  let insertErr = (
+    await supabase.from("chat_messages").insert({ room_id: roomId, sender_id: ctx.userId, body, image_url: imageUrl })
+  ).error;
+  if (insertErr && imageUrl) {
+    insertErr = (
+      await supabase.from("chat_messages").insert({ room_id: roomId, sender_id: ctx.userId, body })
+    ).error;
+  }
 
   if (insertErr) {
     return NextResponse.json({ success: false, error: insertErr.message }, { status: 500 });

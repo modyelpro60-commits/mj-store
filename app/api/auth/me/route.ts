@@ -35,13 +35,26 @@ export async function GET(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const { data: profile, error: profileError } = await supabaseService
+    // Try with phone columns; fall back if the phone migration isn't applied
+    // yet (this endpoint runs for every logged-in user, so it must never break).
+    let profile: any = null;
+    const fullSel = await supabaseService
       .from("profiles")
-      .select("id, email, full_name, role, status, created_at")
+      .select("id, email, full_name, role, status, created_at, phone, phone_verified")
       .eq("id", ctx.userId)
       .single();
+    if (!fullSel.error) {
+      profile = fullSel.data;
+    } else {
+      const baseSel = await supabaseService
+        .from("profiles")
+        .select("id, email, full_name, role, status, created_at")
+        .eq("id", ctx.userId)
+        .single();
+      profile = baseSel.data;
+    }
 
-    if (profileError || !profile) {
+    if (!profile) {
       return NextResponse.json({
         user: {
           id: ctx.userId,
@@ -63,6 +76,8 @@ export async function GET(req: Request) {
         role: profile.role,
         status: profile.status,
         created_at: profile.created_at,
+        phone: profile.phone ?? null,
+        phone_verified: profile.phone_verified ?? false,
       },
     });
   } catch (err) {

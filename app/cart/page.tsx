@@ -1,8 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { toast } from "sonner";
 import {
   ArrowRight,
   CreditCard,
@@ -17,6 +17,7 @@ import {
 import CommandBar from "../../components/nav/CommandBar";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { useCart } from "../../components/cart/CartProvider";
+import PaymentModal from "../../components/cart/PaymentModal";
 
 function egp(n: number) {
   return `${n.toLocaleString()} EGP`;
@@ -24,14 +25,9 @@ function egp(n: number) {
 
 export default function CartPage() {
   const { accessToken, isLoading } = useAuth();
-  const { items, subtotal, count, loading, setQty, remove, clear } = useCart();
+  const { items, subtotal, count, loading, setQty, remove, clear, refresh } = useCart();
   const loggedIn = !isLoading && !!accessToken;
-
-  function checkout() {
-    toast("بوابة الدفع قريباً 🚧", {
-      description: "تقدر تراجع السلة دلوقتي — هنربط الدفع في الخطوة الجاية.",
-    });
-  }
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
   return (
     <>
@@ -202,10 +198,11 @@ export default function CartPage() {
                 </div>
 
                 <button
-                  onClick={checkout}
+                  onClick={() => setPaymentOpen(true)}
                   className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 py-3.5 text-sm font-black tracking-wide text-white shadow-[0_0_24px_rgba(168,85,247,0.3)] transition hover:shadow-[0_0_44px_rgba(168,85,247,0.55)] active:scale-[0.99]"
                 >
-                  <CreditCard className="h-4 w-4" /> Proceed to Checkout
+                  <CreditCard className="h-4 w-4" />
+                  ادفع الآن
                   <ArrowRight className="h-4 w-4" />
                 </button>
 
@@ -217,13 +214,21 @@ export default function CartPage() {
                 </Link>
 
                 <p className="mt-4 text-center text-[11px] leading-relaxed text-zinc-600">
-                  🔒 Payment gateway integration coming next.
+                  🔒 الدفع عبر Vodafone Cash أو InstaPay
                 </p>
               </div>
             </div>
           )}
         </div>
       </main>
+
+      <PaymentModal
+        open={paymentOpen}
+        onClose={() => setPaymentOpen(false)}
+        accessToken={accessToken}
+        subtotal={subtotal}
+        onPaid={refresh}
+      />
     </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageCircle, X } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
@@ -13,7 +13,23 @@ export default function LiveChat() {
   const loggedIn = !isLoading && !!accessToken;
 
   const [open, setOpen] = useState(false);
+  const [paymentPrompt, setPaymentPrompt] = useState(false);
   const unread = useChatUnread(accessToken, loggedIn);
+
+  // After a manual payment, the cart sets this flag → open the chat and show
+  // the "send payment screenshot" prompt.
+  useEffect(() => {
+    if (!loggedIn) return;
+    try {
+      if (localStorage.getItem("mj_payment_chat") === "1") {
+        localStorage.removeItem("mj_payment_chat");
+        setPaymentPrompt(true);
+        setOpen(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [loggedIn]);
 
   if (!loggedIn) return null;
 
@@ -33,7 +49,7 @@ export default function LiveChat() {
               height: "min(560px, calc(100vh - 110px))",
             }}
           >
-            <ChatWorkspace variant="floating" onRequestClose={() => setOpen(false)} />
+            <ChatWorkspace variant="floating" onRequestClose={() => setOpen(false)} paymentPrompt={paymentPrompt} />
           </motion.div>
         )}
       </AnimatePresence>

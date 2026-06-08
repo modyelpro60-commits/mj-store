@@ -19,6 +19,8 @@ type AuthProfile = {
   role: string | null;
   status: string | null;
   created_at: string | null;
+  phone?: string | null;
+  phone_verified?: boolean | null;
 };
 
 type AuthContextValue = {

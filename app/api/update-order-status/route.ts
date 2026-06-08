@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const ALLOWED_STATUSES = ["Pending", "Processing", "Completed", "Cancelled"] as const;
+const ALLOWED_STATUSES = ["Awaiting Payment", "Pending", "Processing", "Completed", "Cancelled"] as const;
 type OrderStatus = (typeof ALLOWED_STATUSES)[number];
 
 const UPDATE_ACTOR_ROLES: UserRole[] = ["admin", "moderator"];
