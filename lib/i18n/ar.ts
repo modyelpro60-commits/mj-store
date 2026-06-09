@@ -267,6 +267,7 @@ export const ar = {
   "admin.nav.chat": "المحادثات",
   "admin.nav.logs": "السجل",
   "admin.nav.users": "المستخدمون",
+  "admin.nav.analytics": "التحليلات",
   "admin.role.admin": "مدير",
   "admin.role.moderator": "مشرف",
 

@@ -1,6 +1,7 @@
 import { supabase } from "../../../lib/supabase";
 import { normalizeProductFeatures } from "../../lib/products/featureHelpers";
 import ProductDetailsViewV2 from "../../../components/storefront/ProductDetailsViewV2";
+import { ProductViewTracker } from "../../../components/analytics/ProductViewTracker";
 
 export default async function ProductPage({
   params,
@@ -37,6 +38,7 @@ export default async function ProductPage({
 
   return (
     <main className="min-h-screen bg-black text-white">
+      <ProductViewTracker productId={(product as any).id} />
       <ProductDetailsViewV2 product={product as any} />
     </main>
   );

@@ -14,6 +14,7 @@ import { normalizeProductFeatures } from "../../app/lib/products/featureHelpers"
 import { useLanguage }              from "../../lib/i18n/LanguageProvider";
 import { useAuth }                  from "../auth/AuthProvider";
 import { useCart }                  from "../cart/CartProvider";
+import { useAnalytics }             from "../../lib/analytics/useAnalytics";
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -100,6 +101,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
   const { translate }                                    = useLanguage();
   const { accessToken, isLoading: authLoading, role }    = useAuth();
   const prefersReducedMotion                             = useReducedMotion();
+  const { trackEvent }                                   = useAnalytics();
   const isStaff = role === "admin" || role === "moderator" || role === "helper";
 
   const price      = toNum(product.price);
@@ -250,7 +252,8 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
     setAddingCart(true);
     const ok = await add(product.id);
     setAddingCart(false);
-    if (!ok) toast.error("تعذّر الإضافة، حاول مجدداً");
+    if (ok) void trackEvent(product.id, "add_to_cart");
+    else toast.error("تعذّر الإضافة، حاول مجدداً");
     return ok;
   }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireActiveUser } from "../../../../../lib/auth/requireAuthContext";
+import { createNotification } from "../../../../../../lib/notifications/createNotification";
 
 const STAFF_ROLES = ["admin", "moderator", "helper"];
 
@@ -298,6 +299,26 @@ export async function POST(
     // New columns may not exist yet (migration pending) — at least bump the time
     await supabase.from("chat_rooms").update({ last_message_at: now }).eq("id", roomId);
   }
+
+  // — Notify customer when staff sends a message (additive) ———————
+  if (isStaff) {
+    const { data: roomRow } = await supabase
+      .from("chat_rooms")
+      .select("user_id")
+      .eq("id", roomId)
+      .maybeSingle();
+
+    if (roomRow?.user_id) {
+      void createNotification({
+        userId:  roomRow.user_id as string,
+        type:    "new_message",
+        title:   "New Support Message 💬",
+        message: "Support team sent you a new message.",
+        link:    "/chat",
+      });
+    }
+  }
+  // ——————————————————————————————————————————————————————————————
 
   return NextResponse.json({ success: true });
 }

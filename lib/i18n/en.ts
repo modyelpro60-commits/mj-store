@@ -269,6 +269,7 @@ export const en = {
   "admin.nav.chat": "Chat",
   "admin.nav.logs": "Activity Log",
   "admin.nav.users": "Users",
+  "admin.nav.analytics": "Analytics",
   "admin.role.admin": "Admin",
   "admin.role.moderator": "Moderator",
 

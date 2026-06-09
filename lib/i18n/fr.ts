@@ -266,6 +266,7 @@ export const fr = {
   "admin.nav.chat": "Messagerie",
   "admin.nav.logs": "Journal",
   "admin.nav.users": "Utilisateurs",
+  "admin.nav.analytics": "Analytiques",
   "admin.role.admin": "Admin",
   "admin.role.moderator": "Modérateur",
 

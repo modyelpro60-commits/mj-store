@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireRole, type UserRole } from "../../lib/auth/requireAuthContext";
+import { trackServerEvent } from "../../../lib/analytics/trackServerEvent";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,6 +68,8 @@ export async function POST(req: Request) {
       error: error.message,
     });
   }
+
+  void trackServerEvent(String(body.product_id), "purchase", userId);
 
   return NextResponse.json({
     success: true,

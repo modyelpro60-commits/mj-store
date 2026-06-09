@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireRole, type UserRole } from "../../lib/auth/requireAuthContext";
+import { createNotification } from "../../../lib/notifications/createNotification";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
 
   const { data: currentOrder, error: fetchError } = await supabase
     .from("orders")
-    .select("status, product_id")
+    .select("status, product_id, user_id, product_name")
     .eq("id", id)
     .single();
 
@@ -104,6 +105,31 @@ export async function POST(req: Request) {
       { success: false, error: updateError.message }
     );
   }
+
+  // — Notifications (additive, never throws) ———————————————————————
+  const orderUserId    = currentOrder.user_id as string | null;
+  const orderProductName = (currentOrder.product_name as string) || "your order";
+
+  if (orderUserId) {
+    if (status === "Completed") {
+      void createNotification({
+        userId:  orderUserId,
+        type:    "order_approved",
+        title:   "Order Approved ✅",
+        message: `Your order for "${orderProductName}" has been completed and is ready.`,
+        link:    "/account",
+      });
+    } else if (status === "Cancelled") {
+      void createNotification({
+        userId:  orderUserId,
+        type:    "order_rejected",
+        title:   "Order Cancelled ❌",
+        message: `Your order for "${orderProductName}" has been cancelled.`,
+        link:    "/account",
+      });
+    }
+  }
+  // ———————————————————————————————————————————————————————————————————
 
   return NextResponse.json({ success: true });
 }

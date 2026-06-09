@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
+import { useAnalytics } from "../../lib/analytics/useAnalytics";
 
 /* ─────────────────── Types ─────────────────── */
 interface Product {
@@ -150,6 +151,7 @@ export default function CheckoutClient() {
   const productId     = searchParams.get("product");
   const { accessToken, status, isLoading, signOut } = useAuth();
   const { translate } = useLanguage();
+  const { trackEvent } = useAnalytics();
 
   const [product, setProduct]           = useState<Product | null>(null);
   const [name, setName]                 = useState("");
@@ -176,6 +178,12 @@ export default function CheckoutClient() {
     if (isLoading || !accessToken) return;
     if (status === "Banned") void signOut();
   }, [accessToken, isLoading, signOut, status]);
+
+  // Track checkout_start once the product is known
+  useEffect(() => {
+    if (product) void trackEvent(product.id, "checkout_start");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id]);
 
   async function createOrder() {
     setError(null);

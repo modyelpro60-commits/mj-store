@@ -23,6 +23,7 @@ import { useLanguage } from "../../lib/i18n/LanguageProvider";
 import { useCart } from "../cart/CartProvider";
 import ConfirmModal from "../ConfirmModal";
 import { MJMark } from "../brand/MJLogo";
+import NotificationBell from "../notifications/NotificationBell";
 
 /* ── Config ─────────────────────────────────────────────────────── */
 
@@ -279,6 +280,9 @@ export default function CommandBar() {
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* ── NOTIFICATIONS ─────────────────────────────── */}
+              {isLoggedIn && <NotificationBell />}
 
               {/* ── CHATS ─────────────────────────────────────── */}
               {isLoggedIn && (

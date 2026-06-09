@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "../../../../lib/auth/requireAdmin";
+import { createNotification } from "../../../../../lib/notifications/createNotification";
 
 const STATUS_OPTIONS = ["Active", "Suspended", "Banned"] as const;
 type StatusOption = (typeof STATUS_OPTIONS)[number];
@@ -50,6 +51,22 @@ export async function POST(req: Request) {
     if (updateError) {
       return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
     }
+
+    // — Notification (additive) ————————————————————————————————————
+    if (targetUserId !== admin.userId) {
+      const statusMsg =
+        nextStatus === "Active"    ? "Your account has been reactivated." :
+        nextStatus === "Suspended" ? "Your account has been suspended. Contact support for help." :
+                                     "Your account has been banned.";
+      void createNotification({
+        userId:  targetUserId,
+        type:    "status_changed",
+        title:   `Account Status: ${nextStatus}`,
+        message: statusMsg,
+        link:    "/account",
+      });
+    }
+    // ——————————————————————————————————————————————————————————————
 
     return NextResponse.json({ success: true });
   } catch (err) {

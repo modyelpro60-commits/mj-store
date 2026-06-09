@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireRole } from "../../../../../../lib/auth/requireAuthContext";
+import { createNotification } from "../../../../../../../lib/notifications/createNotification";
 
 const STAFF_ROLES = ["admin", "moderator", "helper"] as const;
 
@@ -61,6 +62,24 @@ export async function POST(
   if (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
+
+  // — Notification for the review author (additive) ——————————————
+  const { data: reviewRow } = await supabase
+    .from("product_reviews")
+    .select("user_id, product_id")
+    .eq("id", reviewIdNum)
+    .maybeSingle();
+
+  if (reviewRow?.user_id) {
+    void createNotification({
+      userId:  reviewRow.user_id as string,
+      type:    "review_reply",
+      title:   "Review Reply 💬",
+      message: "A staff member replied to your product review.",
+      link:    `/product/${reviewRow.product_id}`,
+    });
+  }
+  // ——————————————————————————————————————————————————————————————
 
   return NextResponse.json({ success: true });
 }

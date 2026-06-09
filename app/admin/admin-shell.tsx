@@ -13,6 +13,7 @@ import {
   MessageCircle,
   ScrollText,
   ShoppingCart,
+  TrendingUp,
   Users,
 } from "lucide-react";
 import { useAuth } from "../../components/auth/AuthProvider";
@@ -25,9 +26,10 @@ const NAV_ITEMS = [
   { href: "/admin",          labelKey: "admin.nav.overview" as const, icon: LayoutDashboard },
   { href: "/admin/products", labelKey: "admin.nav.products" as const, icon: Boxes          },
   { href: "/admin/orders",   labelKey: "admin.nav.orders"   as const, icon: ShoppingCart   },
-  { href: "/admin/chat",     labelKey: "admin.nav.chat"     as const, icon: MessageCircle  },
-  { href: "/admin/logs",     labelKey: "admin.nav.logs"     as const, icon: ScrollText     },
-  { href: "/admin/users",    labelKey: "admin.nav.users"    as const, icon: Users          },
+  { href: "/admin/chat",      labelKey: "admin.nav.chat"      as const, icon: MessageCircle  },
+  { href: "/admin/logs",      labelKey: "admin.nav.logs"      as const, icon: ScrollText     },
+  { href: "/admin/analytics", labelKey: "admin.nav.analytics" as const, icon: TrendingUp     },
+  { href: "/admin/users",     labelKey: "admin.nav.users"     as const, icon: Users          },
 ] as const;
 
 export default function AdminShell({ children }: { children: ReactNode }) {

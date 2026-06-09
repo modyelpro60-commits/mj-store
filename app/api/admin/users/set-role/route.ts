@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "../../../../lib/auth/requireAdmin";
+import { createNotification } from "../../../../../lib/notifications/createNotification";
 
 const ROLE_OPTIONS = ["user", "helper", "moderator", "admin"] as const;
 type RoleOption = (typeof ROLE_OPTIONS)[number];
@@ -94,6 +95,18 @@ export async function POST(req: Request) {
     if (updateError) {
       return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
     }
+
+    // — Notification (additive) ————————————————————————————————————
+    if (targetUserId !== admin.userId) {
+      void createNotification({
+        userId:  targetUserId,
+        type:    "role_changed",
+        title:   "Account Role Updated 🔑",
+        message: `Your account role has been changed to "${nextRole}".`,
+        link:    "/account",
+      });
+    }
+    // ——————————————————————————————————————————————————————————————
 
     return NextResponse.json({ success: true });
   } catch (err) {
