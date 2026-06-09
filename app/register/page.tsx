@@ -31,7 +31,6 @@ export default function RegisterPage() {
 
   const [codeSent, setCodeSent] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
-  const [devCode, setDevCode] = useState<string | null>(null);
 
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -43,7 +42,6 @@ export default function RegisterPage() {
       setEmailVerified(false);
       setCodeSent(false);
       setCode("");
-      setDevCode(null);
     }
   }
 
@@ -60,12 +58,7 @@ export default function RegisterPage() {
       const d = await res.json();
       if (d.success) {
         setCodeSent(true);
-        if (d.testMode && d.devCode) {
-          setDevCode(d.devCode);
-          toast("وضع تجريبي — الكود ظاهر تحت", { description: "اربط مزوّد إيميل عشان يتبعت فعلاً." });
-        } else {
-          toast.success("تم إرسال الكود على إيميلك 📧");
-        }
+        toast.success("تم إرسال الكود على إيميلك 📧");
       } else {
         toast.error(d.error ?? "تعذّر إرسال الكود");
       }
@@ -88,7 +81,6 @@ export default function RegisterPage() {
       const d = await res.json();
       if (d.success) {
         setEmailVerified(true);
-        setDevCode(null);
         toast.success("تم تأكيد الإيميل ✅");
       } else {
         toast.error(d.error ?? "الكود غير صحيح");
@@ -196,12 +188,6 @@ export default function RegisterPage() {
                 {emailVerified && (
                   <p className="flex items-center gap-1.5 text-xs text-emerald-400">
                     <Check className="h-3.5 w-3.5" /> تم تأكيد الإيميل
-                  </p>
-                )}
-
-                {devCode && (
-                  <p className="rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-300">
-                    وضع تجريبي — الكود: <span className="font-black tracking-widest">{devCode}</span>
                   </p>
                 )}
               </div>

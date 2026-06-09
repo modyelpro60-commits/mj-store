@@ -77,13 +77,11 @@ export default function PaymentModal({
       });
       const d = await res.json();
       if (d.success) {
-        try {
-          localStorage.setItem("mj_payment_chat", "1");
-        } catch {}
         onPaid?.();
         reset();
         onClose();
-        router.push("/");
+        // Go straight to the full-page chat, opened on this order's thread.
+        router.push(d.roomId ? `/chat?room=${d.roomId}` : "/chat");
       } else {
         toast.error(d.error ?? "تعذّر إنشاء الطلب");
         setPlacing(false);

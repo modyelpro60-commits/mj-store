@@ -13,22 +13,33 @@ export default function LiveChat() {
   const loggedIn = !isLoading && !!accessToken;
 
   const [open, setOpen] = useState(false);
-  const [paymentPrompt, setPaymentPrompt] = useState(false);
+  const [initialRoomId, setInitialRoomId] = useState<string | null>(null);
   const unread = useChatUnread(accessToken, loggedIn);
 
-  // After a manual payment, the cart sets this flag → open the chat and show
-  // the "send payment screenshot" prompt.
+  // After a manual payment we open the chat on that specific order thread.
+  // Event → handles client-side navigation (LiveChat stays mounted).
+  // localStorage → handles a full page reload.
   useEffect(() => {
     if (!loggedIn) return;
     try {
-      if (localStorage.getItem("mj_payment_chat") === "1") {
-        localStorage.removeItem("mj_payment_chat");
-        setPaymentPrompt(true);
+      const r = localStorage.getItem("mj_open_room");
+      if (r) {
+        localStorage.removeItem("mj_open_room");
+        setInitialRoomId(r);
         setOpen(true);
       }
     } catch {
       /* ignore */
     }
+    function onOpenRoom(e: Event) {
+      const id = (e as CustomEvent).detail as string;
+      if (id) {
+        setInitialRoomId(id);
+        setOpen(true);
+      }
+    }
+    window.addEventListener("mj:open-room", onOpenRoom as EventListener);
+    return () => window.removeEventListener("mj:open-room", onOpenRoom as EventListener);
   }, [loggedIn]);
 
   if (!loggedIn) return null;
@@ -49,7 +60,7 @@ export default function LiveChat() {
               height: "min(560px, calc(100vh - 110px))",
             }}
           >
-            <ChatWorkspace variant="floating" onRequestClose={() => setOpen(false)} paymentPrompt={paymentPrompt} />
+            <ChatWorkspace variant="floating" onRequestClose={() => setOpen(false)} initialRoomId={initialRoomId} />
           </motion.div>
         )}
       </AnimatePresence>

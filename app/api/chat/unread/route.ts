@@ -56,48 +56,32 @@ export async function GET(req: Request) {
     return NextResponse.json({ success: true, count });
   }
 
-  // Regular user — resilient to either migration state
-  let room: any = null;
+  // Regular user — count their rooms that have an unread staff reply.
+  let rooms: any[] | null = null;
   const fullU = await supabase
     .from("chat_rooms")
     .select("id, last_message_at, user_last_read_at, last_sender_is_staff, customer_cleared_at")
-    .eq("user_id", ctx.userId)
-    .maybeSingle();
+    .eq("user_id", ctx.userId);
   if (!fullU.error) {
-    room = fullU.data;
+    rooms = fullU.data as any[];
   } else {
     const baseU = await supabase
       .from("chat_rooms")
       .select("id, last_message_at, user_last_read_at, last_sender_is_staff")
-      .eq("user_id", ctx.userId)
-      .maybeSingle();
+      .eq("user_id", ctx.userId);
     if (baseU.error) return NextResponse.json({ success: true, count: 0 });
-    room = baseU.data;
+    rooms = baseU.data as any[];
   }
 
-  if (!room || !room.last_sender_is_staff) {
-    return NextResponse.json({ success: true, count: 0 });
+  let count = 0;
+  for (const room of rooms ?? []) {
+    if (!room.last_sender_is_staff) continue;
+    let cutoff = (room.user_last_read_at as string | null) ?? null;
+    const cleared = (room.customer_cleared_at as string | null) ?? null;
+    if (cleared && (!cutoff || new Date(cleared) > new Date(cutoff))) cutoff = cleared;
+    if (cutoff && new Date(room.last_message_at) <= new Date(cutoff)) continue;
+    count++;
   }
 
-  // Cutoff = the later of "last read" and "cleared by a staff close"
-  let cutoff = (room.user_last_read_at as string | null) ?? null;
-  const cleared = (room.customer_cleared_at as string | null) ?? null;
-  if (cleared && (!cutoff || new Date(cleared) > new Date(cutoff))) {
-    cutoff = cleared;
-  }
-
-  if (cutoff && new Date(room.last_message_at) <= new Date(cutoff)) {
-    return NextResponse.json({ success: true, count: 0 });
-  }
-
-  // Count staff messages after the cutoff (anything not sent by the user)
-  let q = supabase
-    .from("chat_messages")
-    .select("id", { count: "exact", head: true })
-    .eq("room_id", room.id)
-    .neq("sender_id", ctx.userId);
-  if (cutoff) q = q.gt("created_at", cutoff);
-
-  const { count } = await q;
-  return NextResponse.json({ success: true, count: count ?? 0 });
+  return NextResponse.json({ success: true, count });
 }

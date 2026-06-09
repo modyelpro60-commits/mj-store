@@ -15,9 +15,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: result.error ?? "تعذّر الإرسال" }, { status: 502 });
   }
 
-  return NextResponse.json({
-    success: true,
-    testMode: result.testMode,
-    devCode: result.devCode ?? null, // present only in test mode (no provider yet)
-  });
+  return NextResponse.json({ success: true });
 }

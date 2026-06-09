@@ -29,6 +29,7 @@ type Message = {
   senderRole: string | null;
   body: string;
   imageUrl?: string | null;
+  isSystem?: boolean;
   createdAt: string;
   isOwn: boolean;
 };
@@ -36,6 +37,9 @@ type Room = {
   id: string;
   userId: string;
   userName: string;
+  title?: string | null;
+  orderRef?: string | null;
+  orderStatus?: string | null;
   lastMessageAt: string;
   lastMsg: string | null;
   status: string;
@@ -48,6 +52,9 @@ type RoomMeta = {
   closing?: boolean;
   closedByRole?: string | null;
   clearAt?: string | null;
+  orderRef?: string | null;
+  orderStatus?: string | null;
+  title?: string | null;
 };
 
 const ROLE_LABEL_AR: Record<string, string> = {
@@ -109,11 +116,11 @@ function Avatar({ name, role, size = "sm" }: { name: string; role?: string | nul
 export default function ChatWorkspace({
   variant = "floating",
   onRequestClose,
-  paymentPrompt = false,
+  initialRoomId = null,
 }: {
   variant?: "floating" | "page";
   onRequestClose?: () => void;
-  paymentPrompt?: boolean;
+  initialRoomId?: string | null;
 }) {
   const { accessToken, role } = useAuth();
   const isStaff = role === "admin" || role === "moderator" || role === "helper";
@@ -133,6 +140,7 @@ export default function ChatWorkspace({
   const [deleting, setDeleting]         = useState(false);
   const [countdown, setCountdown]       = useState<number | null>(null);
   const [uploading, setUploading]       = useState(false);
+  const [confirming, setConfirming]     = useState(false);
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const stickRef    = useRef(true); // are we "stuck" to the bottom?
@@ -141,6 +149,7 @@ export default function ChatWorkspace({
   const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastReadId  = useRef<number>(0);
   const activeRef   = useRef<string | null>(null);
+  const handledInitial = useRef<string | null>(null);
   activeRef.current = activeRoomId;
 
   // Auto-scroll the MESSAGES CONTAINER (never the page) — and only when the
@@ -249,30 +258,25 @@ export default function ChatWorkspace({
     [accessToken, hdrs, markRead]
   );
 
-  /* ── Init ── */
+  /* ── Init: everyone loads their room list ── */
   useEffect(() => {
     if (!accessToken) return;
-    if (isStaff) {
-      fetchRooms();
-    } else {
-      // Fetch the user's existing room only — do NOT create an empty room here.
-      // The room is created lazily on the first message (see send()), which
-      // avoids phantom "unread" rooms appearing for staff.
-      (async () => {
-        try {
-          const res = await fetch("/api/chat/rooms", { headers: hdrs() });
-          const d = await res.json();
-          const existing = d.success && d.data && d.data[0];
-          if (existing) {
-            setActiveRoomId(existing.id);
-            await fetchMessages(existing.id);
-            markRead(existing.id);
-          }
-        } catch {}
-      })();
-    }
+    fetchRooms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, isStaff]);
+
+  /* ── Auto-select: the requested room (after payment), else the only room ── */
+  useEffect(() => {
+    if (initialRoomId && initialRoomId !== handledInitial.current && rooms.some((r) => r.id === initialRoomId)) {
+      handledInitial.current = initialRoomId;
+      selectRoom(initialRoomId);
+      return;
+    }
+    if (!activeRoomId && !isStaff && rooms.length === 1) {
+      selectRoom(rooms[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms, initialRoomId]);
 
   /* ── Polling ── */
   useEffect(() => {
@@ -280,7 +284,7 @@ export default function ChatWorkspace({
     if (!accessToken) return;
     pollRef.current = setInterval(() => {
       if (activeRef.current) fetchMessages(activeRef.current, true);
-      if (isStaff) fetchRooms(true);
+      fetchRooms(true);
     }, 3000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -405,6 +409,28 @@ export default function ChatWorkspace({
     setUploading(false);
   }
 
+  async function confirmPayment() {
+    if (!activeRoomId || !accessToken || confirming) return;
+    setConfirming(true);
+    try {
+      const res = await fetch(`/api/chat/rooms/${activeRoomId}/confirm-payment`, {
+        method: "POST",
+        headers: hdrs(),
+      });
+      const d = await res.json().catch(() => ({ success: false }));
+      if (d.success) {
+        toast.success("تم تأكيد الدفع ✅");
+        await fetchMessages(activeRoomId, true);
+        fetchRooms(true);
+      } else {
+        toast.error(d.error ?? "حدث خطأ");
+      }
+    } catch {
+      toast.error("حدث خطأ");
+    }
+    setConfirming(false);
+  }
+
   async function setClosed(action: "close" | "reopen") {
     if (!activeRoomId || !accessToken) return;
     setClosing(true);
@@ -461,36 +487,42 @@ export default function ChatWorkspace({
 
   /* ── Derived ── */
   const activeRoom = rooms.find((r) => r.id === activeRoomId);
-  const title = isStaff ? activeRoom?.userName ?? "المحادثات" : "الدعم الفني";
+  const title = activeRoom?.title ?? (isStaff ? activeRoom?.userName ?? "المحادثات" : "الدعم الفني");
   const isClosed = roomMeta.status === "closed";
-  const hasActive = isStaff ? !!activeRoomId : true;
+  const orderRef = roomMeta.orderRef ?? activeRoom?.orderRef ?? null;
+  const orderStatus = roomMeta.orderStatus ?? activeRoom?.orderStatus ?? null;
+  const showSidebarPanel = isStaff || variant === "page" || rooms.length > 1;
+  const hasActive = showSidebarPanel ? !!activeRoomId : true;
   const customerSentImage = messages.some((m) => m.isOwn && m.imageUrl);
-  const showPaymentBanner = paymentPrompt && !isStaff;
+  const awaitingPayment = orderStatus === "Awaiting Payment";
+  const showPaymentBanner = !isStaff && awaitingPayment && !customerSentImage;
 
   // Full static class strings so Tailwind's JIT can see them
   const expanded  = showSidebar || !activeRoomId;
-  const sidebarCls =
-    variant === "page"
-      ? expanded
-        ? "w-[300px] opacity-100"
-        : "w-0 md:w-[300px] opacity-0 md:opacity-100"
-      : expanded
-        ? "w-[230px] opacity-100"
-        : "w-0 md:w-[230px] opacity-0 md:opacity-100";
+  let sidebarCls: string;
+  if (variant === "page") {
+    sidebarCls = expanded ? "w-[300px] opacity-100" : "w-0 md:w-[300px] opacity-0 md:opacity-100";
+  } else if (isStaff) {
+    // wide floating staff widget — side by side
+    sidebarCls = expanded ? "w-[230px] opacity-100" : "w-0 md:w-[230px] opacity-0 md:opacity-100";
+  } else {
+    // narrow customer widget — full-width list, then full-width chat
+    sidebarCls = expanded ? "w-full opacity-100" : "w-0 opacity-0";
+  }
 
   /* ═════════════════════════════ Render ═══════════════════════════════════ */
   return (
     <div className="flex h-full w-full overflow-hidden" dir="rtl" style={{ background: "#0A0A14" }}>
 
-      {/* ── Staff sidebar ── */}
-      {isStaff && (
+      {/* ── Sidebar (staff = all customers; customer = their order threads) ── */}
+      {showSidebarPanel && (
         <div
           className={`flex flex-col border-l border-white/[0.05] overflow-hidden shrink-0 transition-[width,opacity] duration-200 ${sidebarCls}`}
           style={{ background: "#07070F" }}
         >
           <div className="flex items-center gap-1.5 px-3.5 py-3 border-b border-white/[0.04] shrink-0">
             <Users className="h-3.5 w-3.5 text-white/25" />
-            <span className="text-[11px] font-black uppercase tracking-widest text-white/25">العملاء</span>
+            <span className="text-[11px] font-black uppercase tracking-widest text-white/25">{isStaff ? "العملاء" : "محادثاتي"}</span>
             <span className="mr-auto text-[10px] font-bold text-white/15">{rooms.length}</span>
           </div>
 
@@ -503,32 +535,37 @@ export default function ChatWorkspace({
             ) : rooms.length === 0 ? (
               <div className="flex items-center justify-center h-24 text-white/15 text-xs">لا توجد محادثات بعد</div>
             ) : (
-              rooms.map((room) => (
-                <button
-                  key={room.id}
-                  onClick={() => selectRoom(room.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-right transition-all border-b border-white/[0.03] hover:bg-white/[0.035]
-                    ${activeRoomId === room.id ? "bg-purple-500/[0.10] shadow-[inset_2px_0_0_0_rgb(168,85,247)]" : ""}`}
-                >
-                  <div className="relative">
-                    <Avatar name={room.userName} size="md" />
-                    {room.unread && (
-                      <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#07070F] bg-red-500" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 text-right">
-                    <div className="flex items-center gap-1.5">
-                      <p className={`text-xs font-bold truncate ${room.unread ? "text-white" : "text-white/65"}`}>
-                        {room.userName}
-                      </p>
-                      {room.status === "closed" && <Lock className="h-2.5 w-2.5 text-white/20 shrink-0" />}
+              rooms.map((room) => {
+                const mainLabel = room.title ?? room.userName;
+                const isPaying = room.orderStatus === "Awaiting Payment";
+                return (
+                  <button
+                    key={room.id}
+                    onClick={() => selectRoom(room.id)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-right transition-all border-b border-white/[0.03] hover:bg-white/[0.035]
+                      ${activeRoomId === room.id ? "bg-purple-500/[0.10] shadow-[inset_2px_0_0_0_rgb(168,85,247)]" : ""}`}
+                  >
+                    <div className="relative">
+                      <Avatar name={room.userName} size="md" />
+                      {room.unread && (
+                        <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#07070F] bg-red-500" />
+                      )}
                     </div>
-                    <p className="text-[10px] text-white/25 truncate mt-0.5">
-                      {room.lastMsg ?? fmtDate(room.lastMessageAt)}
-                    </p>
-                  </div>
-                </button>
-              ))
+                    <div className="flex-1 min-w-0 text-right">
+                      <div className="flex items-center gap-1.5">
+                        <p className={`text-xs font-bold truncate ${room.unread ? "text-white" : "text-white/65"}`}>
+                          {mainLabel}
+                        </p>
+                        {isPaying && <span className="shrink-0 rounded bg-orange-500/15 px-1 text-[8px] font-black text-orange-300">دفع</span>}
+                        {room.status === "closed" && <Lock className="h-2.5 w-2.5 text-white/20 shrink-0" />}
+                      </div>
+                      <p className="text-[10px] text-white/25 truncate mt-0.5">
+                        {isStaff && room.title ? room.userName : (room.lastMsg ?? fmtDate(room.lastMessageAt))}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
         </div>
@@ -543,10 +580,10 @@ export default function ChatWorkspace({
           style={{ background: "linear-gradient(135deg,rgba(88,28,135,0.4) 0%,rgba(15,10,30,0.9) 100%)" }}
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            {isStaff && activeRoomId && (
+            {showSidebarPanel && activeRoomId && (
               <button
                 onClick={() => setShowSidebar(true)}
-                className="h-7 w-7 shrink-0 grid place-items-center rounded-lg border border-white/[0.07] bg-white/[0.04] text-white/40 hover:text-white/80 transition-all md:hidden"
+                className="h-7 w-7 shrink-0 grid place-items-center rounded-lg border border-white/[0.07] bg-white/[0.04] text-white/40 hover:text-white/80 transition-all"
               >
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
@@ -659,14 +696,14 @@ export default function ChatWorkspace({
         )}
 
         {/* Body */}
-        {isStaff && !activeRoomId ? (
+        {showSidebarPanel && !activeRoomId ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
             <div className="h-16 w-16 rounded-2xl border border-white/[0.04] bg-white/[0.02] grid place-items-center">
               <MessageCircle className="h-7 w-7 text-white/[0.07]" />
             </div>
             <div>
-              <p className="text-white/20 text-sm font-semibold">اختر محادثة</p>
-              <p className="text-white/10 text-xs mt-0.5">من قائمة العملاء</p>
+              <p className="text-white/20 text-sm font-semibold">{isStaff ? "اختر محادثة" : "اختر محادثة طلب"}</p>
+              <p className="text-white/10 text-xs mt-0.5">{isStaff ? "من قائمة العملاء" : "من القائمة"}</p>
             </div>
           </div>
         ) : (
@@ -692,7 +729,14 @@ export default function ChatWorkspace({
                 </div>
               ) : (
                 <div className="mt-auto space-y-4">
-                  {messages.map((msg) => (
+                  {messages.map((msg) =>
+                    msg.isSystem ? (
+                      <div key={msg.id} className="flex justify-center">
+                        <div className="max-w-[88%] whitespace-pre-line rounded-xl border border-purple-500/20 bg-purple-500/[0.08] px-3.5 py-2 text-center text-[12px] font-semibold leading-relaxed text-purple-100/90">
+                          {msg.body}
+                        </div>
+                      </div>
+                    ) : (
                     <div key={msg.id} className={`flex gap-2 ${msg.isOwn ? "flex-row-reverse" : "flex-row"}`}>
                       <div className="mt-5 shrink-0">
                         <Avatar name={msg.senderName} role={msg.senderRole} />
@@ -739,21 +783,28 @@ export default function ChatWorkspace({
               </div>
             )}
 
-            {/* Payment-proof prompt (customer, after a manual payment) */}
+            {/* Payment-proof prompt (customer, while the order awaits payment) */}
             {showPaymentBanner && (
               <div className="shrink-0 border-t-2 border-amber-500/40 bg-amber-500/[0.10] px-4 py-3 text-center">
-                {customerSentImage ? (
-                  <p className="text-sm font-black text-emerald-300">
-                    ✅ شكراً! سيتم التواصل معك من الإدارة في أقرب وقت
-                  </p>
-                ) : (
-                  <>
-                    <p className="flex items-center justify-center gap-1.5 text-base font-black text-amber-200">
-                      <Camera className="h-4 w-4" /> الرجاء إرسال صورة إثبات الدفع
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-amber-100/70">ارفق سكرين شوت التحويل من زرار الصورة 👇</p>
-                  </>
-                )}
+                <p className="flex items-center justify-center gap-1.5 text-base font-black text-amber-200">
+                  <Camera className="h-4 w-4" /> الرجاء إرسال صورة إثبات الدفع
+                </p>
+                <p className="mt-0.5 text-[11px] text-amber-100/70">ارفق سكرين شوت التحويل من زرار الصورة 👇</p>
+              </div>
+            )}
+
+            {/* Confirm-payment (staff, order awaiting payment) */}
+            {isStaff && awaitingPayment && (
+              <div className="shrink-0 flex items-center justify-between gap-2 border-t-2 border-orange-500/40 bg-orange-500/[0.10] px-4 py-2.5">
+                <span className="text-xs font-bold text-orange-200">طلب بانتظار تأكيد الدفع — راجع صورة التحويل</span>
+                <button
+                  onClick={confirmPayment}
+                  disabled={confirming}
+                  className="shrink-0 flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 px-3 py-1.5 text-xs font-black text-white transition hover:opacity-90 disabled:opacity-60"
+                >
+                  {confirming ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
+                  تأكيد الدفع
+                </button>
               </div>
             )}
 

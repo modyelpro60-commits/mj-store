@@ -65,6 +65,9 @@ export async function POST(req: Request) {
   const pMap = new Map<number, any>();
   (products ?? []).forEach((p: any) => pMap.set(p.id, p));
 
+  // A short order reference number shared across this checkout's rows.
+  const orderRef = String(Date.now()).slice(-6);
+
   // Build one order row per cart line
   const rows = cart
     .map((c) => {
@@ -80,6 +83,7 @@ export async function POST(req: Request) {
         price:          unit * qty,
         status:         "Awaiting Payment",
         payment_method: method,
+        order_ref:      orderRef,
       };
     })
     .filter(Boolean) as Array<Record<string, unknown>>;
@@ -88,7 +92,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: "لا توجد منتجات صالحة في السلة" }, { status: 400 });
   }
 
-  const { error: insertErr } = await supabase.from("orders").insert(rows);
+  // Resilient insert: drop order_ref if the column isn't migrated yet.
+  let insertErr = (await supabase.from("orders").insert(rows)).error;
+  if (insertErr) {
+    const fallback = rows.map(({ order_ref, ...rest }) => rest);
+    insertErr = (await supabase.from("orders").insert(fallback)).error;
+  }
   if (insertErr) {
     return NextResponse.json({ success: false, error: insertErr.message }, { status: 500 });
   }
@@ -96,5 +105,34 @@ export async function POST(req: Request) {
   // Clear the cart now that the order is placed
   await supabase.from("cart_items").delete().eq("user_id", ctx.userId);
 
-  return NextResponse.json({ success: true, count: rows.length });
+  // Create a dedicated chat thread for this order + an intro system message.
+  let roomId: string | null = null;
+  const total = rows.reduce((s, r) => s + toNum(r.price), 0);
+  const { data: room } = await supabase
+    .from("chat_rooms")
+    .insert({
+      user_id: ctx.userId,
+      order_ref: orderRef,
+      title: `طلب #${orderRef}`,
+      status: "open",
+      last_sender_is_staff: true,
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (room?.id) {
+    roomId = room.id;
+    await supabase.from("chat_messages").insert({
+      room_id: room.id,
+      sender_id: null,
+      is_system: true,
+      body: `📦 طلب #${orderRef} — الإجمالي ${total.toLocaleString()} EGP\n\nالرجاء إرسال صورة إثبات الدفع 📷`,
+    });
+    await supabase
+      .from("chat_rooms")
+      .update({ last_message_at: new Date().toISOString() })
+      .eq("id", room.id);
+  }
+
+  return NextResponse.json({ success: true, count: rows.length, orderRef, roomId });
 }

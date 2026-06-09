@@ -280,6 +280,17 @@ export default function CommandBar() {
                 </AnimatePresence>
               </div>
 
+              {/* ── CHATS ─────────────────────────────────────── */}
+              {isLoggedIn && (
+                <Link
+                  href="/chat"
+                  aria-label="Chats"
+                  className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-white/65 transition-all duration-200 hover:border-purple-500/25 hover:bg-purple-500/[0.08] hover:text-white"
+                >
+                  <MessageSquare className="h-[17px] w-[17px]" />
+                </Link>
+              )}
+
               {/* ── CART ──────────────────────────────────────── */}
               {isLoggedIn && (
                 <Link

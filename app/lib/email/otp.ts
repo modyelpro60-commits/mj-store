@@ -72,6 +72,10 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
         headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, html }),
       });
+      if (!res.ok) {
+        // Server-side only — never exposed to the client.
+        console.error("[email/otp] Resend send failed:", res.status, await res.text().catch(() => ""));
+      }
       return res.ok;
     }
     if (BREVO_API_KEY) {
@@ -81,28 +85,33 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
         headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json", accept: "application/json" },
         body: JSON.stringify({ sender, to: [{ email: to }], subject, htmlContent: html }),
       });
+      if (!res.ok) {
+        console.error("[email/otp] Brevo send failed:", res.status, await res.text().catch(() => ""));
+      }
       return res.ok;
     }
-  } catch {
+  } catch (err) {
+    console.error("[email/otp] send error:", err instanceof Error ? err.message : err);
     return false;
   }
   return false;
 }
 
 /* ─── Send OTP ─────────────────────────────────────────────────────────────── */
-export async function sendEmailOtp(
-  email: string
-): Promise<{ ok: boolean; testMode: boolean; devCode?: string; error?: string }> {
+export async function sendEmailOtp(email: string): Promise<{ ok: boolean; error?: string }> {
+  // No provider configured → fail (never reveal a code). Configure RESEND_API_KEY
+  // (or BREVO_API_KEY) + EMAIL_FROM to send real verification emails.
+  if (!emailConfigured) {
+    console.error("[email/otp] No email provider configured — set RESEND_API_KEY (or BREVO_API_KEY) + EMAIL_FROM.");
+    return { ok: false, error: "خدمة إرسال الإيميل غير متاحة حالياً، حاول لاحقاً" };
+  }
+
   const code = String(Math.floor(100000 + Math.random() * 900000));
   await upsert(email, { verified: false, code });
 
-  if (emailConfigured) {
-    const ok = await sendEmail(email, "كود التحقق - MJ Store", otpEmailHtml(code));
-    if (!ok) return { ok: false, testMode: false, error: "تعذّر إرسال الإيميل، حاول مجدداً" };
-    return { ok: true, testMode: false };
-  }
-  // Test mode
-  return { ok: true, testMode: true, devCode: code };
+  const ok = await sendEmail(email, "كود التحقق - MJ Store", otpEmailHtml(code));
+  if (!ok) return { ok: false, error: "تعذّر إرسال الإيميل، تأكد من بريدك وحاول مجدداً" };
+  return { ok: true };
 }
 
 /* ─── Check OTP ────────────────────────────────────────────────────────────── */

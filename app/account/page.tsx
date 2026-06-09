@@ -14,6 +14,7 @@ import {
   DollarSign,
   Layers,
   LoaderCircle,
+  MessageCircle,
   Package,
   Package2,
   Receipt,
@@ -525,6 +526,12 @@ export default function AccountPage() {
             >
               <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 mb-3">Quick Access</p>
               <div className="space-y-2">
+                <Link href="/chat"
+                  className="group flex items-center gap-3 rounded-xl border border-purple-500/25 bg-purple-500/10 px-3.5 py-2.5 transition hover:bg-purple-500/20">
+                  <MessageCircle className="h-4 w-4 text-purple-300" />
+                  <span className="text-sm font-bold text-purple-100">محادثات الطلبات والدعم</span>
+                  <ArrowRight className="h-3 w-3 text-purple-400 ml-auto transition group-hover:translate-x-0.5" />
+                </Link>
                 <Link href="/#products"
                   className="group flex items-center gap-3 rounded-xl border border-white/[0.05] bg-zinc-900/50 px-3.5 py-2.5 transition hover:border-purple-500/20 hover:bg-purple-500/[0.06]">
                   <Package className="h-4 w-4 text-zinc-600 group-hover:text-purple-400 transition-colors" />

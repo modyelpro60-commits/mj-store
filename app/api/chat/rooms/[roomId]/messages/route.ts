@@ -39,7 +39,7 @@ export async function GET(
   let room: any = null;
   const fullRoom = await supabase
     .from("chat_rooms")
-    .select("id, user_id, status, closed_by, closed_by_name, closed_at, customer_cleared_at")
+    .select("id, user_id, status, closed_by, closed_by_name, closed_at, customer_cleared_at, order_ref, title")
     .eq("id", roomId)
     .maybeSingle();
   if (!fullRoom.error) {
@@ -58,6 +58,18 @@ export async function GET(
   }
   if (!isStaff && room.user_id !== ctx.userId) {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+  }
+
+  // Order status for this room (drives the "send payment proof" banner)
+  let orderStatus: string | null = null;
+  if (room.order_ref) {
+    const { data: ord } = await supabase
+      .from("orders")
+      .select("status")
+      .eq("order_ref", room.order_ref)
+      .limit(1)
+      .maybeSingle();
+    orderStatus = (ord?.status as string) ?? null;
   }
 
   // Grace / clear logic. On close we stamp customer_cleared_at = closed_at + 60s.
@@ -100,7 +112,7 @@ export async function GET(
   const msgList = messages ?? [];
 
   // Fetch sender profiles separately (no FK relationship chat_messages → profiles)
-  const senderIds = Array.from(new Set(msgList.map((m: any) => m.sender_id)));
+  const senderIds = Array.from(new Set(msgList.map((m: any) => m.sender_id).filter(Boolean)));
   const profMap = new Map<string, { full_name: string; role: string }>();
   if (senderIds.length > 0) {
     const { data: profs } = await supabase
@@ -113,22 +125,30 @@ export async function GET(
   }
 
   const data = msgList.map((m: any) => {
-    const prof = profMap.get(m.sender_id);
+    const isSystem = !!m.is_system || !m.sender_id;
+    const prof = m.sender_id ? profMap.get(m.sender_id) : null;
     return {
       id:         m.id,
       senderId:   m.sender_id,
-      senderName: prof?.full_name ?? "مستخدم",
-      senderRole: prof?.role ?? null,
+      senderName: isSystem ? "النظام" : (prof?.full_name ?? "مستخدم"),
+      senderRole: isSystem ? null : (prof?.role ?? null),
       body:       m.body,
       imageUrl:   m.image_url ?? null,
+      isSystem,
       createdAt:  m.created_at,
-      isOwn:      m.sender_id === ctx.userId,
+      isOwn:      !isSystem && m.sender_id === ctx.userId,
     };
   });
 
   // Room meta differs by viewer:
   //   • admin       → real closed state (can reopen), full record kept
   //   • others      → "closing" banner during the grace minute, then fresh chat
+  const orderInfo = {
+    orderRef: (room.order_ref as string) ?? null,
+    orderStatus,
+    title: (room.title as string) ?? null,
+  };
+
   let roomMeta;
   if (isAdmin) {
     roomMeta = {
@@ -138,6 +158,7 @@ export async function GET(
       closedByRole,
       closedAt:     (room.closed_at as string) ?? null,
       clearAt:      null as string | null,
+      ...orderInfo,
     };
   } else if (inGrace) {
     roomMeta = {
@@ -147,9 +168,10 @@ export async function GET(
       closedByRole,
       closedAt:     (room.closed_at as string) ?? null,
       clearAt,
+      ...orderInfo,
     };
   } else {
-    roomMeta = { status: "open", closing: false, closedByName: null, closedByRole: null, closedAt: null, clearAt: null as string | null };
+    roomMeta = { status: "open", closing: false, closedByName: null, closedByRole: null, closedAt: null, clearAt: null as string | null, ...orderInfo };
   }
 
   return NextResponse.json({ success: true, data, room: roomMeta });
@@ -231,6 +253,19 @@ export async function POST(
 
   if (insertErr) {
     return NextResponse.json({ success: false, error: insertErr.message }, { status: 500 });
+  }
+
+  // When a customer attaches a payment screenshot in an order chat, auto-reply.
+  if (imageUrl && !isStaff) {
+    const { data: rm } = await supabase.from("chat_rooms").select("order_ref").eq("id", roomId).maybeSingle();
+    if (rm?.order_ref) {
+      await supabase.from("chat_messages").insert({
+        room_id: roomId,
+        sender_id: null,
+        is_system: true,
+        body: "✅ تم استلام صورة الدفع. سيراجعها الأدمن للتأكد من عملية الدفع — تابع الشات.",
+      });
+    }
   }
 
   // Bump room metadata. The sender just "read" everything.
