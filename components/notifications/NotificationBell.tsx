@@ -7,16 +7,22 @@ import {
   Bell,
   BellOff,
   CheckCheck,
+  CheckCircle,
   LoaderCircle,
   MessageSquare,
   Package,
   Shield,
   ShieldOff,
+  ShoppingCart,
   Star,
+  Truck,
   UserCog,
   X,
+  XCircle,
 } from "lucide-react";
 import { useNotifications, type AppNotification } from "../../lib/notifications/useNotifications";
+import { useNotificationSound } from "../../lib/sounds/useNotificationSound";
+import NotificationSoundToggle from "./NotificationSoundToggle";
 
 /* ─── Helpers ────────────────────────────────────────────────────── */
 
@@ -33,13 +39,19 @@ function timeAgo(iso: string): string {
 }
 
 const TYPE_META: Record<string, { icon: React.ElementType; color: string; dot: string }> = {
-  order_approved: { icon: Package,    color: "text-emerald-400", dot: "bg-emerald-400" },
-  order_rejected: { icon: Package,    color: "text-red-400",     dot: "bg-red-400"     },
-  new_message:    { icon: MessageSquare, color: "text-blue-400", dot: "bg-blue-400"    },
-  review_reply:   { icon: Star,       color: "text-amber-400",   dot: "bg-amber-400"   },
-  support_reply:  { icon: MessageSquare, color: "text-purple-400", dot: "bg-purple-400" },
-  role_changed:   { icon: UserCog,    color: "text-purple-400",  dot: "bg-purple-400"  },
-  status_changed: { icon: Shield,     color: "text-fuchsia-400", dot: "bg-fuchsia-400" },
+  // legacy / existing
+  order_approved:    { icon: Package,       color: "text-emerald-400", dot: "bg-emerald-400" },
+  order_rejected:    { icon: Package,       color: "text-red-400",     dot: "bg-red-400"     },
+  new_message:       { icon: MessageSquare, color: "text-blue-400",    dot: "bg-blue-400"    },
+  review_reply:      { icon: Star,          color: "text-amber-400",   dot: "bg-amber-400"   },
+  support_reply:     { icon: MessageSquare, color: "text-purple-400",  dot: "bg-purple-400"  },
+  role_changed:      { icon: UserCog,       color: "text-purple-400",  dot: "bg-purple-400"  },
+  status_changed:    { icon: Shield,        color: "text-fuchsia-400", dot: "bg-fuchsia-400" },
+  // order flow v2
+  new_order:         { icon: ShoppingCart,  color: "text-amber-400",   dot: "bg-amber-400"   },
+  payment_confirmed: { icon: CheckCircle,   color: "text-emerald-400", dot: "bg-emerald-400" },
+  payment_rejected:  { icon: XCircle,       color: "text-red-400",     dot: "bg-red-400"     },
+  order_delivered:   { icon: Truck,         color: "text-sky-400",     dot: "bg-sky-400"     },
 };
 
 const DEFAULT_META = { icon: Bell, color: "text-white/40", dot: "bg-white/30" };
@@ -103,9 +115,15 @@ function NotifRow({
 export default function NotificationBell() {
   const router = useRouter();
   const { notifications, unreadCount, loading, markRead, markAllRead } = useNotifications();
+  const { processNotifications } = useNotificationSound();
 
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  /* ── Play sound for each genuinely new notification ── */
+  useEffect(() => {
+    processNotifications(notifications);
+  }, [notifications, processNotifications]);
 
   // Close on outside click
   useEffect(() => {
@@ -236,14 +254,13 @@ export default function NotificationBell() {
               )}
             </div>
 
-            {/* Footer */}
-            {!isEmpty && (
-              <div className="border-t border-white/[0.04] px-4 py-2.5 text-center">
-                <p className="text-[10px] text-white/15">
-                  Showing last {notifications.length} notifications
-                </p>
-              </div>
-            )}
+            {/* Footer — sound toggle + count */}
+            <div className="border-t border-white/[0.04] px-4 py-2.5 flex items-center justify-between gap-3">
+              <p className="text-[10px] text-white/15 leading-none">
+                {isEmpty ? "No notifications" : `${notifications.length} notifications`}
+              </p>
+              <NotificationSoundToggle variant="inline" />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -13,7 +13,12 @@ export type NotificationType =
   | "review_reply"
   | "support_reply"
   | "role_changed"
-  | "status_changed";
+  | "status_changed"
+  // order flow v2
+  | "new_order"
+  | "payment_confirmed"
+  | "payment_rejected"
+  | "order_delivered";
 
 interface NotificationInput {
   userId: string;

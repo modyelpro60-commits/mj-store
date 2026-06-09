@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireActiveUser } from "../../../../../lib/auth/requireAuthContext";
 import { createNotification } from "../../../../../../lib/notifications/createNotification";
+import { notifyAllStaff } from "../../../../../../lib/notifications/notifyStaff";
 
 const STAFF_ROLES = ["admin", "moderator", "helper"];
 
@@ -300,8 +301,9 @@ export async function POST(
     await supabase.from("chat_rooms").update({ last_message_at: now }).eq("id", roomId);
   }
 
-  // — Notify customer when staff sends a message (additive) ———————
+  // — Notifications (additive, never throws) ——————————————————————
   if (isStaff) {
+    // Staff → customer notification
     const { data: roomRow } = await supabase
       .from("chat_rooms")
       .select("user_id")
@@ -314,9 +316,18 @@ export async function POST(
         type:    "new_message",
         title:   "New Support Message 💬",
         message: "Support team sent you a new message.",
-        link:    "/chat",
+        link:    `/chat?room=${roomId}`,
       });
     }
+  } else {
+    // Customer → notify all staff
+    void notifyAllStaff({
+      type:          "new_message",
+      title:         "رسالة جديدة من عميل 💬",
+      message:       "أرسل أحد العملاء رسالة جديدة في الشات.",
+      link:          `/admin/chat`,
+      excludeUserId: ctx.userId,
+    });
   }
   // ——————————————————————————————————————————————————————————————
 

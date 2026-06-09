@@ -28,6 +28,7 @@ import {
 import { useAuth } from "../../components/auth/AuthProvider";
 import { useMyOrders } from "../../components/members/useMyOrders";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
+import NotificationSoundToggle from "../../components/notifications/NotificationSoundToggle";
 
 /* ─────────────────────── Helpers ─────────────────────── */
 function getInitials(name: string) {
@@ -499,6 +500,15 @@ export default function AccountPage() {
                   </div>
                 ))}
               </div>
+            </motion.div>
+
+            {/* Notification Sound Settings */}
+            <motion.div
+              initial={{ opacity: 0, x: 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.16 }}
+            >
+              <NotificationSoundToggle variant="card" />
             </motion.div>
 
             {/* Activity timeline */}

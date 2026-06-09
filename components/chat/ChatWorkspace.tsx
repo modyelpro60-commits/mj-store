@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   Camera,
   ChevronRight,
   CheckCheck,
@@ -11,6 +12,7 @@ import {
   Loader2,
   Lock,
   MessageCircle,
+  PackageCheck,
   RotateCcw,
   Send,
   ShieldCheck,
@@ -18,6 +20,7 @@ import {
   Users,
   Wrench,
   X,
+  XCircle,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 
@@ -141,6 +144,10 @@ export default function ChatWorkspace({
   const [countdown, setCountdown]       = useState<number | null>(null);
   const [uploading, setUploading]       = useState(false);
   const [confirming, setConfirming]     = useState(false);
+  const [delivering, setDelivering]     = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingPayment, setRejectingPayment] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const stickRef    = useRef(true); // are we "stuck" to the bottom?
@@ -431,6 +438,55 @@ export default function ChatWorkspace({
     setConfirming(false);
   }
 
+  async function rejectPayment() {
+    if (!activeRoomId || !accessToken || rejectingPayment) return;
+    const reason = rejectReason.trim();
+    if (!reason) { toast.error("يرجى كتابة سبب الرفض"); return; }
+    setRejectingPayment(true);
+    try {
+      const res = await fetch(`/api/chat/rooms/${activeRoomId}/reject-payment`, {
+        method: "POST",
+        headers: hdrs(),
+        body: JSON.stringify({ reason }),
+      });
+      const d = await res.json().catch(() => ({ success: false }));
+      if (d.success) {
+        toast.success("تم رفض الدفع ❌");
+        setShowRejectModal(false);
+        setRejectReason("");
+        await fetchMessages(activeRoomId, true);
+        fetchRooms(true);
+      } else {
+        toast.error(d.error ?? "حدث خطأ");
+      }
+    } catch {
+      toast.error("حدث خطأ");
+    }
+    setRejectingPayment(false);
+  }
+
+  async function deliverOrder() {
+    if (!activeRoomId || !accessToken || delivering) return;
+    setDelivering(true);
+    try {
+      const res = await fetch(`/api/chat/rooms/${activeRoomId}/deliver`, {
+        method: "POST",
+        headers: hdrs(),
+      });
+      const d = await res.json().catch(() => ({ success: false }));
+      if (d.success) {
+        toast.success("تم تسليم الطلب 🎉");
+        await fetchMessages(activeRoomId, true);
+        fetchRooms(true);
+      } else {
+        toast.error(d.error ?? "حدث خطأ");
+      }
+    } catch {
+      toast.error("حدث خطأ");
+    }
+    setDelivering(false);
+  }
+
   async function setClosed(action: "close" | "reopen") {
     if (!activeRoomId || !accessToken) return;
     setClosing(true);
@@ -512,7 +568,7 @@ export default function ChatWorkspace({
 
   /* ═════════════════════════════ Render ═══════════════════════════════════ */
   return (
-    <div className="flex h-full w-full overflow-hidden" dir="rtl" style={{ background: "#0A0A14" }}>
+    <div className="relative flex h-full w-full overflow-hidden" dir="rtl" style={{ background: "#0A0A14" }}>
 
       {/* ── Sidebar (staff = all customers; customer = their order threads) ── */}
       {showSidebarPanel && (
@@ -608,6 +664,18 @@ export default function ChatWorkspace({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Mark as Delivered (admin only, when order is Processing) */}
+            {isAdmin && activeRoomId && orderStatus === "Processing" && (
+              <button
+                onClick={deliverOrder}
+                disabled={delivering}
+                className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/25 transition-all disabled:opacity-50"
+              >
+                {delivering ? <Loader2 className="h-3 w-3 animate-spin" /> : <PackageCheck className="h-3 w-3" />}
+                تسليم الطلب
+              </button>
+            )}
+
             {/* Resolve / reopen (staff, with an active room — hidden during the
                 1-minute closing countdown) */}
             {isStaff && activeRoomId && !roomMeta.closing && (
@@ -793,18 +861,42 @@ export default function ChatWorkspace({
               </div>
             )}
 
-            {/* Confirm-payment (staff, order awaiting payment) */}
-            {isStaff && awaitingPayment && (
-              <div className="shrink-0 flex items-center justify-between gap-2 border-t-2 border-orange-500/40 bg-orange-500/[0.10] px-4 py-2.5">
-                <span className="text-xs font-bold text-orange-200">طلب بانتظار تأكيد الدفع — راجع صورة التحويل</span>
-                <button
-                  onClick={confirmPayment}
-                  disabled={confirming}
-                  className="shrink-0 flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 px-3 py-1.5 text-xs font-black text-white transition hover:opacity-90 disabled:opacity-60"
-                >
-                  {confirming ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
-                  تأكيد الدفع
-                </button>
+            {/* Confirm / Reject payment (admin only, order awaiting payment) */}
+            {isAdmin && awaitingPayment && (
+              <div className="shrink-0 border-t-2 border-orange-500/40 bg-orange-500/[0.10] px-4 py-2.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-orange-200">
+                    طلب بانتظار تأكيد الدفع — راجع صورة التحويل
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Reject */}
+                    <button
+                      onClick={() => { setShowRejectModal(true); setRejectReason(""); }}
+                      disabled={confirming}
+                      className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/15 px-3 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/25 disabled:opacity-60"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      رفض
+                    </button>
+                    {/* Confirm */}
+                    <button
+                      onClick={confirmPayment}
+                      disabled={confirming}
+                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 px-3 py-1.5 text-xs font-black text-white transition hover:opacity-90 disabled:opacity-60"
+                    >
+                      {confirming ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
+                      تأكيد الدفع
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Non-admin staff: view-only notice when order awaits payment */}
+            {isStaff && !isAdmin && awaitingPayment && (
+              <div className="shrink-0 flex items-center gap-2 border-t border-orange-500/20 bg-orange-500/[0.06] px-4 py-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-orange-300 shrink-0" />
+                <span className="text-xs text-orange-200/70">الطلب بانتظار تأكيد الدفع من الأدمن.</span>
               </div>
             )}
 
@@ -861,6 +953,55 @@ export default function ChatWorkspace({
           </>
         )}
       </div>
+
+      {/* ── Reject Payment Modal ── */}
+      {showRejectModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}>
+          <div className="w-full max-w-sm rounded-3xl border border-red-500/25 bg-zinc-900 shadow-[0_0_80px_rgba(239,68,68,0.15)] overflow-hidden">
+            <div className="flex items-center gap-3 border-b border-white/[0.06] bg-red-500/[0.08] px-5 py-4">
+              <div className="grid h-9 w-9 place-items-center rounded-xl border border-red-500/25 bg-red-500/15 text-red-300">
+                <XCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-black text-white">رفض إثبات الدفع</p>
+                <p className="text-xs text-zinc-500 mt-0.5">اكتب سبب الرفض للعميل</p>
+              </div>
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="mr-auto grid h-7 w-7 place-items-center rounded-lg border border-white/[0.07] bg-white/[0.04] text-white/40 hover:text-white transition"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="مثال: الصورة غير واضحة / المبلغ غير صحيح / يرجى إرسال صورة جديدة…"
+                rows={4}
+                className="w-full resize-none rounded-2xl border border-white/[0.08] bg-zinc-950/60 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-zinc-600 focus:border-red-500/40 focus:ring-1 focus:ring-red-500/15 transition-all"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowRejectModal(false)}
+                  disabled={rejectingPayment}
+                  className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 text-sm font-bold text-white/60 hover:text-white transition disabled:opacity-50"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={rejectPayment}
+                  disabled={rejectingPayment || !rejectReason.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 py-2.5 text-sm font-black text-white transition hover:opacity-90 disabled:opacity-60"
+                >
+                  {rejectingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                  تأكيد الرفض
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,9 +4,9 @@ import { requireRole } from "../../../../../lib/auth/requireAuthContext";
 import { createNotification } from "../../../../../../lib/notifications/createNotification";
 import { logActivity } from "../../../../../lib/logs/logActivity";
 
-/* ─── POST /api/chat/rooms/[roomId]/confirm-payment ──────────────────────────
- * Admin ONLY — confirm payment, set order to Processing, post system message,
- * notify the customer.
+/* ─── POST /api/chat/rooms/[roomId]/deliver ──────────────────────────────────
+ * Admin ONLY — mark the order as Completed (delivered), post system message,
+ * notify customer, increment sales_count.
  * ─────────────────────────────────────────────────────────────────────────── */
 export async function POST(
   req: Request,
@@ -51,15 +51,28 @@ export async function POST(
   /* ── Find order info ── */
   const { data: orderRow } = await db
     .from("orders")
-    .select("id, product_name, user_id")
+    .select("id, product_name, product_id, user_id, status")
     .eq("order_ref", room.order_ref as string)
     .maybeSingle();
 
-  /* ── Update order status → Processing ── */
+  /* ── Update order status → Completed ── */
   await db
     .from("orders")
-    .update({ status: "Processing", handled_by: ctx.userId, handled_by_name: staffName, handled_at: now })
+    .update({ status: "Completed", handled_by: ctx.userId, handled_by_name: staffName, handled_at: now })
     .eq("order_ref", room.order_ref as string);
+
+  /* ── Increment product sales_count ── */
+  if (orderRow?.product_id && orderRow.status !== "Completed") {
+    const { data: product } = await db
+      .from("products")
+      .select("sales_count")
+      .eq("id", orderRow.product_id)
+      .maybeSingle();
+    if (product) {
+      const currentSales = Number(product.sales_count) || 0;
+      await db.from("products").update({ sales_count: currentSales + 1 }).eq("id", orderRow.product_id);
+    }
+  }
 
   /* ── System message in chat ── */
   await db.from("chat_messages").insert({
@@ -67,12 +80,13 @@ export async function POST(
     sender_id: null,
     is_system: true,
     body: [
-      "✅ تم تأكيد الدفع بنجاح!",
+      "🎉 تم تسليم الطلب بنجاح!",
       "",
       `رقم الطلب: #${orderRow?.id ?? room.order_ref}`,
       "",
-      "سيتم تسليم الطلب خلال 5 دقائق إلى 24 ساعة.",
-      "يرجى متابعة المحادثة.",
+      `المنتج: ${orderRow?.product_name ?? "—"}`,
+      "",
+      "إذا واجهتك أي مشكلة يمكنك الرد داخل هذه المحادثة.",
     ].join("\n"),
   });
 
@@ -86,9 +100,9 @@ export async function POST(
   if (customerId) {
     void createNotification({
       userId:  customerId,
-      type:    "payment_confirmed",
-      title:   "تم تأكيد الدفع ✅",
-      message: `تم تأكيد دفعك لطلب "${orderRow?.product_name ?? "طلبك"}". طلبك الآن قيد التنفيذ.`,
+      type:    "order_delivered",
+      title:   "تم تسليم طلبك 🎉",
+      message: `تم تسليم طلب "${orderRow?.product_name ?? "طلبك"}" بنجاح. شكراً لثقتك بـ MJ Store!`,
       link:    `/chat?room=${roomId}`,
     });
   }
@@ -98,7 +112,7 @@ export async function POST(
     actorId:     ctx.userId,
     actorRole:   ctx.role,
     actorName:   staffName,
-    action:      "order.confirm_payment",
+    action:      "order.deliver",
     targetType:  "order",
     targetId:    orderRow?.id ?? room.order_ref,
     targetLabel: (orderRow?.product_name as string) ?? String(room.order_ref),

@@ -4,9 +4,10 @@ import { requireRole } from "../../../../../lib/auth/requireAuthContext";
 import { createNotification } from "../../../../../../lib/notifications/createNotification";
 import { logActivity } from "../../../../../lib/logs/logActivity";
 
-/* ─── POST /api/chat/rooms/[roomId]/confirm-payment ──────────────────────────
- * Admin ONLY — confirm payment, set order to Processing, post system message,
- * notify the customer.
+/* ─── POST /api/chat/rooms/[roomId]/reject-payment ───────────────────────────
+ * Admin ONLY — reject payment with a reason, set order to Rejected,
+ * post system message, notify customer.
+ * Body: { reason: string }
  * ─────────────────────────────────────────────────────────────────────────── */
 export async function POST(
   req: Request,
@@ -20,6 +21,12 @@ export async function POST(
   } catch (err) {
     if (err instanceof Response) return err;
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const raw = (await req.json().catch(() => ({}))) as { reason?: string };
+  const reason = typeof raw.reason === "string" ? raw.reason.trim() : "";
+  if (!reason) {
+    return NextResponse.json({ success: false, error: "سبب الرفض مطلوب" }, { status: 400 });
   }
 
   const db = createClient(
@@ -55,10 +62,10 @@ export async function POST(
     .eq("order_ref", room.order_ref as string)
     .maybeSingle();
 
-  /* ── Update order status → Processing ── */
+  /* ── Update order status → Rejected ── */
   await db
     .from("orders")
-    .update({ status: "Processing", handled_by: ctx.userId, handled_by_name: staffName, handled_at: now })
+    .update({ status: "Rejected", handled_by: ctx.userId, handled_by_name: staffName, handled_at: now })
     .eq("order_ref", room.order_ref as string);
 
   /* ── System message in chat ── */
@@ -67,12 +74,12 @@ export async function POST(
     sender_id: null,
     is_system: true,
     body: [
-      "✅ تم تأكيد الدفع بنجاح!",
+      "❌ تم رفض إثبات الدفع.",
       "",
-      `رقم الطلب: #${orderRow?.id ?? room.order_ref}`,
+      "السبب:",
+      reason,
       "",
-      "سيتم تسليم الطلب خلال 5 دقائق إلى 24 ساعة.",
-      "يرجى متابعة المحادثة.",
+      "يرجى رفع صورة جديدة أو التواصل مع الدعم.",
     ].join("\n"),
   });
 
@@ -86,9 +93,9 @@ export async function POST(
   if (customerId) {
     void createNotification({
       userId:  customerId,
-      type:    "payment_confirmed",
-      title:   "تم تأكيد الدفع ✅",
-      message: `تم تأكيد دفعك لطلب "${orderRow?.product_name ?? "طلبك"}". طلبك الآن قيد التنفيذ.`,
+      type:    "payment_rejected",
+      title:   "تم رفض إثبات الدفع ❌",
+      message: `تم رفض إثبات الدفع لطلب "${orderRow?.product_name ?? "طلبك"}". السبب: ${reason}`,
       link:    `/chat?room=${roomId}`,
     });
   }
@@ -98,7 +105,7 @@ export async function POST(
     actorId:     ctx.userId,
     actorRole:   ctx.role,
     actorName:   staffName,
-    action:      "order.confirm_payment",
+    action:      "order.reject_payment",
     targetType:  "order",
     targetId:    orderRow?.id ?? room.order_ref,
     targetLabel: (orderRow?.product_name as string) ?? String(room.order_ref),
