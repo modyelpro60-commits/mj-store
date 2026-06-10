@@ -63,7 +63,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1720px] flex-col gap-4 px-3 py-3 sm:px-4 sm:py-4 lg:flex-row lg:px-6 lg:py-5">
 
         {/* ── Mobile bottom nav ── */}
-        <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-purple-500/15 bg-[#050507]/95 px-2 py-2 backdrop-blur-xl lg:hidden">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-purple-500/15 bg-[#050507]/95 px-1 py-1.5 backdrop-blur-xl lg:hidden">
           {visibleItems.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
@@ -71,21 +71,21 @@ export default function AdminShell({ children }: { children: ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center gap-0.5 rounded-2xl px-3 py-2 text-[10px] font-semibold transition-all duration-200 ${
+                className={`flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1.5 text-[9px] font-semibold transition-all duration-200 min-w-0 ${
                   active ? "text-purple-200" : "text-zinc-500 hover:text-zinc-300"
                 }`}
               >
-                <span className={`relative grid h-8 w-8 place-items-center rounded-xl transition-all duration-200 ${
+                <span className={`relative grid h-7 w-7 place-items-center rounded-lg transition-all duration-200 ${
                   active ? "bg-purple-500/25 text-purple-200" : "text-zinc-500"
                 }`}>
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-3.5 w-3.5" />
                   {item.href === "/admin/chat" && chatUnread > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full border-2 border-[#050507] bg-red-500 grid place-items-center text-[9px] font-black text-white">
+                    <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 rounded-full border border-[#050507] bg-red-500 grid place-items-center text-[8px] font-black text-white">
                       {chatUnread > 9 ? "9+" : chatUnread}
                     </span>
                   )}
                 </span>
-                <span>{translate(item.labelKey)}</span>
+                <span className="hidden sm:block">{translate(item.labelKey)}</span>
               </Link>
             );
           })}

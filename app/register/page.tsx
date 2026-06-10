@@ -157,7 +157,7 @@ export default function RegisterPage() {
             <div>
               <label className="mb-1.5 block text-[13px] font-bold text-zinc-300">الإيميل (Gmail)</label>
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 space-y-2.5">
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <div className="flex flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 focus-within:border-purple-500/40" dir="ltr">
                     <Mail className="h-4 w-4 text-zinc-600" />
                     <input value={email} onChange={(e) => onEmailChange(e.target.value)} type="email" placeholder="you@gmail.com" autoComplete="email"
@@ -167,9 +167,9 @@ export default function RegisterPage() {
                   </div>
                   {!emailVerified && (
                     <button type="button" onClick={sendCode} disabled={sending}
-                      className="shrink-0 flex items-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 text-xs font-bold text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-60">
+                      className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 text-sm font-bold text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-60 sm:w-auto sm:px-3 sm:text-xs">
                       {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                      {codeSent ? "إعادة" : "إرسال الكود"}
+                      {codeSent ? "إعادة الإرسال" : "إرسال الكود"}
                     </button>
                   )}
                 </div>
@@ -177,9 +177,9 @@ export default function RegisterPage() {
                 {codeSent && !emailVerified && (
                   <div className="flex gap-2">
                     <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="اكتب الكود" inputMode="numeric" dir="ltr"
-                      className="h-11 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-center text-sm tracking-[0.4em] text-white outline-none focus:border-purple-500/40" />
+                      className="h-11 flex-1 min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-center text-sm tracking-[0.4em] text-white outline-none focus:border-purple-500/40" />
                     <button type="button" onClick={verifyCode} disabled={verifying}
-                      className="shrink-0 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-4 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-60">
+                      className="shrink-0 h-11 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-60">
                       {verifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "تأكيد"}
                     </button>
                   </div>

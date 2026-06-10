@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireRole, type UserRole } from "../../lib/auth/requireAuthContext";
-import { buildFeatureRows } from "../../lib/products/featureHelpers";
 import { logActivity } from "../../lib/logs/logActivity";
 
 const supabase = createClient(
@@ -19,7 +18,12 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     console.log("[create-product] Creating new product...");
-    console.log("[create-product] Payload:", JSON.stringify({ name: body.name, category: body.category, price: body.price }));
+    console.log("[create-product] Payload:", JSON.stringify({
+      name: body.name,
+      price: body.price,
+      original_price: body.original_price,
+      status: body.status,
+    }));
 
     const { data: insertedProducts, error } = await supabase
       .from("products")
@@ -27,11 +31,10 @@ export async function POST(req: Request) {
         {
           name: body.name,
           description: body.description,
-          full_description: body.full_description,
           price: body.price,
+          original_price: body.original_price ?? null,
           image: body.image,
-          category: body.category,
-          badge: body.badge,
+          status: body.status ?? "available",
           sales_count: 0,
           is_active: true,
         },
@@ -49,35 +52,6 @@ export async function POST(req: Request) {
     const productId = insertedProducts[0].id;
     console.log("[create-product] Product created successfully with ID:", productId);
 
-    // Step 2: Insert features (soft-fail if product_features table doesn't exist)
-    try {
-      const featureRows = buildFeatureRows(productId, body.features);
-
-      if (featureRows.length > 0) {
-        console.log("[create-product] Inserting", featureRows.length, "features for product ID:", productId);
-        const { error: featureError } = await supabase
-          .from("product_features")
-          .insert(
-            featureRows.map((row) => ({
-              ...row,
-              product_id: productId,
-            }))
-          );
-
-        if (featureError) {
-          console.warn("[create-product] Failed to insert features (table may not exist):", featureError.message);
-          console.warn("[create-product] Product was created successfully; continuing without features.");
-        } else {
-          console.log("[create-product] Features inserted successfully.");
-        }
-      } else {
-        console.log("[create-product] No features to insert.");
-      }
-    } catch (featureError) {
-      console.warn("[create-product] Non-critical feature operation failed:", featureError instanceof Error ? featureError.message : "Unknown");
-      console.warn("[create-product] Product was created successfully; continuing without features.");
-    }
-
     await logActivity({
       actorId:     ctx.userId,
       actorRole:   ctx.role,
@@ -87,7 +61,7 @@ export async function POST(req: Request) {
       targetLabel: body.name,
     });
 
-    console.log("[create-product] Product creation completed successfully for ID:", productId);
+    console.log("[create-product] Product creation completed for ID:", productId);
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";

@@ -588,7 +588,7 @@ export default function OrdersPage() {
           {/* ── LEFT: Order List ── */}
           <div className={[
             "flex flex-col border-r border-white/[0.04] overflow-hidden transition-all duration-300",
-            selectedOrder ? "w-[55%]" : "w-full",
+            selectedOrder ? "hidden md:flex md:w-[55%]" : "w-full",
           ].join(" ")}>
 
             {/* Column header */}
@@ -643,7 +643,7 @@ export default function OrdersPage() {
             </div>
           </div>
 
-          {/* ── RIGHT: Order Drawer ── */}
+          {/* ── RIGHT: Order Drawer (full-width on mobile, 45% on md+) ── */}
           <AnimatePresence>
             {selectedOrder && (
               <motion.div
@@ -652,8 +652,7 @@ export default function OrdersPage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 24 }}
                 transition={{ duration: 0.2 }}
-                className="flex flex-col overflow-hidden bg-zinc-950/60 border-l border-white/[0.04]"
-                style={{ width: "45%" }}
+                className="flex flex-col overflow-hidden bg-zinc-950/60 border-l border-white/[0.04] w-full md:w-[45%]"
               >
                 <OrderDrawer
                   order={selectedOrder}

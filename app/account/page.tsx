@@ -124,6 +124,11 @@ function OrderCard({ order, index }: { order: { productName: string; status: str
             <><span>·</span><span>{fmtTime(order.createdAt)}</span></>
           )}
         </div>
+        {/* Status visible on all screens */}
+        <span className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold sm:hidden ${sc.pill}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
+          {order.status}
+        </span>
       </div>
 
       {/* Right */}

@@ -10,7 +10,6 @@ import {
   Crown, LoaderCircle, MessageSquare, Share2,
   ShieldCheck, ShoppingBag, ShoppingCart, Star, Trash2, Wrench,
 } from "lucide-react";
-import { normalizeProductFeatures } from "../../app/lib/products/featureHelpers";
 import { useLanguage }              from "../../lib/i18n/LanguageProvider";
 import { useAuth }                  from "../auth/AuthProvider";
 import { useCart }                  from "../cart/CartProvider";
@@ -22,10 +21,11 @@ type Product = {
   id: number | string;
   name: string;
   image: string;
-  full_description: string;
+  description?: string;
   price: number | string;
+  original_price?: number | string | null;
+  status?: string;
   sales_count: number | string;
-  features?: string | string[] | null;
 };
 
 type Reply = {
@@ -46,14 +46,44 @@ type Review = {
   replies: Reply[];
 };
 
-type Tab = "details" | "features" | "reviews";
+type Tab = "details" | "reviews";
+
+/* ── Availability config ─────────────────────────────────────────── */
+
+const AVAILABILITY = {
+  available: {
+    label:  "متوفر",
+    dot:    "bg-emerald-400 animate-pulse",
+    pill:   "border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-400",
+    buyable: true,
+  },
+  out_of_stock: {
+    label:  "نفذت الكمية",
+    dot:    "bg-red-400",
+    pill:   "border-red-500/20 bg-red-500/[0.08] text-red-400",
+    buyable: false,
+  },
+  coming_soon: {
+    label:  "قريباً",
+    dot:    "bg-amber-400 animate-pulse",
+    pill:   "border-amber-500/20 bg-amber-500/[0.08] text-amber-400",
+    buyable: false,
+  },
+} as const;
+
+type AvailabilityKey = keyof typeof AVAILABILITY;
+
+function getAvailability(status?: string) {
+  const key = (status ?? "available") as AvailabilityKey;
+  return AVAILABILITY[key] ?? AVAILABILITY.available;
+}
 
 /* ── Role badge ─────────────────────────────────────────────────────── */
 
 const ROLE_META: Record<string, { label: string; style: string; icon: React.ElementType }> = {
-  admin:     { label: "أدمن",      style: "border-amber-500/30  bg-amber-500/10  text-amber-300",   icon: Crown       },
-  moderator: { label: "مشرف",      style: "border-blue-500/30   bg-blue-500/10   text-blue-300",    icon: ShieldCheck },
-  helper:    { label: "مساعد",     style: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300", icon: Wrench     },
+  admin:     { label: "أدمن",  style: "border-amber-500/30  bg-amber-500/10  text-amber-300",    icon: Crown       },
+  moderator: { label: "مشرف",  style: "border-blue-500/30   bg-blue-500/10   text-blue-300",     icon: ShieldCheck },
+  helper:    { label: "مساعد", style: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300", icon: Wrench      },
 };
 
 function RoleBadge({ role }: { role: string }) {
@@ -104,9 +134,13 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
   const { trackEvent }                                   = useAnalytics();
   const isStaff = role === "admin" || role === "moderator" || role === "helper";
 
-  const price      = toNum(product.price);
-  const salesCount = toNum(product.sales_count);
-  const features   = normalizeProductFeatures(product ?? ({} as Product));
+  const price         = toNum(product.price);
+  const originalPrice = toNum(product.original_price);
+  const salesCount    = toNum(product.sales_count);
+  const availability  = getAvailability(product.status);
+  const discountPct   = originalPrice > price && price > 0
+    ? Math.round((1 - price / originalPrice) * 100)
+    : 0;
 
   /* ── State ──────────────────────────────────────────────────────── */
   const [activeTab,    setActiveTab]    = useState<Tab>("details");
@@ -136,23 +170,16 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
 
   const parts = useMemo(
     () =>
-      (typeof product.full_description === "string" ? product.full_description : "")
+      (typeof product.description === "string" ? product.description : "")
         .split("\n").map((p) => p.trim()).filter(Boolean),
-    [product.full_description],
+    [product.description],
   );
   const hasDescription = parts.length > 0;
-  const hasFeatures    = features.length > 0;
   const loggedIn       = !authLoading && !!accessToken;
 
   const avgRating = reviews.length
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
     : null;
-
-  /* ── Auto-select best tab ────────────────────────────────────────── */
-  useEffect(() => {
-    if (!hasDescription && hasFeatures) setActiveTab("features");
-    else if (!hasDescription && !hasFeatures) setActiveTab("reviews");
-  }, [hasDescription, hasFeatures]);
 
   /* ── Fetch reviews ───────────────────────────────────────────────── */
   useEffect(() => {
@@ -226,7 +253,6 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
       if (!d.success) { setReplyError((p) => ({ ...p, [reviewId]: d.error ?? "خطأ" })); return; }
       setReplyText((p) => ({ ...p, [reviewId]: "" }));
       setReplyOpen((p) => ({ ...p, [reviewId]: false }));
-      // Refresh reviews
       const rd = await (await fetch(`/api/product/${product.id}/reviews`)).json();
       if (rd.success) setReviews(rd.data);
     } catch {
@@ -242,6 +268,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
   const [addingCart, setAddingCart] = useState(false);
 
   async function addToCart(): Promise<boolean> {
+    if (!availability.buyable) return false;
     if (!loggedIn) {
       try { localStorage.setItem("mj_pending_product", String(product.id)); } catch {}
       toast("سجّل عشان تكمّل الشراء 🛍️", { description: "المنتج هيتحط في سلتك بعد التسجيل." });
@@ -343,6 +370,19 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                 )}
               </div>
 
+              {/* Discount badge */}
+              {discountPct > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ delay: 0.5, duration: 0.4, ease: "backOut" }}
+                  className="absolute top-8 right-8 rounded-2xl border border-red-500/30 bg-red-500/20 backdrop-blur-xl px-3.5 py-2.5"
+                >
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-red-400/60 mb-0.5">خصم</p>
+                  <p className="text-xl font-black text-red-300 leading-none">{discountPct}%</p>
+                </motion.div>
+              )}
+
               {/* Sales badge */}
               {salesCount > 0 && (
                 <motion.div
@@ -428,7 +468,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                 )}
               </div>
 
-              {/* ── Price + status ──────────────────────────────────── */}
+              {/* ── Price + availability ────────────────────────────── */}
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -438,20 +478,33 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               >
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-1.5">السعر</p>
-                  <p
-                    className="text-4xl sm:text-5xl font-black leading-none tracking-tight"
-                    style={{
-                      background: "linear-gradient(90deg,#f5f5f5 0%,#e2d9f3 50%,#c084fc 100%)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                    }}
-                  >
-                    EGP {price.toLocaleString("en")}
-                  </p>
+                  <div className="flex items-baseline gap-2.5">
+                    <p
+                      className="text-4xl sm:text-5xl font-black leading-none tracking-tight"
+                      style={{
+                        background: "linear-gradient(90deg,#f5f5f5 0%,#e2d9f3 50%,#c084fc 100%)",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                      }}
+                    >
+                      EGP {price.toLocaleString("en")}
+                    </p>
+                    {originalPrice > price && (
+                      <p className="text-lg font-bold text-red-400/60 line-through leading-none">
+                        {originalPrice.toLocaleString("en")}
+                      </p>
+                    )}
+                  </div>
+                  {discountPct > 0 && (
+                    <span className="mt-2 inline-flex items-center rounded-full border border-red-500/30 bg-red-500/15 px-2 py-0.5 text-[11px] font-black text-red-300">
+                      وفّر {discountPct}%
+                    </span>
+                  )}
                 </div>
-                <div className="shrink-0 flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.08] px-3.5 py-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs font-bold text-emerald-400">متوفر</span>
+                {/* Availability pill */}
+                <div className={`shrink-0 flex items-center gap-2 rounded-full border px-3.5 py-1.5 ${availability.pill}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${availability.dot}`} />
+                  <span className="text-xs font-bold">{availability.label}</span>
                 </div>
               </motion.div>
 
@@ -462,7 +515,6 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                   {(
                     [
                       { id: "details"  as const, label: "التفاصيل",  show: hasDescription },
-                      { id: "features" as const, label: "المميزات",  show: hasFeatures    },
                       {
                         id: "reviews" as const,
                         label: reviews.length > 0 ? `التقييمات (${reviews.length})` : "التقييمات",
@@ -523,27 +575,6 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                           </button>
                         )}
                       </div>
-                    )}
-
-                    {/* Features */}
-                    {activeTab === "features" && (
-                      <ul className="grid sm:grid-cols-2 gap-2 list-none">
-                        {features.map((f, i) => (
-                          <li key={`${f}-${i}`}>
-                            <motion.div
-                              initial={{ opacity: 0, y: 6 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: i * 0.04, duration: 0.22 }}
-                              className="flex items-center gap-3 text-[13px] text-white/55 rounded-xl border border-white/[0.05] bg-white/[0.02] hover:border-purple-500/20 hover:bg-purple-500/[0.04] px-4 py-3 h-full transition-all duration-200"
-                            >
-                              <span className="h-5 w-5 rounded-md bg-purple-500/15 border border-purple-500/20 grid place-items-center shrink-0">
-                                <Check className="h-3 w-3 text-purple-400" />
-                              </span>
-                              {f}
-                            </motion.div>
-                          </li>
-                        ))}
-                      </ul>
                     )}
 
                     {/* Reviews */}
@@ -791,26 +822,53 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                   <span className="text-base font-black text-white/80">EGP {price.toLocaleString("en")}</span>
                 </div>
 
+                {/* Unavailable notice */}
+                {!availability.buyable && (
+                  <div className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold ${availability.pill}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${availability.dot} flex-shrink-0`} />
+                    {product.status === "out_of_stock"
+                      ? "هذا المنتج نفذت كميته حالياً. تابعنا لمعرفة متى يعود."
+                      : "هذا المنتج قريباً. سيتوفر للشراء قريباً."}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <motion.button
                     onClick={handleBuyNow}
-                    disabled={addingCart}
-                    whileHover={prefersReducedMotion ? undefined : { scale: 1.02, boxShadow: "0 0 48px rgba(139,92,246,0.5)" }}
-                    whileTap={{ scale: 0.97 }}
-                    className="col-span-2 sm:col-span-1 relative overflow-hidden group w-full flex items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-sm font-black text-white transition-all duration-300 disabled:opacity-75"
-                    style={{ background: "linear-gradient(135deg,#7c3aed 0%,#a855f7 50%,#d946ef 100%)", boxShadow: "0 0 32px rgba(139,92,246,0.35)" }}
+                    disabled={addingCart || !availability.buyable}
+                    whileHover={prefersReducedMotion || !availability.buyable ? undefined : { scale: 1.02, boxShadow: "0 0 48px rgba(139,92,246,0.5)" }}
+                    whileTap={availability.buyable ? { scale: 0.97 } : undefined}
+                    className={[
+                      "col-span-2 sm:col-span-1 relative overflow-hidden group w-full flex items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-sm font-black text-white transition-all duration-300",
+                      availability.buyable
+                        ? "disabled:opacity-75"
+                        : "opacity-40 cursor-not-allowed",
+                    ].join(" ")}
+                    style={availability.buyable ? {
+                      background: "linear-gradient(135deg,#7c3aed 0%,#a855f7 50%,#d946ef 100%)",
+                      boxShadow: "0 0 32px rgba(139,92,246,0.35)",
+                    } : {
+                      background: "linear-gradient(135deg,#3f3f46 0%,#52525b 100%)",
+                    }}
                   >
-                    <span aria-hidden className="absolute inset-0 translate-x-[110%] group-hover:translate-x-[-110%] bg-gradient-to-l from-transparent via-white/12 to-transparent transition-transform duration-600" />
+                    {availability.buyable && (
+                      <span aria-hidden className="absolute inset-0 translate-x-[110%] group-hover:translate-x-[-110%] bg-gradient-to-l from-transparent via-white/12 to-transparent transition-transform duration-600" />
+                    )}
                     {addingCart ? <LoaderCircle className="h-4 w-4 relative shrink-0 animate-spin" /> : <ShoppingBag className="h-4 w-4 relative shrink-0" />}
                     <span className="relative">اشتري الآن</span>
                   </motion.button>
 
                   <motion.button
                     onClick={handleAddToCart}
-                    disabled={addingCart}
-                    whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
-                    whileTap={{ scale: 0.97 }}
-                    className="col-span-2 sm:col-span-1 w-full flex items-center justify-center gap-2.5 rounded-xl border border-purple-500/25 bg-purple-500/[0.06] hover:border-purple-400/40 hover:bg-purple-500/10 px-6 py-3.5 text-sm font-bold text-white/60 hover:text-white/90 transition-all duration-200 disabled:opacity-75"
+                    disabled={addingCart || !availability.buyable}
+                    whileHover={prefersReducedMotion || !availability.buyable ? undefined : { scale: 1.02 }}
+                    whileTap={availability.buyable ? { scale: 0.97 } : undefined}
+                    className={[
+                      "col-span-2 sm:col-span-1 w-full flex items-center justify-center gap-2.5 rounded-xl border px-6 py-3.5 text-sm font-bold transition-all duration-200",
+                      availability.buyable
+                        ? "border-purple-500/25 bg-purple-500/[0.06] hover:border-purple-400/40 hover:bg-purple-500/10 text-white/60 hover:text-white/90 disabled:opacity-75"
+                        : "border-white/[0.05] bg-white/[0.02] text-white/20 cursor-not-allowed opacity-40",
+                    ].join(" ")}
                   >
                     <ShoppingCart className="h-4 w-4" />
                     أضف للسلة
@@ -841,19 +899,32 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                   </div>
                   <div className="min-w-0">
                     <p className="text-[11px] text-white/25 truncate leading-tight">{product.name}</p>
-                    <p className="text-lg font-black leading-tight">EGP {price.toLocaleString("en")}</p>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-lg font-black leading-tight">EGP {price.toLocaleString("en")}</p>
+                      {originalPrice > price && (
+                        <p className="text-xs font-bold text-red-400/60 line-through">{originalPrice.toLocaleString("en")}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <motion.button
                   onClick={handleBuyNow}
-                  disabled={addingCart}
-                  whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  className="shrink-0 flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-black text-white transition-all disabled:opacity-75"
-                  style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", boxShadow: "0 0 28px rgba(139,92,246,0.4)" }}
+                  disabled={addingCart || !availability.buyable}
+                  whileHover={prefersReducedMotion || !availability.buyable ? undefined : { scale: 1.03 }}
+                  whileTap={availability.buyable ? { scale: 0.97 } : undefined}
+                  className={[
+                    "shrink-0 flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-black text-white transition-all",
+                    availability.buyable ? "disabled:opacity-75" : "opacity-40 cursor-not-allowed",
+                  ].join(" ")}
+                  style={availability.buyable ? {
+                    background: "linear-gradient(135deg,#7c3aed,#a855f7)",
+                    boxShadow: "0 0 28px rgba(139,92,246,0.4)",
+                  } : {
+                    background: "linear-gradient(135deg,#3f3f46,#52525b)",
+                  }}
                 >
                   {addingCart ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShoppingBag className="h-4 w-4" />}
-                  اشتري الآن
+                  {availability.buyable ? "اشتري الآن" : availability.label}
                 </motion.button>
               </div>
             </div>

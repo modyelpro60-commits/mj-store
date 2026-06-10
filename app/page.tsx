@@ -1,6 +1,5 @@
 import { supabase } from "../lib/supabase";
 import { getHomeStats } from "./lib/home/getHomeStats";
-import { normalizeProductFeatures } from "./lib/products/featureHelpers";
 import FeaturedProductsGrid from "../components/storefront/FeaturedProductsGrid";
 import StorefrontHero from "../components/storefront/StorefrontHero";
 import CommandBar from "../components/nav/CommandBar";
@@ -16,7 +15,8 @@ type Product = {
   description: string;
   price: number | string;
   image: string;
-  features?: string | string[] | null;
+  original_price?: number | string | null;
+  status?: string;
   sales_count?: number | string | null;
 };
 
@@ -35,43 +35,7 @@ export default async function Home() {
     getHomeStats(),
   ]);
 
-  const productList = (products ?? []) as Product[];
-
-  const productIds = productList.map((p) => p.id).filter(Boolean);
-
-  // Safely fetch features - if product_features table doesn't exist, gracefully degrade
-  let featureMap = new Map<string | number, any[]>();
-  try {
-    const { data: featureRows } = productIds.length
-      ? await supabase
-          .from("product_features")
-          .select("product_id,name,sort_order")
-          .in("product_id", productIds)
-      : { data: [] as any[] };
-
-    if (featureRows) {
-      for (const row of featureRows as any[]) {
-        const key = String(row.product_id);
-        const curr = featureMap.get(key) ?? [];
-        curr.push(row);
-        featureMap.set(key, curr);
-      }
-    }
-  } catch (e) {
-    // product_features table likely doesn't exist - skip features gracefully
-    console.warn("[page.tsx] Failed to fetch product_features, continuing without:", e);
-  }
-
-  const list = productList.map((product) => {
-    const rowsForProduct = featureMap.get(String(product.id)) ?? [];
-    return {
-      ...product,
-      features: normalizeProductFeatures({
-        ...product,
-        product_features: rowsForProduct,
-      } as any),
-    };
-  });
+  const list = (products ?? []) as Product[];
 
   // Fetch best-selling product from completed orders
   const { data: orderData } = await supabase
@@ -79,16 +43,16 @@ export default async function Home() {
     .select("product_id")
     .eq("status", "completed")
     .order("product_id");
-  
+
   let featuredProduct: Product | null = null;
-  
+
   if (orderData && orderData.length > 0) {
     const salesCount = new Map<string | number, number>();
     orderData.forEach(order => {
       const id = order.product_id;
       salesCount.set(id, (salesCount.get(id) || 0) + 1);
     });
-    
+
     let maxSales = 0;
     for (const product of list) {
       const sales = salesCount.get(product.id) || 0;
@@ -98,12 +62,12 @@ export default async function Home() {
       }
     }
   }
-  
+
   if (!featuredProduct) {
     const sorted = [...list].sort((a, b) => toNumber(b.sales_count) - toNumber(a.sales_count));
     featuredProduct = sorted[0] || null;
   }
-  
+
   const featured = featuredProduct ? [featuredProduct] : [];
 
   return (
@@ -120,7 +84,7 @@ export default async function Home() {
         <HomeLiveStats
           activeCustomers={stats.activeCustomers}
           totalCustomers={stats.totalCustomers}
-          totalProducts={productList.length}
+          totalProducts={list.length}
         />
 
         {/* Featured Products — compact spacing */}

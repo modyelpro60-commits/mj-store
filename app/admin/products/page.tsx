@@ -10,7 +10,6 @@ import {
   ChevronDown,
   Copy,
   ExternalLink,
-  FolderOpen,
   Image as ImageIcon,
   Layers,
   LoaderCircle,
@@ -18,47 +17,37 @@ import {
   Pencil,
   Plus,
   Search,
-  Tag,
   Trash2,
   TrendingUp,
   Upload,
   X,
-  Zap,
 } from "lucide-react";
 import { useAuth } from "../../../components/auth/AuthProvider";
 import { useLanguage } from "../../../lib/i18n/LanguageProvider";
-import { normalizeProductFeatures } from "../../lib/products/featureHelpers";
 
 /* ─────────────────────────── Types ─────────────────────────── */
-type ProductStatus = "published" | "draft" | "featured";
+type ProductStatus = "available" | "out_of_stock" | "coming_soon";
 type PanelMode = "welcome" | "editor";
 
 interface ProductRecord {
   id: number;
   name: string;
   price: number;
-  category: string;
-  badge: string;
+  original_price?: number | null;
   description: string;
-  full_description: string;
   image: string;
-  features?: string[] | string | null;
   status?: ProductStatus;
   updated_at?: string;
 }
 interface SaveProductResponse  { success: boolean; error?: string }
 interface UploadImageResponse  { success: boolean; url?: string; error?: string }
 
-function normalizeFeatures(f: ProductRecord["features"]): string[] {
-  return normalizeProductFeatures({ features: f });
-}
-
 /* ─────────────────────────── Status ────────────────────────── */
-const STATUS_OPTIONS: ProductStatus[] = ["published", "draft", "featured"];
+const STATUS_OPTIONS: ProductStatus[] = ["available", "out_of_stock", "coming_soon"];
 const S = {
-  published: { label: "Published", dot: "bg-emerald-400", text: "text-emerald-300", ring: "border-emerald-500/35 bg-emerald-500/10" },
-  draft:     { label: "Draft",     dot: "bg-zinc-500",    text: "text-zinc-400",    ring: "border-zinc-600/40 bg-zinc-800/50"     },
-  featured:  { label: "Featured",  dot: "bg-amber-400",   text: "text-amber-300",   ring: "border-amber-500/35 bg-amber-500/10"   },
+  available:    { label: "متوفر",        dot: "bg-emerald-400", text: "text-emerald-300", ring: "border-emerald-500/35 bg-emerald-500/10" },
+  out_of_stock: { label: "نفذت الكمية", dot: "bg-red-400",     text: "text-red-300",    ring: "border-red-500/35 bg-red-500/10"         },
+  coming_soon:  { label: "قريباً",       dot: "bg-amber-400",   text: "text-amber-300",  ring: "border-amber-500/35 bg-amber-500/10"     },
 } satisfies Record<ProductStatus, { label: string; dot: string; text: string; ring: string }>;
 
 /* ─────────────────────────── Tiny helpers ───────────────────── */
@@ -74,76 +63,6 @@ function Divider() {
   return <div className="border-t border-white/[0.05] my-5" />;
 }
 
-/* ─────────────────────────── Feature chip ───────────────────── */
-function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <motion.span
-      layout initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
-      transition={{ duration: 0.12 }}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/20 bg-purple-500/[0.08] px-2.5 py-1.5 text-[11px] font-semibold text-purple-300"
-    >
-      <Zap className="h-2.5 w-2.5 text-purple-500" />
-      {label}
-      <button type="button" onClick={onRemove} className="ml-0.5 text-purple-500/50 hover:text-red-400 transition-colors">
-        <X className="h-3 w-3" />
-      </button>
-    </motion.span>
-  );
-}
-
-/* ─────────────────────────── Image zone ────────────────────── */
-function ImageZone({ preview, uploading, onChange }: { preview: string; uploading: boolean; onChange: (f: File) => void }) {
-  const [drag, setDrag] = useState(false);
-  const ref = useRef<HTMLInputElement>(null);
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); setDrag(false);
-    const f = e.dataTransfer.files?.[0];
-    if (f?.type.startsWith("image/")) onChange(f);
-  }, [onChange]);
-
-  return (
-    <div
-      onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-      onDragLeave={() => setDrag(false)}
-      onDrop={onDrop}
-      onClick={() => ref.current?.click()}
-      className={[
-        "relative group cursor-pointer overflow-hidden rounded-2xl border-2 transition-all duration-200",
-        drag       ? "border-purple-400/60 bg-purple-500/10 scale-[1.01]" :
-        preview    ? "border-white/[0.06] hover:border-purple-500/30" :
-                     "border-dashed border-white/[0.07] hover:border-purple-500/25 bg-zinc-900/40",
-      ].join(" ")}
-    >
-      {uploading && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/70 backdrop-blur-sm">
-          <LoaderCircle className="h-5 w-5 animate-spin text-purple-300" />
-          <span className="text-xs font-semibold text-purple-200">Uploading…</span>
-        </div>
-      )}
-      {preview ? (
-        <>
-          <img src={preview} alt="preview" className="w-full object-cover" style={{ maxHeight: 220 }} />
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/55 backdrop-blur-[2px]">
-            <div className="flex items-center gap-2 rounded-xl border border-white/20 bg-black/60 px-4 py-2 text-xs font-bold text-white">
-              <Upload className="h-3.5 w-3.5" /> Replace image
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-10 gap-3 text-zinc-600">
-          <ImageIcon className="h-8 w-8 group-hover:text-purple-500/60 transition-colors" />
-          <div className="text-center">
-            <p className="text-sm font-semibold text-zinc-400 group-hover:text-white transition-colors">Drop image here</p>
-            <p className="text-xs mt-0.5">PNG, JPG, WEBP</p>
-          </div>
-        </div>
-      )}
-      <input ref={ref} type="file" accept="image/*" className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) onChange(f); }} />
-    </div>
-  );
-}
-
 /* ─────────────────────────── Product row ───────────────────── */
 function ProductRow({
   product, isSelected, onSelect, onDuplicate, onDelete,
@@ -151,7 +70,7 @@ function ProductRow({
   product: ProductRecord; isSelected: boolean;
   onSelect: () => void; onDuplicate: () => void; onDelete: () => void;
 }) {
-  const status: ProductStatus = (product.status as ProductStatus) ?? "published";
+  const status: ProductStatus = (product.status as ProductStatus) ?? "available";
   const m = S[status];
 
   return (
@@ -183,8 +102,8 @@ function ProductRow({
         </p>
         <div className="mt-1 flex items-center gap-1.5">
           <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${m.dot}`} />
-          {product.category && <span className="text-[10px] text-zinc-500 truncate max-w-[70px]">{product.category}</span>}
-          {product.category && <span className="text-zinc-700 text-[10px]">·</span>}
+          <span className={`text-[10px] font-bold ${m.text}`}>{m.label}</span>
+          <span className="text-zinc-700 text-[10px]">·</span>
           <span className="text-[10px] font-bold text-purple-400/80 tabular-nums">
             {Number(product.price).toLocaleString()} EGP
           </span>
@@ -207,21 +126,20 @@ function ProductRow({
 }
 
 /* ─────────────────────────── Welcome panel ─────────────────── */
-function WelcomePanel({ products, categories, onNew, onSelect }: {
-  products: ProductRecord[]; categories: string[];
+function WelcomePanel({ products, onNew, onSelect }: {
+  products: ProductRecord[];
   onNew: () => void; onSelect: (p: ProductRecord) => void;
 }) {
   const totalValue = products.reduce((s, p) => s + Number(p.price ?? 0), 0);
   const recent = products.slice(0, 5);
 
   return (
-    <div className="p-5 space-y-5">
+    <div className="p-5 space-y-5" dir="rtl">
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
         {[
-          { icon: Package,    label: "Products",       value: String(products.length) },
-          { icon: FolderOpen, label: "Categories",     value: String(categories.length) },
-          { icon: TrendingUp, label: "Catalog Value",  value: `${totalValue.toLocaleString()} EGP` },
+          { icon: Package,    label: "المنتجات",       value: String(products.length) },
+          { icon: TrendingUp, label: "القيمة الإجمالية", value: `${totalValue.toLocaleString()} EGP` },
         ].map(({ icon: Icon, label, value }) => (
           <div key={label} className="rounded-2xl border border-white/[0.06] bg-zinc-900/50 px-3 py-3 text-center">
             <Icon className="h-3.5 w-3.5 text-purple-400 mx-auto mb-1.5" />
@@ -239,19 +157,19 @@ function WelcomePanel({ products, categories, onNew, onSelect }: {
           <Plus className="h-5 w-5" />
         </div>
         <div className="text-center">
-          <p className="text-sm font-bold text-white">Create New Product</p>
-          <p className="text-xs text-zinc-500 mt-0.5">Add a product to your catalog</p>
+          <p className="text-sm font-bold text-white">إضافة منتج جديد</p>
+          <p className="text-xs text-zinc-500 mt-0.5">أضف منتجاً لكتالوج المتجر</p>
         </div>
       </button>
 
       {/* Recent */}
       {recent.length > 0 && (
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600 mb-2.5">Recent products</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600 mb-2.5">آخر المنتجات</p>
           <div className="rounded-2xl border border-white/[0.05] bg-zinc-900/30 overflow-hidden divide-y divide-white/[0.04]">
             {recent.map((p) => (
               <button key={p.id} onClick={() => onSelect(p)}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 hover:bg-white/[0.04] transition text-left group"
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 hover:bg-white/[0.04] transition text-right group"
               >
                 <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg border border-white/[0.06] bg-zinc-800">
                   {p.image
@@ -272,22 +190,18 @@ function WelcomePanel({ products, categories, onNew, onSelect }: {
   );
 }
 
-/* ─────────────────────────── Product Studio Editor ────────── */
+/* ─────────────────────────── Studio Editor ────────────────── */
 function StudioEditor({
-  editingId, name, setName, price, setPrice, category, setCategory,
-  badge, setBadge, description, setDescription, fullDescription, setFullDescription,
-  features, setFeatures, editorStatus, setEditorStatus,
+  editingId, name, setName, price, setPrice, originalPrice, setOriginalPrice,
+  description, setDescription, editorStatus, setEditorStatus,
   preview, imageUploading, onImagePick, saving, onSave, onDelete, onClose, onDuplicate,
   productId,
 }: {
   editingId: number | null;
   name: string; setName(v: string): void;
   price: string; setPrice(v: string): void;
-  category: string; setCategory(v: string): void;
-  badge: string; setBadge(v: string): void;
+  originalPrice: string; setOriginalPrice(v: string): void;
   description: string; setDescription(v: string): void;
-  fullDescription: string; setFullDescription(v: string): void;
-  features: string[]; setFeatures(v: string[]): void;
   editorStatus: ProductStatus; setEditorStatus(v: ProductStatus): void;
   preview: string; imageUploading: boolean;
   onImagePick(f: File): void;
@@ -295,23 +209,21 @@ function StudioEditor({
   onSave(): void; onDelete(): void; onClose(): void; onDuplicate(): void;
   productId: number | null;
 }) {
-  const [newFeature, setNewFeature] = useState("");
-
-  function addFeature() {
-    const t = newFeature.trim();
-    if (!t) return;
-    setFeatures([...features, t]);
-    setNewFeature("");
-  }
+  // Discount badge preview
+  const priceNum = Number(price) || 0;
+  const origNum  = Number(originalPrice) || 0;
+  const discountPct = origNum > priceNum && priceNum > 0
+    ? Math.round((1 - priceNum / origNum) * 100)
+    : 0;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" dir="rtl">
 
       {/* ── Sticky top bar ── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-zinc-950/80 backdrop-blur-xl sticky top-0 z-20 flex-shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-black text-white truncate max-w-[160px]">
-            {name || (editingId ? "Edit Product" : "New Product")}
+            {name || (editingId ? "تعديل المنتج" : "منتج جديد")}
           </span>
           {editingId && (
             <span className="text-[10px] font-bold rounded-md bg-white/[0.05] border border-white/[0.07] px-1.5 py-0.5 text-zinc-600">
@@ -321,15 +233,14 @@ function StudioEditor({
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Quick actions — only when editing */}
           {productId && (
             <>
               <a href={`/product/${productId}`} target="_blank" rel="noopener noreferrer"
-                title="Open product page"
+                title="عرض صفحة المنتج"
                 className="grid h-7 w-7 place-items-center rounded-lg border border-white/[0.08] bg-zinc-800/60 text-zinc-400 hover:text-white hover:bg-zinc-700/60 transition">
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
-              <button type="button" title="Duplicate" onClick={onDuplicate}
+              <button type="button" title="نسخ" onClick={onDuplicate}
                 className="grid h-7 w-7 place-items-center rounded-lg border border-white/[0.08] bg-zinc-800/60 text-zinc-400 hover:text-white hover:bg-zinc-700/60 transition">
                 <Copy className="h-3.5 w-3.5" />
               </button>
@@ -345,26 +256,33 @@ function StudioEditor({
       {/* ── Scrollable content ── */}
       <div className="flex-1 overflow-y-auto">
 
-        {/* ── MEDIA — full-bleed hero image ── */}
+        {/* ── Hero image ── */}
         <div className="relative">
           {preview ? (
             <div className="relative group cursor-pointer" onClick={() => document.getElementById("img-input")?.click()}>
               <img src={preview} alt={name || "Product"} className="w-full object-cover" style={{ maxHeight: 240, minHeight: 160 }} />
-              {/* Dark overlay on hover */}
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/55 backdrop-blur-[2px]">
                 {imageUploading
                   ? <LoaderCircle className="h-5 w-5 animate-spin text-white" />
                   : <div className="flex items-center gap-2 rounded-xl border border-white/20 bg-black/60 px-4 py-2 text-xs font-bold text-white">
-                      <Upload className="h-3.5 w-3.5" /> Replace image
+                      <Upload className="h-3.5 w-3.5" /> استبدال الصورة
                     </div>}
               </div>
               {/* Status badge overlay */}
-              <div className="absolute bottom-3 left-3">
+              <div className="absolute bottom-3 right-3">
                 <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${S[editorStatus].ring} ${S[editorStatus].text}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${S[editorStatus].dot}`} />
                   {S[editorStatus].label}
                 </span>
               </div>
+              {/* Discount badge overlay */}
+              {discountPct > 0 && (
+                <div className="absolute top-3 right-3">
+                  <span className="inline-flex items-center rounded-full border border-red-500/40 bg-red-500/20 px-2.5 py-1 text-[11px] font-black text-red-300">
+                    {discountPct}% OFF
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <div onClick={() => document.getElementById("img-input")?.click()}
@@ -376,7 +294,7 @@ function StudioEditor({
                     <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/[0.07] bg-zinc-800/60 text-zinc-600 group-hover:text-purple-400 group-hover:border-purple-500/25 transition-colors">
                       <ImageIcon className="h-5 w-5" />
                     </div>
-                    <p className="text-sm font-semibold text-zinc-500 group-hover:text-zinc-300 transition-colors">Click to upload image</p>
+                    <p className="text-sm font-semibold text-zinc-500 group-hover:text-zinc-300 transition-colors">انقر لرفع صورة</p>
                   </>}
             </div>
           )}
@@ -389,25 +307,39 @@ function StudioEditor({
 
           {/* GENERAL */}
           <div>
-            <SectionLabel>General</SectionLabel>
+            <SectionLabel>بيانات المنتج</SectionLabel>
             <div className="space-y-2.5">
+
+              {/* Name */}
               <input value={name} onChange={(e) => setName(e.target.value)}
-                placeholder="Product name"
+                placeholder="اسم المنتج"
                 className={`${inp} text-base font-semibold`} />
+
+              {/* Pricing row */}
               <div className="grid grid-cols-2 gap-2.5">
+                {/* Current price */}
                 <div className="relative">
                   <input value={price} onChange={(e) => setPrice(e.target.value)}
-                    placeholder="0" type="number" min="0"
+                    placeholder="السعر الحالي" type="number" min="0"
                     className={inp} />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-600">EGP</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-600">EGP</span>
                 </div>
-                <input value={category} onChange={(e) => setCategory(e.target.value)}
-                  placeholder="Category"
-                  className={inp} />
+                {/* Original price (optional — for discount) */}
+                <div className="relative">
+                  <input value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)}
+                    placeholder="السعر القديم (اختياري)" type="number" min="0"
+                    className={inp} />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-600">EGP</span>
+                </div>
               </div>
-              <input value={badge} onChange={(e) => setBadge(e.target.value)}
-                placeholder="Badge label (optional)"
-                className={inp} />
+
+              {/* Discount preview */}
+              {discountPct > 0 && (
+                <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1.5">
+                  <Check className="h-3 w-3" />
+                  سيظهر خصم {discountPct}% تلقائياً على صفحة المنتج
+                </p>
+              )}
             </div>
           </div>
 
@@ -415,7 +347,7 @@ function StudioEditor({
 
           {/* STATUS */}
           <div>
-            <SectionLabel>Status</SectionLabel>
+            <SectionLabel>حالة المنتج</SectionLabel>
             <div className="grid grid-cols-3 gap-2">
               {STATUS_OPTIONS.map((s) => {
                 const m = S[s];
@@ -439,60 +371,13 @@ function StudioEditor({
 
           <Divider />
 
-          {/* CONTENT */}
+          {/* DESCRIPTION */}
           <div>
-            <SectionLabel>Content</SectionLabel>
-            <div className="space-y-2.5">
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)}
-                placeholder="Short description shown in product listings…"
-                rows={2} className={`${inp} resize-none`} />
-              <textarea value={fullDescription} onChange={(e) => setFullDescription(e.target.value)}
-                placeholder="Full product description…"
-                rows={4} className={`${inp} resize-none`} />
-            </div>
+            <SectionLabel>وصف المنتج</SectionLabel>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+              placeholder="اكتب وصفاً للمنتج…"
+              rows={5} className={`${inp} resize-none`} />
           </div>
-
-          <Divider />
-
-          {/* FEATURES */}
-          <div>
-            <div className="flex items-center gap-1.5 mb-3">
-              <Tag className="h-3 w-3 text-zinc-600" />
-              <SectionLabel>Features</SectionLabel>
-            </div>
-            <AnimatePresence>
-              {features.length > 0 && (
-                <motion.div className="flex flex-wrap gap-1.5 mb-3">
-                  {features.map((f, i) => (
-                    <Chip key={i} label={f} onRemove={() => setFeatures(features.filter((_, idx) => idx !== i))} />
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <div className="flex gap-2">
-              <input value={newFeature} onChange={(e) => setNewFeature(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFeature(); } }}
-                placeholder="Type a feature and press Enter"
-                className={`${inp} flex-1`} />
-              <button type="button" onClick={addFeature}
-                className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl border border-purple-500/20 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 transition">
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <Divider />
-
-          {/* MEDIA — drop zone fallback when no image yet */}
-          {!preview && (
-            <>
-              <div>
-                <SectionLabel>Media</SectionLabel>
-                <ImageZone preview="" uploading={imageUploading} onChange={onImagePick} />
-              </div>
-              <Divider />
-            </>
-          )}
 
         </div>
       </div>
@@ -503,14 +388,14 @@ function StudioEditor({
           className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 py-3 text-sm font-bold text-white shadow-[0_0_20px_rgba(168,85,247,0.20)] transition hover:shadow-[0_0_36px_rgba(168,85,247,0.35)] disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99]"
         >
           {saving
-            ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Saving…</>
-            : <><Check className="h-4 w-4" /> {editingId ? "Update Product" : "Create Product"}</>}
+            ? <><LoaderCircle className="h-4 w-4 animate-spin" /> جاري الحفظ…</>
+            : <><Check className="h-4 w-4" /> {editingId ? "تحديث المنتج" : "إنشاء المنتج"}</>}
         </button>
         {editingId && (
           <button type="button" onClick={onDelete}
             className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-500/15 bg-transparent py-2.5 text-xs font-semibold text-red-400/80 transition hover:bg-red-500/[0.07] hover:text-red-400 active:scale-[0.99]"
           >
-            <Trash2 className="h-3.5 w-3.5" /> Delete Product
+            <Trash2 className="h-3.5 w-3.5" /> حذف المنتج
           </button>
         )}
       </div>
@@ -529,7 +414,6 @@ export default function ProductsPage() {
   const [products, setProducts]             = useState<ProductRecord[]>([]);
   const [pageLoading, setPageLoading]       = useState(true);
   const [search, setSearch]                 = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter]     = useState<"all" | ProductStatus>("all");
   const [selectedId, setSelectedId]         = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
@@ -539,19 +423,16 @@ export default function ProductsPage() {
   const [panelMode, setPanelMode] = useState<PanelMode>("welcome");
 
   /* Form fields */
-  const [editingId, setEditingId]             = useState<number | null>(null);
-  const [name, setName]                       = useState("");
-  const [price, setPrice]                     = useState("");
-  const [category, setCategory]               = useState("");
-  const [badge, setBadge]                     = useState("");
-  const [description, setDescription]         = useState("");
-  const [fullDescription, setFullDescription] = useState("");
-  const [features, setFeatures]               = useState<string[]>([]);
-  const [editorStatus, setEditorStatus]       = useState<ProductStatus>("published");
-  const [image, setImage]                     = useState<File | null>(null);
-  const [preview, setPreview]                 = useState("");
-  const [imageUploading, setImageUploading]   = useState(false);
-  const [saving, setSaving]                   = useState(false);
+  const [editingId, setEditingId]           = useState<number | null>(null);
+  const [name, setName]                     = useState("");
+  const [price, setPrice]                   = useState("");
+  const [originalPrice, setOriginalPrice]   = useState("");
+  const [description, setDescription]       = useState("");
+  const [editorStatus, setEditorStatus]     = useState<ProductStatus>("available");
+  const [image, setImage]                   = useState<File | null>(null);
+  const [preview, setPreview]               = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
+  const [saving, setSaving]                 = useState(false);
 
   /* ── Load ── */
   async function loadProducts() {
@@ -560,22 +441,17 @@ export default function ProductsPage() {
   }
   useEffect(() => { loadProducts(); }, []);
 
-  const categories = useMemo(() =>
-    Array.from(new Set(products.map((p) => p.category).filter(Boolean))), [products]);
-
   const filtered = useMemo(() => products.filter((p) => {
     const q = search.toLowerCase();
-    return (!q || p.name?.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q))
-      && (categoryFilter === "all" || p.category === categoryFilter)
-      && (statusFilter   === "all" || (p.status ?? "published") === statusFilter);
-  }), [products, search, categoryFilter, statusFilter]);
+    return (!q || p.name?.toLowerCase().includes(q))
+      && (statusFilter === "all" || (p.status ?? "available") === statusFilter);
+  }), [products, search, statusFilter]);
 
   /* ── Open new ── */
   function openNew() {
     setSelectedId(null); setEditingId(null);
-    setName(""); setPrice(""); setCategory(""); setBadge("");
-    setDescription(""); setFullDescription("");
-    setFeatures([]); setEditorStatus("published");
+    setName(""); setPrice(""); setOriginalPrice("");
+    setDescription(""); setEditorStatus("available");
     setPreview(""); setImage(null);
     setPanelMode("editor");
   }
@@ -584,10 +460,9 @@ export default function ProductsPage() {
   function selectProduct(p: ProductRecord) {
     setSelectedId(p.id); setEditingId(p.id);
     setName(p.name ?? ""); setPrice(String(p.price ?? ""));
-    setCategory(p.category ?? ""); setBadge(p.badge ?? "");
-    setDescription(p.description ?? ""); setFullDescription(p.full_description ?? "");
-    setFeatures(normalizeFeatures(p.features));
-    setEditorStatus((p.status as ProductStatus) ?? "published");
+    setOriginalPrice(p.original_price ? String(p.original_price) : "");
+    setDescription(p.description ?? "");
+    setEditorStatus((p.status as ProductStatus) ?? "available");
     setPreview(p.image ?? ""); setImage(null);
     setPanelMode("editor");
   }
@@ -602,13 +477,20 @@ export default function ProductsPage() {
   async function duplicateProduct(p?: ProductRecord) {
     const src = p ?? products.find((x) => x.id === editingId);
     if (!src) return;
-    const res  = await fetch("/api/create-product", {
+    const res = await fetch("/api/create-product", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
-      body: JSON.stringify({ name: src.name + " (Copy)", description: src.description, full_description: src.full_description, price: Number(src.price), image: src.image, category: src.category, badge: src.badge, features: normalizeFeatures(src.features) }),
+      body: JSON.stringify({
+        name: src.name + " (نسخة)",
+        description: src.description,
+        price: Number(src.price),
+        original_price: src.original_price ?? null,
+        image: src.image,
+        status: src.status ?? "available",
+      }),
     });
     const data = await res.json();
-    if (data.success) { toast.success("Product duplicated"); loadProducts(); }
+    if (data.success) { toast.success("تم نسخ المنتج"); loadProducts(); }
     else toast.error(data.error || translate("admin.toast.error"));
   }
 
@@ -626,9 +508,19 @@ export default function ProductsPage() {
         if (!ud.success || !ud.url) { toast.error(ud.error || translate("admin.toast.uploadFailed")); return; }
         imageUrl = ud.url;
       }
-      const payload = { name, description, full_description: fullDescription, price: Number(price), image: imageUrl, category, badge, features };
+
+      const origPriceNum = Number(originalPrice) || null;
+      const payload = {
+        name,
+        description,
+        price: Number(price),
+        original_price: origPriceNum,
+        image: imageUrl,
+        status: editorStatus,
+      };
+
       const endpoint = editingId ? "/api/update-product" : "/api/create-product";
-      const res  = await fetch(endpoint, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
         body: JSON.stringify(editingId ? { id: editingId, ...payload } : payload),
@@ -646,7 +538,7 @@ export default function ProductsPage() {
     if (role !== "admin") { toast.error(translate("admin.toast.adminOnly")); return; }
     try {
       setSavingDeleteId(id);
-      const res  = await fetch("/api/delete-product", {
+      const res = await fetch("/api/delete-product", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
         body: JSON.stringify({ id }),
@@ -668,47 +560,37 @@ export default function ProductsPage() {
       <div className="flex flex-col h-full min-h-screen bg-zinc-950 text-white">
 
         {/* ── TOP BAR ── */}
-        <header className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.05] bg-zinc-950/90 backdrop-blur-xl sticky top-0 z-30 flex-wrap gap-y-2">
+        <header className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.05] bg-zinc-950/90 backdrop-blur-xl sticky top-0 z-30 flex-wrap gap-y-2" dir="rtl">
           {/* Brand */}
-          <div className="flex items-center gap-2 mr-1">
+          <div className="flex items-center gap-2 ml-1">
             <div className="grid h-7 w-7 place-items-center rounded-lg border border-purple-500/20 bg-purple-500/[0.10] text-purple-300">
               <Layers className="h-3.5 w-3.5" />
             </div>
-            <span className="text-sm font-black text-white">Product Studio</span>
+            <span className="text-sm font-black text-white">استوديو المنتجات</span>
           </div>
 
           <div className="h-4 w-px bg-white/[0.07] hidden sm:block" />
 
           {/* Search */}
           <div className="relative flex-1 min-w-[120px] max-w-[240px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-600 pointer-events-none" />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-600 pointer-events-none" />
             <input value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search…"
-              className="w-full rounded-xl border border-white/[0.07] bg-zinc-900/70 pl-8 pr-3 py-1.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-purple-500/40 transition" />
-          </div>
-
-          {/* Category filter */}
-          <div className="relative hidden sm:block">
-            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
-              className="appearance-none rounded-xl border border-white/[0.07] bg-zinc-900/70 pl-2.5 pr-7 py-1.5 text-xs text-zinc-400 outline-none focus:border-purple-500/30 cursor-pointer">
-              <option value="all">All Categories</option>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-600" />
+              placeholder="بحث…"
+              className="w-full rounded-xl border border-white/[0.07] bg-zinc-900/70 pr-8 pl-3 py-1.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-purple-500/40 transition" />
           </div>
 
           {/* Status filter */}
           <div className="relative hidden sm:block">
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "all" | ProductStatus)}
-              className="appearance-none rounded-xl border border-white/[0.07] bg-zinc-900/70 pl-2.5 pr-7 py-1.5 text-xs text-zinc-400 outline-none focus:border-purple-500/30 cursor-pointer">
-              <option value="all">All Status</option>
+              className="appearance-none rounded-xl border border-white/[0.07] bg-zinc-900/70 pr-2.5 pl-7 py-1.5 text-xs text-zinc-400 outline-none focus:border-purple-500/30 cursor-pointer">
+              <option value="all">كل الحالات</option>
               {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{S[s].label}</option>)}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-600" />
+            <ChevronDown className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-600" />
           </div>
 
           <span className="text-xs text-zinc-700 font-semibold tabular-nums hidden md:block">
-            {filtered.length}{products.length !== filtered.length ? `/${products.length}` : ""} products
+            {filtered.length}{products.length !== filtered.length ? `/${products.length}` : ""} منتج
           </span>
 
           <div className="flex-1" />
@@ -717,7 +599,7 @@ export default function ProductsPage() {
             className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-4 py-2 text-sm font-bold text-white shadow-[0_0_16px_rgba(168,85,247,0.20)] transition hover:shadow-[0_0_28px_rgba(168,85,247,0.35)] hover:scale-[1.02] active:scale-[0.98]"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">New Product</span>
+            <span className="hidden sm:inline">منتج جديد</span>
           </button>
         </header>
 
@@ -728,10 +610,10 @@ export default function ProductsPage() {
           <div className="flex flex-col border-r border-white/[0.04]" style={{ width: "48%", minWidth: 220, flexShrink: 0 }}>
 
             {/* Column head */}
-            <div className="flex items-center gap-3 px-3 py-2 border-b border-white/[0.03] bg-zinc-900/20">
+            <div className="flex items-center gap-3 px-3 py-2 border-b border-white/[0.03] bg-zinc-900/20" dir="rtl">
               <div className="w-10 flex-shrink-0" />
-              <span className="flex-1 text-[9px] font-black uppercase tracking-[0.2em] text-zinc-700">Product</span>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-700 w-24 pr-2">Price</span>
+              <span className="flex-1 text-[9px] font-black uppercase tracking-[0.2em] text-zinc-700">المنتج</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-700 w-24 pl-2">السعر</span>
             </div>
 
             {/* Rows */}
@@ -751,14 +633,14 @@ export default function ProductsPage() {
                   <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/[0.06] bg-zinc-900/50 text-zinc-700">
                     <Package className="h-5 w-5" />
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-zinc-500">{search ? "No results" : "No products yet"}</p>
-                    <p className="text-xs text-zinc-700 mt-0.5">{search ? "Try a different search" : "Create your first"}</p>
+                  <div className="text-center" dir="rtl">
+                    <p className="text-sm font-bold text-zinc-500">{search ? "لا توجد نتائج" : "لا توجد منتجات"}</p>
+                    <p className="text-xs text-zinc-700 mt-0.5">{search ? "جرب بحثاً آخر" : "أنشئ أول منتج"}</p>
                   </div>
                   {!search && (
                     <button onClick={openNew}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-xs font-semibold text-purple-300 transition hover:bg-purple-500/15">
-                      <Plus className="h-3.5 w-3.5" /> New Product
+                      <Plus className="h-3.5 w-3.5" /> منتج جديد
                     </button>
                   )}
                 </div>
@@ -779,7 +661,7 @@ export default function ProductsPage() {
             <AnimatePresence mode="wait">
               {panelMode === "welcome" ? (
                 <motion.div key="welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="h-full overflow-y-auto">
-                  <WelcomePanel products={products} categories={categories} onNew={openNew} onSelect={selectProduct} />
+                  <WelcomePanel products={products} onNew={openNew} onSelect={selectProduct} />
                 </motion.div>
               ) : (
                 <motion.div key="editor" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.18 }} className="h-full overflow-hidden flex flex-col">
@@ -787,11 +669,8 @@ export default function ProductsPage() {
                     editingId={editingId}
                     name={name} setName={setName}
                     price={price} setPrice={setPrice}
-                    category={category} setCategory={setCategory}
-                    badge={badge} setBadge={setBadge}
+                    originalPrice={originalPrice} setOriginalPrice={setOriginalPrice}
                     description={description} setDescription={setDescription}
-                    fullDescription={fullDescription} setFullDescription={setFullDescription}
-                    features={features} setFeatures={setFeatures}
                     editorStatus={editorStatus} setEditorStatus={setEditorStatus}
                     preview={preview} imageUploading={imageUploading}
                     onImagePick={(f) => { setImage(f); setPreview(URL.createObjectURL(f)); }}
@@ -817,6 +696,7 @@ export default function ProductsPage() {
                 initial={{ opacity: 0, scale: 0.94, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.15 }}
                 onClick={(e) => e.stopPropagation()}
                 className="w-full max-w-sm rounded-2xl border border-red-500/20 bg-zinc-950 p-6 shadow-[0_40px_80px_rgba(0,0,0,0.7)]"
+                dir="rtl"
               >
                 <div className="mx-auto grid h-10 w-10 place-items-center rounded-2xl border border-red-500/20 bg-red-500/10 text-red-400">
                   <AlertCircle className="h-5 w-5" />

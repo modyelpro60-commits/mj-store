@@ -553,14 +553,23 @@ export default function ChatWorkspace({
   const awaitingPayment = orderStatus === "Awaiting Payment";
   const showPaymentBanner = !isStaff && awaitingPayment && !customerSentImage;
 
-  // Full static class strings so Tailwind's JIT can see them
+  // Mobile: sidebar is an absolute overlay; desktop: side-by-side
   const expanded  = showSidebar || !activeRoomId;
+  // On mobile (< md), sidebar overlays full-width. On md+, it sits beside.
+  // Customer widget always stays full-width → full-chat toggle (no change).
   let sidebarCls: string;
   if (variant === "page") {
-    sidebarCls = expanded ? "w-[300px] opacity-100" : "w-0 md:w-[300px] opacity-0 md:opacity-100";
+    if (expanded) {
+      sidebarCls = "absolute inset-0 md:relative md:inset-auto w-full md:w-[300px] opacity-100 z-10";
+    } else {
+      sidebarCls = "w-0 opacity-0 pointer-events-none";
+    }
   } else if (isStaff) {
-    // wide floating staff widget — side by side
-    sidebarCls = expanded ? "w-[230px] opacity-100" : "w-0 md:w-[230px] opacity-0 md:opacity-100";
+    if (expanded) {
+      sidebarCls = "absolute inset-0 md:relative md:inset-auto w-full md:w-[230px] opacity-100 z-10";
+    } else {
+      sidebarCls = "w-0 opacity-0 pointer-events-none";
+    }
   } else {
     // narrow customer widget — full-width list, then full-width chat
     sidebarCls = expanded ? "w-full opacity-100" : "w-0 opacity-0";
@@ -669,10 +678,11 @@ export default function ChatWorkspace({
               <button
                 onClick={deliverOrder}
                 disabled={delivering}
-                className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/25 transition-all disabled:opacity-50"
+                title="تسليم الطلب"
+                className="flex items-center gap-1.5 h-7 px-2 sm:px-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/25 transition-all disabled:opacity-50"
               >
                 {delivering ? <Loader2 className="h-3 w-3 animate-spin" /> : <PackageCheck className="h-3 w-3" />}
-                تسليم الطلب
+                <span className="hidden sm:inline">تسليم الطلب</span>
               </button>
             )}
 
@@ -683,19 +693,21 @@ export default function ChatWorkspace({
                 <button
                   onClick={() => setClosed("reopen")}
                   disabled={closing}
-                  className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-white/[0.08] bg-white/[0.04] text-[11px] font-bold text-white/60 hover:text-white hover:border-white/15 transition-all disabled:opacity-50"
+                  title="إعادة فتح"
+                  className="flex items-center gap-1.5 h-7 px-2 sm:px-2.5 rounded-lg border border-white/[0.08] bg-white/[0.04] text-[11px] font-bold text-white/60 hover:text-white hover:border-white/15 transition-all disabled:opacity-50"
                 >
                   {closing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-                  إعادة فتح
+                  <span className="hidden sm:inline">إعادة فتح</span>
                 </button>
               ) : (
                 <button
                   onClick={() => setClosed("close")}
                   disabled={closing}
-                  className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-emerald-500/25 bg-emerald-500/10 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/20 transition-all disabled:opacity-50"
+                  title="إغلاق"
+                  className="flex items-center gap-1.5 h-7 px-2 sm:px-2.5 rounded-lg border border-emerald-500/25 bg-emerald-500/10 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/20 transition-all disabled:opacity-50"
                 >
                   {closing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCheck className="h-3 w-3" />}
-                  إغلاق
+                  <span className="hidden sm:inline">إغلاق</span>
                 </button>
               )
             )}
