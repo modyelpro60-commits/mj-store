@@ -19,6 +19,7 @@ type AdminUserRow = {
   status: StatusOption;
   created_at: string | null;
   orders_count: number;
+  verified: boolean;
 };
 
 type UsersResponse = {
@@ -90,7 +91,7 @@ export async function GET(req: Request) {
 
     let query = supabase
       .from("profiles")
-      .select("id, email, full_name, role, status, created_at")
+      .select("id, email, full_name, role, status, created_at, verified")
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -122,6 +123,7 @@ export async function GET(req: Request) {
       role: string | null;
       status: StatusOption;
       created_at: string | null;
+      verified: boolean | null;
     }>;
 
     const users: AdminUserRow[] = [];
@@ -148,6 +150,7 @@ export async function GET(req: Request) {
         status: p.status,
         created_at: p.created_at,
         orders_count: ordersCount,
+        verified: p.verified ?? false,
       });
     }
 

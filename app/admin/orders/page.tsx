@@ -28,6 +28,7 @@ import { useAuth } from "../../../components/auth/AuthProvider";
 import { useLanguage } from "../../../lib/i18n/LanguageProvider";
 import AnimatedNumber from "../animated-number";
 import StatusDropdown from "../../../components/StatusDropdown";
+import UserAvatar from "../../../components/ui/UserAvatar";
 
 /* ─────────────────────── Types ─────────────────────── */
 const ORDER_STATUSES = ["Awaiting Payment", "Pending", "Processing", "Completed", "Cancelled"] as const;
@@ -47,6 +48,9 @@ interface OrderRecord {
   handled_by?: string | null;
   handled_by_name?: string | null;
   handled_at?: string | null;
+  usdt_amount?: number | null;
+  usdt_rate?: number | null;
+  usdt_fee_pct?: number | null;
 }
 
 interface OrdersApiResponse { success: boolean; data?: OrderRecord[]; error?: string }
@@ -93,11 +97,6 @@ function fmtTime(v?: string | null) {
   if (!v) return "";
   const d = new Date(v);
   return isNaN(d.getTime()) ? "" : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-}
-
-function getInitials(n: string) {
-  const p = n.trim().split(" ").filter(Boolean);
-  return ((p[0]?.[0] ?? "") + (p[1]?.[0] ?? "")).toUpperCase() || "#";
 }
 
 /* ─────────────────────── Status pill ─────────────────────── */
@@ -158,13 +157,11 @@ function OrderRow({
       ].join(" ")}
     >
       {/* Avatar */}
-      <div className={[
-        "h-9 w-9 flex-shrink-0 grid place-items-center rounded-xl text-xs font-black transition-all",
-        isSelected ? "ring-1 ring-purple-500/30" : "",
-        "bg-gradient-to-br from-purple-700/30 to-fuchsia-700/20 text-purple-200",
-      ].join(" ")}>
-        {getInitials(order.customer_name)}
-      </div>
+      <UserAvatar
+        role="user"
+        size="md"
+        className={isSelected ? "ring-1 ring-purple-500/30 rounded-full" : ""}
+      />
 
       {/* Left info */}
       <div className="flex-1 min-w-0">
@@ -302,7 +299,26 @@ function OrderDrawer({
                 <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-zinc-900/50 px-3.5 py-2.5">
                   <span className="text-xs text-zinc-600">Payment Method</span>
                   <span className="text-xs font-bold text-zinc-300">
-                    {order.payment_method === "vodafone" ? "Vodafone Cash" : order.payment_method === "instapay" ? "InstaPay" : order.payment_method}
+                    {order.payment_method === "vodafone"
+                      ? "Vodafone Cash"
+                      : order.payment_method === "instapay"
+                      ? "InstaPay"
+                      : order.payment_method === "usdt"
+                      ? "USDT (BEP20)"
+                      : order.payment_method}
+                  </span>
+                </div>
+              )}
+              {order.payment_method === "usdt" && order.usdt_amount != null && (
+                <div className="flex items-center justify-between rounded-xl border border-yellow-500/20 bg-yellow-500/[0.05] px-3.5 py-2.5">
+                  <span className="text-xs text-zinc-600">USDT Amount</span>
+                  <span className="text-xs font-bold text-yellow-300 text-right">
+                    {order.usdt_amount} USDT
+                    {order.usdt_rate != null && (
+                      <span className="block text-[10px] font-semibold text-zinc-600">
+                        @ {order.usdt_rate} EGP{order.usdt_fee_pct != null ? ` · +${order.usdt_fee_pct}% fee` : ""}
+                      </span>
+                    )}
                   </span>
                 </div>
               )}

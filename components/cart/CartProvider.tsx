@@ -18,6 +18,7 @@ export type CartItem = {
   image: string | null;
   category: string | null;
   price: number;
+  original_price: number | null;
   quantity: number;
   lineTotal: number;
 };

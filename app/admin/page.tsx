@@ -23,6 +23,7 @@ import {
 import AnimatedNumber from "./animated-number";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
+import { AdminOnlyGuard } from "./admin-guard";
 
 interface ProductRecord {
   id: number;
@@ -99,7 +100,7 @@ function statusIcon(s: string) {
   return Clock3;
 }
 
-export default function AdminPage() {
+function AdminPageInner() {
   const { accessToken } = useAuth();
   const { translate } = useLanguage();
 
@@ -715,4 +716,8 @@ export default function AdminPage() {
 
     </div>
   );
+}
+
+export default function AdminPage() {
+  return <AdminOnlyGuard><AdminPageInner /></AdminOnlyGuard>;
 }

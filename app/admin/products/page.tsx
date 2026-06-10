@@ -26,7 +26,12 @@ import { useAuth } from "../../../components/auth/AuthProvider";
 import { useLanguage } from "../../../lib/i18n/LanguageProvider";
 
 /* ─────────────────────────── Types ─────────────────────────── */
-type ProductStatus = "available" | "out_of_stock" | "coming_soon";
+// Actual DB schema: id, name, description, image, price, sales_count, category,
+//   badge, features, full_description, is_active, created_at
+// Migrations added: original_price NUMERIC NULL, short_description TEXT NULL
+// is_active = true  → visible + purchasable
+// is_active = false → hidden from storefront
+type StatusFilter = "all" | "active" | "inactive";
 type PanelMode = "welcome" | "editor";
 
 interface ProductRecord {
@@ -34,24 +39,31 @@ interface ProductRecord {
   name: string;
   price: number;
   original_price?: number | null;
+  short_description?: string | null;
   description: string;
   image: string;
-  status?: ProductStatus;
+  is_active: boolean;
+  category?: string | null;
+  badge?: string | null;
   updated_at?: string;
 }
 interface SaveProductResponse  { success: boolean; error?: string }
 interface UploadImageResponse  { success: boolean; url?: string; error?: string }
 
-/* ─────────────────────────── Status ────────────────────────── */
-const STATUS_OPTIONS: ProductStatus[] = ["available", "out_of_stock", "coming_soon"];
-const S = {
-  available:    { label: "متوفر",        dot: "bg-emerald-400", text: "text-emerald-300", ring: "border-emerald-500/35 bg-emerald-500/10" },
-  out_of_stock: { label: "نفذت الكمية", dot: "bg-red-400",     text: "text-red-300",    ring: "border-red-500/35 bg-red-500/10"         },
-  coming_soon:  { label: "قريباً",       dot: "bg-amber-400",   text: "text-amber-300",  ring: "border-amber-500/35 bg-amber-500/10"     },
-} satisfies Record<ProductStatus, { label: string; dot: string; text: string; ring: string }>;
+/* ─────────────────────────── Active state display ──────────── */
+function activeDisplay(isActive: boolean) {
+  return isActive
+    ? { label: "متوفر",  dot: "bg-emerald-400", text: "text-emerald-300", ring: "border-emerald-500/35 bg-emerald-500/10" }
+    : { label: "مخفي",   dot: "bg-zinc-500",    text: "text-zinc-400",   ring: "border-zinc-500/35  bg-zinc-600/10"      };
+}
 
 /* ─────────────────────────── Tiny helpers ───────────────────── */
 const inp = "w-full rounded-xl border border-white/[0.08] bg-zinc-900/70 px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 transition focus:border-purple-500/50 focus:bg-purple-500/[0.06] focus:ring-1 focus:ring-purple-500/20";
+
+function calcDiscount(price: number, orig: number) {
+  if (orig > price && price > 0) return Math.round((1 - price / orig) * 100);
+  return 0;
+}
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -70,8 +82,10 @@ function ProductRow({
   product: ProductRecord; isSelected: boolean;
   onSelect: () => void; onDuplicate: () => void; onDelete: () => void;
 }) {
-  const status: ProductStatus = (product.status as ProductStatus) ?? "available";
-  const m = S[status];
+  const m = activeDisplay(product.is_active !== false);
+  const priceNum = Number(product.price ?? 0);
+  const origNum  = Number(product.original_price ?? 0);
+  const discount = calcDiscount(priceNum, origNum);
 
   return (
     <div
@@ -100,13 +114,23 @@ function ProductRow({
         <p className={["truncate text-[13px] font-semibold leading-none transition-colors", isSelected ? "text-white" : "text-zinc-200"].join(" ")}>
           {product.name || "Untitled"}
         </p>
-        <div className="mt-1 flex items-center gap-1.5">
+        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
           <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${m.dot}`} />
           <span className={`text-[10px] font-bold ${m.text}`}>{m.label}</span>
           <span className="text-zinc-700 text-[10px]">·</span>
           <span className="text-[10px] font-bold text-purple-400/80 tabular-nums">
-            {Number(product.price).toLocaleString()} EGP
+            {priceNum.toLocaleString()} EGP
           </span>
+          {discount > 0 && (
+            <>
+              <span className="text-[10px] text-zinc-700 line-through tabular-nums">
+                {origNum.toLocaleString()}
+              </span>
+              <span className="text-[9px] font-black text-red-400 rounded-full border border-red-500/25 bg-red-500/10 px-1.5 py-px">
+                -{discount}%
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -192,29 +216,49 @@ function WelcomePanel({ products, onNew, onSelect }: {
 
 /* ─────────────────────────── Studio Editor ────────────────── */
 function StudioEditor({
-  editingId, name, setName, price, setPrice, originalPrice, setOriginalPrice,
-  description, setDescription, editorStatus, setEditorStatus,
-  preview, imageUploading, onImagePick, saving, onSave, onDelete, onClose, onDuplicate,
+  editingId, name, setName,
+  price, setPrice, originalPrice, setOriginalPrice,
+  shortDescription, setShortDescription,
+  description, setDescription,
+  editorIsActive, setEditorIsActive,
+  features, setFeatures, featuresLoading,
+  preview, imageUploading, onImagePick,
+  saving, onSave, onDelete, onClose, onDuplicate,
   productId,
 }: {
   editingId: number | null;
   name: string; setName(v: string): void;
   price: string; setPrice(v: string): void;
   originalPrice: string; setOriginalPrice(v: string): void;
+  shortDescription: string; setShortDescription(v: string): void;
   description: string; setDescription(v: string): void;
-  editorStatus: ProductStatus; setEditorStatus(v: ProductStatus): void;
+  editorIsActive: boolean; setEditorIsActive(v: boolean): void;
+  features: string[]; setFeatures(v: string[]): void; featuresLoading: boolean;
   preview: string; imageUploading: boolean;
   onImagePick(f: File): void;
   saving: boolean;
   onSave(): void; onDelete(): void; onClose(): void; onDuplicate(): void;
   productId: number | null;
 }) {
-  // Discount badge preview
-  const priceNum = Number(price) || 0;
-  const origNum  = Number(originalPrice) || 0;
-  const discountPct = origNum > priceNum && priceNum > 0
-    ? Math.round((1 - priceNum / origNum) * 100)
-    : 0;
+  const priceNum    = Number(price) || 0;
+  const origNum     = Number(originalPrice) || 0;
+  const discountPct = calcDiscount(priceNum, origNum);
+
+  const featureRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  function addFeature() {
+    const next = [...features, ""];
+    setFeatures(next);
+    setTimeout(() => { featureRefs.current[next.length - 1]?.focus(); }, 40);
+  }
+
+  function updateFeature(i: number, val: string) {
+    const next = [...features]; next[i] = val; setFeatures(next);
+  }
+
+  function removeFeature(i: number) {
+    setFeatures(features.filter((_, j) => j !== i));
+  }
 
   return (
     <div className="flex flex-col h-full" dir="rtl">
@@ -268,12 +312,14 @@ function StudioEditor({
                       <Upload className="h-3.5 w-3.5" /> استبدال الصورة
                     </div>}
               </div>
-              {/* Status badge overlay */}
+              {/* Active/hidden badge overlay */}
               <div className="absolute bottom-3 right-3">
-                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${S[editorStatus].ring} ${S[editorStatus].text}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${S[editorStatus].dot}`} />
-                  {S[editorStatus].label}
-                </span>
+                {(() => { const m = activeDisplay(editorIsActive); return (
+                  <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${m.ring} ${m.text}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} />
+                    {m.label}
+                  </span>
+                ); })()}
               </div>
               {/* Discount badge overlay */}
               {discountPct > 0 && (
@@ -315,6 +361,11 @@ function StudioEditor({
                 placeholder="اسم المنتج"
                 className={`${inp} text-base font-semibold`} />
 
+              {/* Short description */}
+              <input value={shortDescription} onChange={(e) => setShortDescription(e.target.value)}
+                placeholder="وصف قصير (اختياري) — مثال: باقة Netflix Premium 4K"
+                className={inp} />
+
               {/* Pricing row */}
               <div className="grid grid-cols-2 gap-2.5">
                 {/* Current price */}
@@ -345,15 +396,15 @@ function StudioEditor({
 
           <Divider />
 
-          {/* STATUS */}
+          {/* IS_ACTIVE TOGGLE */}
           <div>
             <SectionLabel>حالة المنتج</SectionLabel>
-            <div className="grid grid-cols-3 gap-2">
-              {STATUS_OPTIONS.map((s) => {
-                const m = S[s];
-                const active = editorStatus === s;
+            <div className="grid grid-cols-2 gap-2">
+              {([true, false] as const).map((val) => {
+                const m = activeDisplay(val);
+                const active = editorIsActive === val;
                 return (
-                  <button key={s} type="button" onClick={() => setEditorStatus(s)}
+                  <button key={String(val)} type="button" onClick={() => setEditorIsActive(val)}
                     className={[
                       "flex flex-col items-center gap-2 rounded-xl border py-3 text-center transition-all duration-150",
                       active
@@ -371,11 +422,49 @@ function StudioEditor({
 
           <Divider />
 
+          {/* FEATURES */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <SectionLabel>مميزات المنتج</SectionLabel>
+              {featuresLoading && <LoaderCircle className="h-3 w-3 animate-spin text-zinc-600 mb-3" />}
+            </div>
+            <div className="space-y-2">
+              {features.map((f, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    ref={(el) => { featureRefs.current[i] = el; }}
+                    value={f}
+                    onChange={(e) => updateFeature(i, e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFeature(); } }}
+                    placeholder={`ميزة ${i + 1} — مثال: دقة 4K`}
+                    className={`${inp} flex-1`}
+                  />
+                  <button type="button" onClick={() => removeFeature(i)}
+                    className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl border border-red-500/20 bg-red-500/[0.08] text-red-400/80 hover:bg-red-500/15 hover:text-red-400 transition">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={addFeature}
+                className="flex items-center justify-center gap-1.5 w-full rounded-xl border border-dashed border-white/[0.07] bg-transparent px-3.5 py-2 text-xs font-semibold text-zinc-600 hover:border-purple-500/20 hover:text-purple-400 hover:bg-purple-500/[0.04] transition">
+                <Plus className="h-3.5 w-3.5" />
+                إضافة ميزة
+              </button>
+            </div>
+            {features.length === 0 && !featuresLoading && (
+              <p className="mt-2 text-[10px] text-zinc-700 text-center">
+                ستظهر المميزات الافتراضية إذا تركتها فارغة
+              </p>
+            )}
+          </div>
+
+          <Divider />
+
           {/* DESCRIPTION */}
           <div>
-            <SectionLabel>وصف المنتج</SectionLabel>
+            <SectionLabel>وصف المنتج (تفصيلي)</SectionLabel>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)}
-              placeholder="اكتب وصفاً للمنتج…"
+              placeholder="اكتب وصفاً تفصيلياً للمنتج…"
               rows={5} className={`${inp} resize-none`} />
           </div>
 
@@ -414,7 +503,7 @@ export default function ProductsPage() {
   const [products, setProducts]             = useState<ProductRecord[]>([]);
   const [pageLoading, setPageLoading]       = useState(true);
   const [search, setSearch]                 = useState("");
-  const [statusFilter, setStatusFilter]     = useState<"all" | ProductStatus>("all");
+  const [statusFilter, setStatusFilter]     = useState<StatusFilter>("all");
   const [selectedId, setSelectedId]         = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [savingDeleteId, setSavingDeleteId]   = useState<number | null>(null);
@@ -423,36 +512,54 @@ export default function ProductsPage() {
   const [panelMode, setPanelMode] = useState<PanelMode>("welcome");
 
   /* Form fields */
-  const [editingId, setEditingId]           = useState<number | null>(null);
-  const [name, setName]                     = useState("");
-  const [price, setPrice]                   = useState("");
-  const [originalPrice, setOriginalPrice]   = useState("");
-  const [description, setDescription]       = useState("");
-  const [editorStatus, setEditorStatus]     = useState<ProductStatus>("available");
-  const [image, setImage]                   = useState<File | null>(null);
-  const [preview, setPreview]               = useState("");
-  const [imageUploading, setImageUploading] = useState(false);
-  const [saving, setSaving]                 = useState(false);
+  const [editingId, setEditingId]                   = useState<number | null>(null);
+  const [name, setName]                             = useState("");
+  const [price, setPrice]                           = useState("");
+  const [originalPrice, setOriginalPrice]           = useState("");
+  const [shortDescription, setShortDescription]     = useState("");
+  const [description, setDescription]               = useState("");
+  const [editorIsActive, setEditorIsActive]         = useState<boolean>(true);
+  const [features, setFeatures]                     = useState<string[]>([]);
+  const [featuresLoading, setFeaturesLoading]       = useState(false);
+  const [image, setImage]                           = useState<File | null>(null);
+  const [preview, setPreview]                       = useState("");
+  const [imageUploading, setImageUploading]         = useState(false);
+  const [saving, setSaving]                         = useState(false);
 
-  /* ── Load ── */
-  async function loadProducts() {
+  /* ── Load products ── */
+  const loadProducts = useCallback(async () => {
     try { setPageLoading(true); const r = await fetch("/api/get-products"); setProducts(await r.json()); }
     finally { setPageLoading(false); }
-  }
-  useEffect(() => { loadProducts(); }, []);
+  }, []);
+  useEffect(() => { void loadProducts(); }, [loadProducts]);
 
   const filtered = useMemo(() => products.filter((p) => {
     const q = search.toLowerCase();
+    const isActive = p.is_active !== false;
     return (!q || p.name?.toLowerCase().includes(q))
-      && (statusFilter === "all" || (p.status ?? "available") === statusFilter);
+      && (statusFilter === "all"
+        || (statusFilter === "active" && isActive)
+        || (statusFilter === "inactive" && !isActive));
   }), [products, search, statusFilter]);
+
+  /* ── Load features ── */
+  async function loadFeatures(productId: number) {
+    setFeaturesLoading(true);
+    setFeatures([]);
+    try {
+      const r = await fetch(`/api/product-features?id=${productId}`);
+      const d = await r.json() as { success: boolean; features?: string[] };
+      if (d.success) setFeatures(d.features ?? []);
+    } catch { /* silent */ }
+    finally { setFeaturesLoading(false); }
+  }
 
   /* ── Open new ── */
   function openNew() {
     setSelectedId(null); setEditingId(null);
     setName(""); setPrice(""); setOriginalPrice("");
-    setDescription(""); setEditorStatus("available");
-    setPreview(""); setImage(null);
+    setShortDescription(""); setDescription(""); setEditorIsActive(true);
+    setFeatures([]); setPreview(""); setImage(null);
     setPanelMode("editor");
   }
 
@@ -461,36 +568,49 @@ export default function ProductsPage() {
     setSelectedId(p.id); setEditingId(p.id);
     setName(p.name ?? ""); setPrice(String(p.price ?? ""));
     setOriginalPrice(p.original_price ? String(p.original_price) : "");
+    setShortDescription(p.short_description ?? "");
     setDescription(p.description ?? "");
-    setEditorStatus((p.status as ProductStatus) ?? "available");
+    setEditorIsActive(p.is_active !== false);
     setPreview(p.image ?? ""); setImage(null);
     setPanelMode("editor");
+    void loadFeatures(p.id);
   }
 
   /* ── Close ── */
   function closeEditor() {
     setSelectedId(null); setEditingId(null);
     setPanelMode("welcome"); setPreview(""); setImage(null);
+    setShortDescription(""); setFeatures([]);
   }
 
   /* ── Duplicate ── */
   async function duplicateProduct(p?: ProductRecord) {
     const src = p ?? products.find((x) => x.id === editingId);
     if (!src) return;
+
+    let srcFeatures: string[] = [];
+    try {
+      const fr = await fetch(`/api/product-features?id=${src.id}`);
+      const fd = await fr.json() as { success: boolean; features?: string[] };
+      if (fd.success) srcFeatures = fd.features ?? [];
+    } catch { /* silent */ }
+
     const res = await fetch("/api/create-product", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       body: JSON.stringify({
         name: src.name + " (نسخة)",
         description: src.description,
+        short_description: src.short_description ?? null,
         price: Number(src.price),
         original_price: src.original_price ?? null,
         image: src.image,
-        status: src.status ?? "available",
+        is_active: src.is_active !== false,
+        features: srcFeatures,
       }),
     });
-    const data = await res.json();
-    if (data.success) { toast.success("تم نسخ المنتج"); loadProducts(); }
+    const data = await res.json() as SaveProductResponse;
+    if (data.success) { toast.success("تم نسخ المنتج"); void loadProducts(); }
     else toast.error(data.error || translate("admin.toast.error"));
   }
 
@@ -510,13 +630,16 @@ export default function ProductsPage() {
       }
 
       const origPriceNum = Number(originalPrice) || null;
+      const cleanFeatures = features.filter((f) => f.trim().length > 0);
       const payload = {
         name,
         description,
+        short_description: shortDescription.trim() || null,
         price: Number(price),
         original_price: origPriceNum,
         image: imageUrl,
-        status: editorStatus,
+        is_active: editorIsActive,
+        features: cleanFeatures,
       };
 
       const endpoint = editingId ? "/api/update-product" : "/api/create-product";
@@ -528,7 +651,7 @@ export default function ProductsPage() {
       const data = await res.json() as SaveProductResponse;
       if (!data.success) { toast.error(data.error || translate("admin.toast.error")); return; }
       toast.success(editingId ? translate("admin.toast.productUpdated") : translate("admin.toast.productAdded"));
-      closeEditor(); loadProducts();
+      closeEditor(); void loadProducts();
     } catch { toast.error(translate("admin.toast.error")); }
     finally { setSaving(false); setImageUploading(false); }
   }
@@ -548,7 +671,7 @@ export default function ProductsPage() {
         setPendingDeleteId(null);
         if (editingId === id) closeEditor();
         toast.success(translate("admin.toast.productDeleted"));
-        loadProducts();
+        void loadProducts();
       } else { setPendingDeleteId(null); toast.error(data.error || translate("admin.toast.error")); }
     } catch { setPendingDeleteId(null); toast.error(translate("admin.toast.error")); }
     finally { setSavingDeleteId(null); }
@@ -579,12 +702,13 @@ export default function ProductsPage() {
               className="w-full rounded-xl border border-white/[0.07] bg-zinc-900/70 pr-8 pl-3 py-1.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-purple-500/40 transition" />
           </div>
 
-          {/* Status filter */}
+          {/* Visibility filter */}
           <div className="relative hidden sm:block">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "all" | ProductStatus)}
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
               className="appearance-none rounded-xl border border-white/[0.07] bg-zinc-900/70 pr-2.5 pl-7 py-1.5 text-xs text-zinc-400 outline-none focus:border-purple-500/30 cursor-pointer">
-              <option value="all">كل الحالات</option>
-              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{S[s].label}</option>)}
+              <option value="all">كل المنتجات</option>
+              <option value="active">متوفر</option>
+              <option value="inactive">مخفي</option>
             </select>
             <ChevronDown className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-600" />
           </div>
@@ -670,15 +794,17 @@ export default function ProductsPage() {
                     name={name} setName={setName}
                     price={price} setPrice={setPrice}
                     originalPrice={originalPrice} setOriginalPrice={setOriginalPrice}
+                    shortDescription={shortDescription} setShortDescription={setShortDescription}
                     description={description} setDescription={setDescription}
-                    editorStatus={editorStatus} setEditorStatus={setEditorStatus}
+                    editorIsActive={editorIsActive} setEditorIsActive={setEditorIsActive}
+                    features={features} setFeatures={setFeatures} featuresLoading={featuresLoading}
                     preview={preview} imageUploading={imageUploading}
                     onImagePick={(f) => { setImage(f); setPreview(URL.createObjectURL(f)); }}
                     saving={saving}
-                    onSave={saveProduct}
+                    onSave={() => void saveProduct()}
                     onDelete={() => editingId && setPendingDeleteId(editingId)}
                     onClose={closeEditor}
-                    onDuplicate={() => duplicateProduct()}
+                    onDuplicate={() => void duplicateProduct()}
                     productId={editingId}
                   />
                 </motion.div>
@@ -704,7 +830,7 @@ export default function ProductsPage() {
                 <h3 className="mt-4 text-center text-sm font-bold">{translate("admin.confirm.deleteProduct")}</h3>
                 <p className="mt-1.5 text-center text-xs text-zinc-500">{translate("admin.confirm.cannotUndo")}</p>
                 <div className="mt-5 flex gap-2.5">
-                  <button type="button" onClick={() => deleteProduct(pendingDeleteId)} disabled={savingDeleteId === pendingDeleteId}
+                  <button type="button" onClick={() => void deleteProduct(pendingDeleteId)} disabled={savingDeleteId === pendingDeleteId}
                     className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50">
                     {savingDeleteId === pendingDeleteId
                       ? <><LoaderCircle className="h-4 w-4 animate-spin" /> {translate("admin.confirm.deleting")}</>

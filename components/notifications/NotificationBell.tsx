@@ -69,6 +69,7 @@ const TYPE_META: Record<string, { icon: React.ElementType; color: string; dot: s
   payment_confirmed: { icon: CheckCircle,   color: "text-emerald-400", dot: "bg-emerald-400" },
   payment_rejected:  { icon: XCircle,       color: "text-red-400",     dot: "bg-red-400"     },
   order_delivered:   { icon: Truck,         color: "text-sky-400",     dot: "bg-sky-400"     },
+  account_verified:  { icon: Sparkles,      color: "text-teal-400",    dot: "bg-teal-400"    },
 };
 const DEFAULT_META = { icon: Bell, color: "text-white/40", dot: "bg-white/30" };
 

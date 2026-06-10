@@ -22,21 +22,21 @@ export async function POST(req: Request) {
       name: body.name,
       price: body.price,
       original_price: body.original_price,
-      status: body.status,
+      is_active: body.is_active,
     }));
 
     const { data: insertedProducts, error } = await supabase
       .from("products")
       .insert([
         {
-          name: body.name,
-          description: body.description,
-          price: body.price,
-          original_price: body.original_price ?? null,
-          image: body.image,
-          status: body.status ?? "available",
-          sales_count: 0,
-          is_active: true,
+          name:              body.name,
+          description:       body.description,
+          short_description: body.short_description ?? null,
+          price:             body.price,
+          original_price:    body.original_price ?? null,
+          image:             body.image,
+          is_active:         body.is_active !== false,
+          sales_count:       0,
         },
       ])
       .select("id");
@@ -51,6 +51,16 @@ export async function POST(req: Request) {
 
     const productId = insertedProducts[0].id;
     console.log("[create-product] Product created successfully with ID:", productId);
+
+    // Insert features if provided
+    const features: string[] = Array.isArray(body.features)
+      ? (body.features as unknown[]).filter((f): f is string => typeof f === "string" && f.trim().length > 0)
+      : [];
+    if (features.length > 0) {
+      const rows = features.map((name, sort_order) => ({ product_id: productId, name: name.trim(), sort_order }));
+      const { error: featErr } = await supabase.from("product_features").insert(rows);
+      if (featErr) console.warn("[create-product] Failed to insert features:", featErr.message);
+    }
 
     await logActivity({
       actorId:     ctx.userId,

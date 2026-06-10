@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Boxes,
   ChevronRight,
+  CreditCard,
   Home,
   LayoutDashboard,
   LogOut,
@@ -20,16 +21,18 @@ import { useAuth } from "../../components/auth/AuthProvider";
 import { useChatUnread } from "../../components/chat/useChatUnread";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
 import { MJMark } from "../../components/brand/MJLogo";
+import UserAvatar from "../../components/ui/UserAvatar";
 
 const NAV_ITEMS = [
-  { href: "/",               labelKey: "admin.nav.home"     as const, icon: Home          },
-  { href: "/admin",          labelKey: "admin.nav.overview" as const, icon: LayoutDashboard },
-  { href: "/admin/products", labelKey: "admin.nav.products" as const, icon: Boxes          },
-  { href: "/admin/orders",   labelKey: "admin.nav.orders"   as const, icon: ShoppingCart   },
-  { href: "/admin/chat",      labelKey: "admin.nav.chat"      as const, icon: MessageCircle  },
-  { href: "/admin/logs",      labelKey: "admin.nav.logs"      as const, icon: ScrollText     },
-  { href: "/admin/analytics", labelKey: "admin.nav.analytics" as const, icon: TrendingUp     },
-  { href: "/admin/users",     labelKey: "admin.nav.users"     as const, icon: Users          },
+  { href: "/",                labelKey: "admin.nav.home"      as const, icon: Home,          adminOnly: true  },
+  { href: "/admin",           labelKey: "admin.nav.overview"  as const, icon: LayoutDashboard, adminOnly: true  },
+  { href: "/admin/products",  labelKey: "admin.nav.products"  as const, icon: Boxes,          adminOnly: false },
+  { href: "/admin/orders",    labelKey: "admin.nav.orders"    as const, icon: ShoppingCart,   adminOnly: false },
+  { href: "/admin/chat",      labelKey: "admin.nav.chat"      as const, icon: MessageCircle,  adminOnly: false },
+  { href: "/admin/logs",      labelKey: "admin.nav.logs"      as const, icon: ScrollText,     adminOnly: true  },
+  { href: "/admin/analytics", labelKey: "admin.nav.analytics" as const, icon: TrendingUp,     adminOnly: true  },
+  { href: "/admin/users",     labelKey: "admin.nav.users"     as const, icon: Users,          adminOnly: true  },
+  { href: "/admin/settings",  labelKey: "admin.nav.settings"  as const, icon: CreditCard,     adminOnly: true  },
 ] as const;
 
 export default function AdminShell({ children }: { children: ReactNode }) {
@@ -38,15 +41,13 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const { translate } = useLanguage();
   const chatUnread = useChatUnread(accessToken, !!accessToken);
 
+  /* Show all items while loading (prevents layout flicker).
+     Once role is known: admin sees everything, moderator sees only !adminOnly items. */
   const visibleItems = NAV_ITEMS.filter(
-    (item) => isLoading || role === "admin" || item.href !== "/admin/users"
+    (item) => isLoading || role === "admin" || !item.adminOnly
   );
 
   const currentLabel = visibleItems.find((item) => item.href === pathname)?.labelKey;
-
-  const initials = profile?.full_name
-    ? profile.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : (profile?.email?.[0]?.toUpperCase() ?? "A");
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#050507] text-white">
@@ -143,9 +144,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           {profile ? (
             <div className="mt-4 rounded-[1.5rem] border border-white/[0.07] bg-white/[0.03] p-3.5">
               <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-sm font-black text-white">
-                  {initials}
-                </div>
+                <UserAvatar role={role} verified={profile?.verified} size="lg" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-white">
                     {profile.full_name ?? profile.email ?? "Admin"}

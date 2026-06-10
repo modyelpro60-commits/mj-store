@@ -267,6 +267,7 @@ export const fr = {
   "admin.nav.logs": "Journal",
   "admin.nav.users": "Utilisateurs",
   "admin.nav.analytics": "Analytiques",
+  "admin.nav.settings": "Méthodes de paiement",
   "admin.role.admin": "Admin",
   "admin.role.moderator": "Modérateur",
 

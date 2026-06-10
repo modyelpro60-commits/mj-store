@@ -4,10 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Camera,
+  Check,
   CheckCircle,
+  Copy,
   HeadphonesIcon,
   LoaderCircle,
   Lock,
@@ -16,17 +19,17 @@ import {
   RefreshCw,
   ShieldCheck,
   Smartphone,
-  Star,
   Trash2,
   Upload,
   User,
+  Wallet,
   XCircle,
   Zap,
 } from "lucide-react";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
 import { useAnalytics } from "../../lib/analytics/useAnalytics";
-import { PAYMENT, PAYMENT_METHODS } from "../lib/payment/config";
+import { PAYMENT_METHODS, type PaymentSettings, type PaymentAccount } from "../lib/payment/config";
 
 /* ─────────────────────────── Types ─────────────────────────── */
 interface Product {
@@ -35,22 +38,26 @@ interface Product {
   description: string;
   price: number;
   image?: string;
-  category?: string;
-  features?: string[] | string | null;
+  original_price?: number | null;
+  status?: string;
 }
-type PaymentMethodId = "vodafone" | "instapay";
+
+type PaymentMethodId = "vodafone" | "instapay" | "usdt";
 type Step = 1 | 2;
 
-/* ─────────────────────────── Helpers ───────────────────────── */
-function normalizeFeatures(f: Product["features"]): string[] {
-  if (!f) return [];
-  if (Array.isArray(f)) return f.filter(Boolean) as string[];
-  try {
-    const p = JSON.parse(f as string);
-    if (Array.isArray(p)) return p.filter(Boolean);
-  } catch {}
-  return (f as string).split(",").map((s) => s.trim()).filter(Boolean);
-}
+/* ─────────────────────────── Default settings ───────────────── */
+const DEFAULT_SETTINGS: PaymentSettings = {
+  vodafone_number:     "01000000000",
+  vodafone_enabled:    "true",
+  instapay_handle:     "",
+  instapay_qr_image:   "",
+  instapay_enabled:    "true",
+  usdt_wallet_address: "",
+  usdt_qr_image:       "",
+  usdt_enabled:        "false",
+  usdt_rate_egp:       "50",
+  usdt_fee_pct:        "3",
+};
 
 /* ─────────────────────────── Step Indicator ────────────────── */
 function StepIndicator({ step }: { step: Step }) {
@@ -197,10 +204,20 @@ export default function CheckoutClient() {
   const [product,        setProduct]        = useState<Product | null>(null);
   const [productLoading, setProductLoading] = useState(true);
 
+  /* ── Payment settings (live from admin) ── */
+  const [settings, setSettings] = useState<PaymentSettings>(DEFAULT_SETTINGS);
+
   /* ── Step 1 form ── */
   const [name,      setName]      = useState("");
   const [nameError, setNameError] = useState(false);
   const [payMethod, setPayMethod] = useState<PaymentMethodId>("vodafone");
+
+  /* ── Assigned payment account (Round Robin from server) ── */
+  const [assignedAccount,        setAssignedAccount]        = useState<PaymentAccount | null>(null);
+  const [assignedAccountLoading, setAssignedAccountLoading] = useState(false);
+
+  /* ── Copy wallet address ── */
+  const [copied, setCopied] = useState(false);
 
   /* ── Step 2 proof upload ── */
   const fileRef                                   = useRef<HTMLInputElement>(null);
@@ -234,6 +251,35 @@ export default function CheckoutClient() {
     load();
   }, [productId]);
 
+  /* ── Load payment settings ── */
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data: PaymentSettings) => {
+        setSettings(data);
+        // Auto-select first enabled method
+        const first = PAYMENT_METHODS.find(
+          (m) => data[`${m.id}_enabled` as keyof PaymentSettings] !== "false"
+        );
+        if (first) setPayMethod(first.id as PaymentMethodId);
+      })
+      .catch(() => { /* keep defaults */ });
+  }, []);
+
+  /* ── Fetch assigned account whenever payment method changes ── */
+  useEffect(() => {
+    if (!accessToken) return;
+    setAssignedAccount(null);
+    setAssignedAccountLoading(true);
+    fetch(`/api/payment-accounts/next?method=${payMethod}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: PaymentAccount | null) => setAssignedAccount(data))
+      .catch(() => setAssignedAccount(null))
+      .finally(() => setAssignedAccountLoading(false));
+  }, [payMethod, accessToken]);
+
   useEffect(() => {
     if (isLoading || !accessToken) return;
     if (status === "Banned") void signOut();
@@ -243,6 +289,28 @@ export default function CheckoutClient() {
     if (product) void trackEvent(product.id, "checkout_start");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id]);
+
+  /* ── Derived: enabled payment methods ── */
+  const enabledMethods = PAYMENT_METHODS.filter(
+    (m) => settings[`${m.id}_enabled` as keyof PaymentSettings] !== "false"
+  );
+
+  /* ── Derived: USDT calculation ── */
+  const usdtRate    = parseFloat(settings.usdt_rate_egp) || 50;
+  const usdtFeePct  = parseFloat(settings.usdt_fee_pct)  || 3;
+  const usdtAmount  = product
+    ? Math.ceil((Number(product.price) / usdtRate) * (1 + usdtFeePct / 100) * 100) / 100
+    : 0;
+
+  /* ── Copy wallet address ── */
+  function copyWallet() {
+    const addr = assignedAccount?.value || settings.usdt_wallet_address;
+    if (!addr) return;
+    navigator.clipboard.writeText(addr).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
 
   /* ── Proof file handling ── */
   function acceptFile(file: File) {
@@ -308,18 +376,28 @@ export default function CheckoutClient() {
         return;
       }
 
-      /* 2 ── Create order (proof URL already in hand) */
+      /* 2 ── Create order */
+      const orderBody: Record<string, unknown> = {
+        customer_name:      name.trim() || profile?.full_name || "العميل",
+        product_id:         product.id,
+        product_name:       product.name,
+        price:              product.price,
+        payment_method:     payMethod,
+        payment_proof_url:  upData.url,
+        payment_account_id: assignedAccount?.id ?? null,
+      };
+
+      /* Attach USDT metadata when paying with USDT */
+      if (payMethod === "usdt") {
+        orderBody.usdt_amount  = usdtAmount;
+        orderBody.usdt_rate    = usdtRate;
+        orderBody.usdt_fee_pct = usdtFeePct;
+      }
+
       const res  = await fetch("/api/create-order", {
         method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({
-          customer_name:     name.trim() || profile?.full_name || "العميل",
-          product_id:        product.id,
-          product_name:      product.name,
-          price:             product.price,
-          payment_method:    payMethod,
-          payment_proof_url: upData.url,
-        }),
+        body: JSON.stringify(orderBody),
       });
       const data = await res.json() as { success?: boolean; orderId?: number; roomId?: string; error?: string };
 
@@ -384,8 +462,6 @@ export default function CheckoutClient() {
 
   if (success) return <SuccessScreen orderId={orderId} roomId={roomId} />;
 
-  const features = normalizeFeatures(product.features);
-
   /* ═══════════════ MAIN LAYOUT ═══════════════ */
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -430,13 +506,6 @@ export default function CheckoutClient() {
                 <div className="relative overflow-hidden" style={{ aspectRatio: "16/9" }}>
                   <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
-                  {product.category && (
-                    <div className="absolute left-4 top-4">
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-black/60 px-3 py-1 text-xs font-bold text-purple-200 backdrop-blur-sm">
-                        <Star className="h-2.5 w-2.5" /> {product.category}
-                      </span>
-                    </div>
-                  )}
                   <div className="absolute right-4 top-4">
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-black/60 px-3 py-1 text-xs font-bold text-emerald-300 backdrop-blur-sm">
                       <Zap className="h-2.5 w-2.5" /> Instant Delivery
@@ -454,18 +523,6 @@ export default function CheckoutClient() {
                 {product.description && (
                   <p className="mt-2 text-sm leading-relaxed text-zinc-400">{product.description}</p>
                 )}
-                {features.length > 0 && (
-                  <div className="mt-5 space-y-2.5">
-                    {features.map((f, i) => (
-                      <div key={i} className="flex items-center gap-2.5">
-                        <div className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full border border-emerald-500/20 bg-emerald-500/15">
-                          <CheckCircle className="h-3 w-3 text-emerald-400" />
-                        </div>
-                        <span className="text-sm text-zinc-300">{f}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
 
                 {/* Price */}
                 <div className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-purple-500/15 bg-purple-500/[0.07] px-5 py-4">
@@ -477,6 +534,11 @@ export default function CheckoutClient() {
                       </span>
                       <span className="text-sm font-bold text-purple-300">EGP</span>
                     </div>
+                    {payMethod === "usdt" && (
+                      <p className="mt-0.5 text-xs font-bold text-yellow-400 tabular-nums">
+                        ≈ {usdtAmount} USDT
+                      </p>
+                    )}
                   </div>
                   <div className="grid h-12 w-12 place-items-center rounded-2xl border border-purple-500/20 bg-purple-500/10 text-purple-300">
                     <Lock className="h-5 w-5" />
@@ -544,28 +606,35 @@ export default function CheckoutClient() {
                     transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                     className="px-7 py-7 space-y-6"
                   >
-                    {/* Payment Method */}
+                    {/* Payment Method selector */}
                     <section>
                       <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-zinc-600">
                         طريقة الدفع
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
-                        {PAYMENT_METHODS.map((m) => (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => setPayMethod(m.id as PaymentMethodId)}
-                            className={[
-                              "flex items-center justify-center gap-2 rounded-2xl border px-4 py-3.5 text-sm font-bold transition-all duration-200",
-                              payMethod === m.id
-                                ? "border-purple-500/50 bg-purple-500/15 text-white ring-1 ring-purple-500/20"
-                                : "border-white/[0.07] bg-zinc-900/60 text-zinc-400 hover:border-purple-500/25 hover:text-zinc-200",
-                            ].join(" ")}
-                          >
-                            <Smartphone className="h-4 w-4" />
-                            {m.labelAr}
-                          </button>
-                        ))}
+                      <div className={`grid gap-3 ${enabledMethods.length >= 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+                        {enabledMethods.map((m) => {
+                          const isUsdt = m.id === "usdt";
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => setPayMethod(m.id as PaymentMethodId)}
+                              className={[
+                                "flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-3 py-3 text-xs font-bold transition-all duration-200",
+                                payMethod === m.id
+                                  ? isUsdt
+                                    ? "border-yellow-500/50 bg-yellow-500/10 text-yellow-200 ring-1 ring-yellow-500/20"
+                                    : "border-purple-500/50 bg-purple-500/15 text-white ring-1 ring-purple-500/20"
+                                  : "border-white/[0.07] bg-zinc-900/60 text-zinc-400 hover:border-purple-500/25 hover:text-zinc-200",
+                              ].join(" ")}
+                            >
+                              {isUsdt
+                                ? <Wallet className="h-4 w-4" />
+                                : <Smartphone className="h-4 w-4" />}
+                              <span className="text-center leading-tight">{m.labelAr}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </section>
 
@@ -581,73 +650,148 @@ export default function CheckoutClient() {
                         <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-zinc-600">
                           تعليمات التحويل
                         </p>
-                        <div className="space-y-4 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-5">
-                          {payMethod === "vodafone" ? (
-                            <>
-                              <div className="flex items-center gap-3">
-                                <div className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl border border-red-500/25 bg-red-500/10 text-red-300">
-                                  <Smartphone className="h-5 w-5" />
-                                </div>
-                                <div>
-                                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600">
-                                    Vodafone Cash
-                                  </p>
+
+                        {/* ── Payment Account Display (data-driven, all methods) ── */}
+                        {assignedAccountLoading ? (
+                          <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.06] bg-zinc-900/40 py-8 text-zinc-600">
+                            <LoaderCircle className="h-4 w-4 animate-spin" />
+                            <span className="text-xs font-semibold">جاري تحميل بيانات الدفع…</span>
+                          </div>
+                        ) : !assignedAccount ? (
+                          <div className="flex items-center gap-3 rounded-2xl border border-red-500/25 bg-red-500/[0.06] px-4 py-4 text-sm text-red-300">
+                            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                            <span>لا توجد حسابات متاحة لهذه الطريقة حالياً. يرجى اختيار طريقة أخرى أو التواصل مع الدعم.</span>
+                          </div>
+                        ) : (
+                          <div className={`space-y-4 rounded-2xl border p-5 ${
+                            payMethod === "usdt"
+                              ? "border-yellow-500/20 bg-yellow-500/[0.05]"
+                              : "border-amber-500/20 bg-amber-500/[0.06]"
+                          }`}>
+                            {/* USDT network warning */}
+                            {payMethod === "usdt" && (
+                              <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5">
+                                <AlertTriangle className="h-4 w-4 flex-shrink-0 text-red-400" />
+                                <p className="text-xs font-bold text-red-300">
+                                  تأكد من الإرسال على شبكة <span className="text-white">BNB Smart Chain (BEP20)</span> فقط
+                                </p>
+                              </div>
+                            )}
+
+                            {/* USDT amount */}
+                            {payMethod === "usdt" && (
+                              <div className="rounded-xl border border-yellow-500/25 bg-yellow-500/10 px-4 py-3 text-center">
+                                <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600 mb-1">المبلغ المطلوب</p>
+                                <p className="text-3xl font-black tabular-nums text-yellow-300">
+                                  {usdtAmount} <span className="text-lg text-yellow-400/80">USDT</span>
+                                </p>
+                                <p className="mt-1 text-[11px] text-zinc-600">
+                                  {Number(product.price).toLocaleString()} EGP ÷ {usdtRate} + {usdtFeePct}% رسوم
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Account header */}
+                            <div className="flex items-center gap-3">
+                              <div className={`grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl border ${
+                                payMethod === "vodafone"
+                                  ? "border-red-500/25 bg-red-500/10 text-red-300"
+                                  : payMethod === "instapay"
+                                  ? "border-purple-500/25 bg-purple-500/10 text-purple-300"
+                                  : "border-yellow-500/25 bg-yellow-500/10 text-yellow-300"
+                              }`}>
+                                {payMethod === "usdt"
+                                  ? <Wallet className="h-5 w-5" />
+                                  : payMethod === "instapay"
+                                  ? <Camera className="h-5 w-5" />
+                                  : <Smartphone className="h-5 w-5" />}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600">
+                                  {payMethod === "vodafone" ? "Vodafone Cash" : payMethod === "instapay" ? "InstaPay" : "USDT (BEP20)"}
+                                  {assignedAccount.name ? ` — ${assignedAccount.name}` : ""}
+                                </p>
+                                {/* Value display */}
+                                {payMethod === "vodafone" && (
                                   <p className="text-xl font-black tabular-nums tracking-wider text-white">
-                                    {PAYMENT.vodafone.number}
+                                    {assignedAccount.value}
                                   </p>
-                                </div>
-                              </div>
-                              <div className="rounded-xl border border-white/[0.06] bg-zinc-950/40 px-4 py-3 text-sm leading-relaxed text-zinc-300">
-                                <span className="font-bold text-amber-300">خطوات الدفع:</span><br />
-                                ١. افتح تطبيق فودافون كاش<br />
-                                ٢. اضغط "تحويل أموال"<br />
-                                ٣. حوّل{" "}
-                                <span className="font-bold text-white">
-                                  {Number(product.price).toLocaleString()} EGP
-                                </span>{" "}
-                                للرقم أعلاه<br />
-                                ٤. خذ سكرين شوت للإيصال ← ثم اضغط التالي
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div className="flex items-center gap-3">
-                                <div className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl border border-purple-500/25 bg-purple-500/10 text-purple-300">
-                                  <Camera className="h-5 w-5" />
-                                </div>
-                                <div>
-                                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600">
-                                    InstaPay
+                                )}
+                                {payMethod === "instapay" && (
+                                  <p className="text-lg font-black text-white">
+                                    @{assignedAccount.value}
                                   </p>
-                                  {PAYMENT.instapay.handle && (
-                                    <p className="text-lg font-black text-white">
-                                      @{PAYMENT.instapay.handle}
-                                    </p>
-                                  )}
-                                </div>
+                                )}
+                                {payMethod === "usdt" && (
+                                  <p className="break-all text-xs font-mono text-zinc-300 mt-0.5">
+                                    {assignedAccount.value}
+                                  </p>
+                                )}
                               </div>
-                              {PAYMENT.instapay.qrImage && (
-                                <div className="flex justify-center">
+                              {/* Copy button for USDT */}
+                              {payMethod === "usdt" && (
+                                <button
+                                  type="button"
+                                  onClick={copyWallet}
+                                  className={[
+                                    "flex-shrink-0 grid h-9 w-9 place-items-center rounded-xl border transition-all duration-200",
+                                    copied
+                                      ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+                                      : "border-white/[0.08] bg-zinc-800/60 text-zinc-500 hover:border-yellow-500/30 hover:text-yellow-300",
+                                  ].join(" ")}
+                                  title="نسخ العنوان"
+                                >
+                                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                                </button>
+                              )}
+                            </div>
+
+                            {copied && payMethod === "usdt" && (
+                              <p className="text-[10px] font-bold text-emerald-400">✓ تم النسخ!</p>
+                            )}
+
+                            {/* QR code */}
+                            {assignedAccount.qr_image && (
+                              <div className="flex justify-center">
+                                <div className="text-center">
+                                  <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-zinc-600">QR Code</p>
                                   <img
-                                    src={PAYMENT.instapay.qrImage}
-                                    alt="InstaPay QR"
-                                    className="h-40 w-40 rounded-2xl border border-white/[0.08] bg-white object-contain p-2"
+                                    src={assignedAccount.qr_image}
+                                    alt="QR"
+                                    className={`h-40 w-40 rounded-2xl border bg-white object-contain p-2 ${
+                                      payMethod === "usdt" ? "border-yellow-500/20" : "border-white/[0.08]"
+                                    }`}
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                                   />
                                 </div>
-                              )}
-                              <div className="rounded-xl border border-white/[0.06] bg-zinc-950/40 px-4 py-3 text-sm leading-relaxed text-zinc-300">
+                              </div>
+                            )}
+
+                            {/* Payment instructions */}
+                            <div className="rounded-xl border border-white/[0.06] bg-zinc-950/40 px-4 py-3 text-sm leading-relaxed text-zinc-300">
+                              {payMethod === "vodafone" && (<>
+                                <span className="font-bold text-amber-300">خطوات الدفع:</span><br />
+                                ١. افتح تطبيق فودافون كاش<br />
+                                ٢. اضغط "تحويل أموال"<br />
+                                ٣. حوّل <span className="font-bold text-white">{Number(product.price).toLocaleString()} EGP</span> للرقم أعلاه<br />
+                                ٤. خذ سكرين شوت للإيصال ← ثم اضغط التالي
+                              </>)}
+                              {payMethod === "instapay" && (<>
                                 <span className="font-bold text-amber-300">خطوات الدفع:</span><br />
                                 ١. افتح تطبيق InstaPay أو بنكك<br />
-                                ٢. حوّل{" "}
-                                <span className="font-bold text-white">
-                                  {Number(product.price).toLocaleString()} EGP
-                                </span><br />
+                                ٢. حوّل <span className="font-bold text-white">{Number(product.price).toLocaleString()} EGP</span><br />
                                 ٣. خذ سكرين شوت للإيصال ← ثم اضغط التالي
-                              </div>
-                            </>
-                          )}
-                        </div>
+                              </>)}
+                              {payMethod === "usdt" && (<>
+                                <span className="font-bold text-yellow-300">خطوات الدفع:</span><br />
+                                ١. افتح محفظتك (Trust Wallet / MetaMask / Binance…)<br />
+                                ٢. اختر شبكة <span className="font-bold text-white">BNB Smart Chain</span><br />
+                                ٣. أرسل <span className="font-bold text-yellow-300">{usdtAmount} USDT</span> للعنوان أعلاه<br />
+                                ٤. خذ سكرين شوت للمعاملة ← ثم اضغط التالي
+                              </>)}
+                            </div>
+                          </div>
+                        )}
                       </motion.section>
                     </AnimatePresence>
 
@@ -726,15 +870,36 @@ export default function CheckoutClient() {
 
                     {/* Payment reminder chip */}
                     <div className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-zinc-950/50 px-4 py-3">
-                      <div className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-xl border border-purple-500/20 bg-purple-500/10 text-purple-300">
-                        <Smartphone className="h-4 w-4" />
+                      <div className={`grid h-8 w-8 flex-shrink-0 place-items-center rounded-xl border text-white ${
+                        payMethod === "usdt"
+                          ? "border-yellow-500/20 bg-yellow-500/10 text-yellow-300"
+                          : "border-purple-500/20 bg-purple-500/10 text-purple-300"
+                      }`}>
+                        {payMethod === "usdt"
+                          ? <Wallet className="h-4 w-4" />
+                          : payMethod === "instapay"
+                          ? <Camera className="h-4 w-4" />
+                          : <Smartphone className="h-4 w-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600">طريقة الدفع المختارة</p>
-                        <p className="text-sm font-bold text-white">
-                          {payMethod === "vodafone" ? "فودافون كاش" : "InstaPay"}
-                          {" — "}
-                          <span className="tabular-nums text-purple-300">{Number(product.price).toLocaleString()} EGP</span>
+                        <p className="truncate text-sm font-bold text-white">
+                          {payMethod === "vodafone" ? "فودافون كاش"
+                            : payMethod === "instapay" ? "InstaPay"
+                            : "USDT (BEP20)"}
+                          {assignedAccount && (
+                            <span className="ml-1.5 font-mono text-zinc-400">
+                              {payMethod === "instapay" ? "@" : ""}
+                              {assignedAccount.value.length > 20
+                                ? `${assignedAccount.value.slice(0, 12)}…`
+                                : assignedAccount.value}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs tabular-nums text-zinc-500">
+                          {payMethod === "usdt"
+                            ? <span className="text-yellow-400">{usdtAmount} USDT</span>
+                            : <span className="text-purple-300">{Number(product.price).toLocaleString()} EGP</span>}
                         </p>
                       </div>
                       <button
@@ -750,7 +915,7 @@ export default function CheckoutClient() {
                     <section>
                       <div className="mb-3 flex items-center justify-between">
                         <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                          صورة إيصال التحويل
+                          {payMethod === "usdt" ? "سكرين شوت المعاملة" : "صورة إيصال التحويل"}
                         </p>
                         <span className="text-[10px] font-bold text-red-400">* مطلوبة</span>
                       </div>
@@ -869,11 +1034,22 @@ export default function CheckoutClient() {
                           {Number(product.price).toLocaleString()} EGP
                         </span>
                       </div>
+                      {payMethod === "usdt" && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-zinc-400">USDT المطلوب</span>
+                          <span className="flex-shrink-0 font-bold tabular-nums text-yellow-300">
+                            {usdtAmount} USDT
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between border-t border-white/[0.05] pt-2.5">
                         <span className="text-sm font-black text-white">الإجمالي</span>
                         <span className="text-lg font-black tabular-nums text-white">
-                          {Number(product.price).toLocaleString()}
-                          <span className="ml-1 text-xs font-bold text-purple-300">EGP</span>
+                          {payMethod === "usdt" ? (
+                            <><span className="text-yellow-300">{usdtAmount}</span><span className="ml-1 text-xs font-bold text-yellow-400/70">USDT</span></>
+                          ) : (
+                            <>{Number(product.price).toLocaleString()}<span className="ml-1 text-xs font-bold text-purple-300">EGP</span></>
+                          )}
                         </span>
                       </div>
                     </div>

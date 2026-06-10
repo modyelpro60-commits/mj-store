@@ -24,6 +24,7 @@ import { useCart } from "../cart/CartProvider";
 import ConfirmModal from "../ConfirmModal";
 import { MJMark } from "../brand/MJLogo";
 import NotificationBell from "../notifications/NotificationBell";
+import UserAvatar from "../ui/UserAvatar";
 
 /* ── Config ─────────────────────────────────────────────────────── */
 
@@ -120,7 +121,6 @@ export default function CommandBar() {
   const isLoggedIn  = !!role && !isLoading;
 
   const fullName    = profile?.full_name || profile?.email || "User";
-  const initials    = fullName.split(" ").map((s) => s[0]).join("").toUpperCase().slice(0, 2);
   const currentLang = LANG_OPTIONS.find((o) => o.value === language) ?? LANG_OPTIONS[0];
 
   /* ── Scroll detection ───────────────────────────────────────── */
@@ -347,15 +347,8 @@ export default function CommandBar() {
                         whileHover={{ borderColor: "rgba(168,85,247,0.28)" }}
                         className="flex h-9 items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-2.5 pr-3 text-[13px] font-medium text-white/65 transition-all duration-200 hover:bg-purple-500/[0.06]"
                       >
-                        {/* Avatar + online dot */}
-                        <div className="relative shrink-0">
-                          <div className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-fuchsia-500 text-[9px] font-black text-white shadow-[0_0_12px_rgba(168,85,247,0.25)]">
-                            {initials}
-                          </div>
-                          <span className="absolute -bottom-px -right-px flex h-[9px] w-[9px] items-center justify-center rounded-full border-[1.5px] border-[rgba(8,8,18,0.95)] bg-[#08081A]">
-                            <OnlineDot />
-                          </span>
-                        </div>
+                        {/* Avatar */}
+                        <UserAvatar role={role} verified={profile?.verified} size="sm" />
                         <span className="hidden lg:block max-w-[84px] truncate">{fullName}</span>
                         <motion.span animate={{ rotate: accountOpen ? 180 : 0 }} transition={{ duration: 0.18 }}>
                           <ChevronDown className="h-3 w-3 text-white/22" />
@@ -377,14 +370,7 @@ export default function CommandBar() {
                               <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-purple-500/[0.08] to-transparent pointer-events-none" />
                               <div className="relative flex items-center gap-3">
                                 {/* Avatar */}
-                                <div className="relative shrink-0">
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-fuchsia-500 text-[13px] font-black text-white shadow-[0_0_22px_rgba(168,85,247,0.35)]">
-                                    {initials}
-                                  </div>
-                                  <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-[2px] border-[#09091A] bg-[#09091A]">
-                                    <OnlineDot />
-                                  </span>
-                                </div>
+                                <UserAvatar role={role} verified={profile?.verified} size="lg" />
                                 {/* Info */}
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center justify-between gap-2">
@@ -521,14 +507,7 @@ export default function CommandBar() {
                     <>
                       {/* User info */}
                       <div className="flex items-center gap-3 px-4 py-3">
-                        <div className="relative shrink-0">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-fuchsia-500 text-[11px] font-black text-white shadow-[0_0_16px_rgba(168,85,247,0.30)]">
-                            {initials}
-                          </div>
-                          <span className="absolute -bottom-px -right-px flex h-3.5 w-3.5 items-center justify-center rounded-full border-[2px] border-[#08081A] bg-[#08081A]">
-                            <OnlineDot />
-                          </span>
-                        </div>
+                        <UserAvatar role={role} verified={profile?.verified} size="md" />
                         <div className="min-w-0">
                           <p className="text-[13px] font-bold text-white/80 truncate">{fullName}</p>
                           {profile?.email && (

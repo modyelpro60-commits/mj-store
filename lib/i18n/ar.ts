@@ -268,6 +268,7 @@ export const ar = {
   "admin.nav.logs": "السجل",
   "admin.nav.users": "المستخدمون",
   "admin.nav.analytics": "التحليلات",
+  "admin.nav.settings": "طرق الدفع",
   "admin.role.admin": "مدير",
   "admin.role.moderator": "مشرف",
 

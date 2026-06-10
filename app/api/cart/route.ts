@@ -49,7 +49,7 @@ export async function GET(req: Request) {
   if (productIds.length > 0) {
     const { data: products } = await supabase
       .from("products")
-      .select("id, name, price, image, category")
+      .select("id, name, price, original_price, image, category")
       .in("id", productIds);
     (products ?? []).forEach((p: any) => productMap.set(p.id, p));
   }
@@ -58,17 +58,19 @@ export async function GET(req: Request) {
     .map((r) => {
       const p = productMap.get(r.product_id);
       if (!p) return null; // product was deleted
-      const price = toNum(p.price);
-      const quantity = toNum(r.quantity);
+      const price         = toNum(p.price);
+      const originalPrice = p.original_price ? toNum(p.original_price) : null;
+      const quantity      = toNum(r.quantity);
       return {
-        id:        r.id,
-        productId: r.product_id,
-        name:      p.name as string,
-        image:     (p.image as string) ?? null,
-        category:  (p.category as string) ?? null,
+        id:             r.id,
+        productId:      r.product_id,
+        name:           p.name as string,
+        image:          (p.image as string) ?? null,
+        category:       (p.category as string) ?? null,
         price,
+        original_price: originalPrice,
         quantity,
-        lineTotal: price * quantity,
+        lineTotal:      price * quantity,
       };
     })
     .filter(Boolean) as Array<{ price: number; quantity: number; lineTotal: number }>;

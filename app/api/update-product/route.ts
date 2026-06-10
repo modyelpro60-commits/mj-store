@@ -16,20 +16,21 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { id, name, description, price, original_price, image, status } = body;
+    const { id, name, description, short_description, price, original_price, image, is_active, features } = body;
 
     console.log("[update-product] Starting update for product ID:", id);
-    console.log("[update-product] Payload:", JSON.stringify({ name, description, price, original_price, image, status }));
+    console.log("[update-product] Payload:", JSON.stringify({ name, description, price, original_price, image, is_active }));
 
     const { error: updateError } = await supabase
       .from("products")
       .update({
         name,
         description,
+        short_description: short_description ?? null,
         price,
-        original_price: original_price ?? null,
+        original_price:    original_price ?? null,
         image,
-        status: status ?? "available",
+        is_active:         typeof is_active === "boolean" ? is_active : true,
       })
       .eq("id", id);
 
@@ -41,6 +42,27 @@ export async function POST(req: Request) {
       });
     }
     console.log("[update-product] Products table updated successfully.");
+
+    // Sync features: delete existing, re-insert new ones
+    const featureList: string[] = Array.isArray(features)
+      ? (features as unknown[]).filter((f): f is string => typeof f === "string" && f.trim().length > 0)
+      : [];
+
+    const { error: delFeatErr } = await supabase
+      .from("product_features")
+      .delete()
+      .eq("product_id", id);
+    if (delFeatErr) console.warn("[update-product] Failed to delete old features:", delFeatErr.message);
+
+    if (featureList.length > 0) {
+      const rows = featureList.map((name: string, sort_order: number) => ({
+        product_id: id,
+        name: name.trim(),
+        sort_order,
+      }));
+      const { error: insFeatErr } = await supabase.from("product_features").insert(rows);
+      if (insFeatErr) console.warn("[update-product] Failed to insert features:", insFeatErr.message);
+    }
 
     await logActivity({
       actorId:     ctx.userId,

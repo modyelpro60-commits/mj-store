@@ -9,15 +9,22 @@ import HomeFeaturedProductsHeading from "../components/storefront/HomeFeaturedPr
 import HomeLiveStats from "../components/storefront/home/HomeLiveStats";
 import PageAmbient from "../components/storefront/PageAmbient";
 
+// Actual DB schema: id, name, description, image, price, sales_count, category,
+//   badge, features, full_description, is_active, created_at
+// Plus migration-added: original_price NUMERIC NULL, short_description TEXT NULL
 type Product = {
   id: number | string;
   name: string;
   description: string;
+  short_description?: string | null;
   price: number | string;
-  image: string;
   original_price?: number | string | null;
-  status?: string;
+  image: string;
+  features?: string | string[] | null;
   sales_count?: number | string | null;
+  is_active?: boolean;
+  category?: string | null;
+  badge?: string | null;
 };
 
 function toNumber(value: unknown): number {
@@ -90,13 +97,13 @@ export default async function Home() {
         {/* Featured Products — compact spacing */}
         <section id="best-sellers" className="max-w-[1600px] mx-auto px-8 pt-4 pb-12">
           <HomeFeaturedProductsHeading />
-          <FeaturedProductsGrid products={featured as any} variant="featured" />
+          <FeaturedProductsGrid products={featured} variant="featured" />
         </section>
 
         {/* Products Grid */}
         <section id="products" className="max-w-[1600px] mx-auto px-8 pb-28">
           <HomeProductsHeading />
-          <FeaturedProductsGrid products={list as any} variant="all" />
+          <FeaturedProductsGrid products={list} variant="all" />
         </section>
 
         <HomeFooter />

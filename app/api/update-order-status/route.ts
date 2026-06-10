@@ -129,6 +129,34 @@ export async function POST(req: Request) {
       });
     }
   }
+
+  // — Auto-verify user on first completed order ———————————————————
+  if (isBecomingCompleted && orderUserId) {
+    try {
+      const { data: userProf } = await supabase
+        .from("profiles")
+        .select("verified")
+        .eq("id", orderUserId)
+        .single();
+
+      if (userProf && !userProf.verified) {
+        await supabase
+          .from("profiles")
+          .update({ verified: true })
+          .eq("id", orderUserId);
+
+        void createNotification({
+          userId:  orderUserId,
+          type:    "account_verified",
+          title:   "🎉 تم توثيق حسابك!",
+          message: "تم توثيق حسابك بنجاح بعد إكمال أول طلب.",
+          link:    "/account",
+        });
+      }
+    } catch (e) {
+      console.warn("[update-order-status] auto-verify failed:", e);
+    }
+  }
   // ———————————————————————————————————————————————————————————————————
 
   return NextResponse.json({ success: true });

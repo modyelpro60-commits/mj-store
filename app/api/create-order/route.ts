@@ -52,25 +52,89 @@ export async function POST(req: Request) {
   const productName = typeof body.product_name === "string" ? body.product_name.trim() : "";
   const price       = body.price;
 
+  // USDT-specific metadata (only present for usdt payment method)
+  const usdtAmount  = typeof body.usdt_amount  === "number" ? body.usdt_amount  : null;
+  const usdtRate    = typeof body.usdt_rate    === "number" ? body.usdt_rate    : null;
+  const usdtFeePct  = typeof body.usdt_fee_pct === "number" ? body.usdt_fee_pct : null;
+
+  // Payment account assignment (from multi-account Round Robin system)
+  const suggestedAccountId =
+    typeof body.payment_account_id === "string" ? body.payment_account_id.trim() : null;
+
   /* ── Generate order ref ────────────────────────────────────────── */
   const orderRef = generateOrderRef();
   const db       = svc();
   const now      = new Date().toISOString();
 
+  /* ── Resolve payment account (Round Robin) ─────────────────────── */
+  let resolvedAccountId: string | null = null;
+  let accountSnapshot: Record<string, unknown> | null = null;
+
+  if (paymentMethod && ["vodafone", "instapay", "usdt"].includes(paymentMethod)) {
+    try {
+      // 1. Try the account the user was shown at checkout (suggested)
+      if (suggestedAccountId) {
+        const { data: suggested } = await db
+          .from("payment_accounts")
+          .select("id, method, name, value, qr_image, is_active")
+          .eq("id", suggestedAccountId)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        if (suggested) {
+          resolvedAccountId = suggested.id as string;
+          accountSnapshot = {
+            id: suggested.id, method: suggested.method,
+            name: suggested.name, value: suggested.value,
+            qr_image: suggested.qr_image,
+          };
+        }
+      }
+
+      // 2. If suggested not available, pick next via Round Robin
+      if (!resolvedAccountId) {
+        const { data: rrAccount } = await db
+          .from("payment_accounts")
+          .select("id, method, name, value, qr_image")
+          .eq("method", paymentMethod)
+          .eq("is_active", true)
+          .order("last_used_at", { ascending: true, nullsFirst: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (rrAccount) {
+          resolvedAccountId = rrAccount.id as string;
+          accountSnapshot = {
+            id: rrAccount.id, method: rrAccount.method,
+            name: rrAccount.name, value: rrAccount.value,
+            qr_image: rrAccount.qr_image,
+          };
+        }
+      }
+    } catch (accErr) {
+      console.warn("[create-order] account resolution failed:", accErr);
+    }
+  }
+
   /* ── Insert order ──────────────────────────────────────────────── */
   const { data: newOrder, error: orderErr } = await db
     .from("orders")
     .insert({
-      user_id:           userId,
-      customer_name:     customerName,
-      customer_phone:    customerPhone,
-      product_id:        productId,
-      product_name:      productName,
+      user_id:                   userId,
+      customer_name:             customerName,
+      customer_phone:            customerPhone,
+      product_id:                productId,
+      product_name:              productName,
       price,
-      status:            "Awaiting Payment",
-      order_ref:         orderRef,
-      payment_method:    paymentMethod,
-      payment_proof_url: paymentProofUrl,
+      status:                    "Awaiting Payment",
+      order_ref:                 orderRef,
+      payment_method:            paymentMethod,
+      payment_proof_url:         paymentProofUrl,
+      usdt_amount:               usdtAmount,
+      usdt_rate:                 usdtRate,
+      usdt_fee_pct:              usdtFeePct,
+      payment_account_id:        resolvedAccountId,
+      payment_account_snapshot:  accountSnapshot,
     })
     .select("id")
     .single();
@@ -80,6 +144,15 @@ export async function POST(req: Request) {
   }
 
   const orderId = newOrder.id as number;
+
+  /* ── Update account usage stats (non-blocking, fire-and-forget) ── */
+  if (resolvedAccountId) {
+    void (async () => {
+      const { error: usageErr } = await db
+        .rpc("increment_account_usage", { account_id: resolvedAccountId });
+      if (usageErr) console.warn("[create-order] usage increment failed:", usageErr.message);
+    })();
+  }
 
   /* ── Create order chat room ────────────────────────────────────── */
   let roomId: string | null = null;

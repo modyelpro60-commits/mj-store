@@ -3,6 +3,7 @@
 import { ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../components/auth/AuthProvider";
+import { LoaderCircle } from "lucide-react";
 
 type AllowedRole = "admin" | "moderator";
 
@@ -70,6 +71,38 @@ export default function AdminGuard({
       </main>
     );
   }
+
+  return <>{children}</>;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ *  AdminOnlyGuard
+ *  Restricts a page to admin role only.
+ *  Moderators (and anyone else) are immediately redirected to /admin/orders.
+ *  Use this as a wrapper inside each admin-only page component.
+ * ───────────────────────────────────────────────────────────────────── */
+export function AdminOnlyGuard({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const { role, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (role && role !== "admin") {
+      router.replace("/admin/orders");
+    }
+  }, [isLoading, role, router]);
+
+  /* Still determining role — show spinner to avoid flash of restricted content */
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <LoaderCircle className="h-6 w-6 animate-spin text-purple-400" />
+      </div>
+    );
+  }
+
+  /* Non-admin: render nothing while the redirect fires */
+  if (role !== "admin") return null;
 
   return <>{children}</>;
 }

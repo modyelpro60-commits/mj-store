@@ -18,7 +18,9 @@ export type NotificationType =
   | "new_order"
   | "payment_confirmed"
   | "payment_rejected"
-  | "order_delivered";
+  | "order_delivered"
+  // account milestones
+  | "account_verified";
 
 interface NotificationInput {
   userId: string;

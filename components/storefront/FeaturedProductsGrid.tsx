@@ -9,10 +9,13 @@ type FeaturedProduct = {
   id: number | string;
   name: string;
   description: string;
-  price: number;
+  short_description?: string | null;
+  price: number | string;
+  original_price?: number | string | null;
   image: string;
   features?: string | string[] | null;
-  sales_count?: number | null;
+  sales_count?: number | string | null;
+  is_active?: boolean;
 };
 
 type FeaturedProductsGridProps = {
@@ -64,7 +67,7 @@ export default function FeaturedProductsGrid({
               variants={itemVariants}
               custom={index * 0.08}
             >
-              <FeaturedProductsSpotlight product={product as any} />
+              <FeaturedProductsSpotlight product={product} />
             </motion.div>
           );
         }

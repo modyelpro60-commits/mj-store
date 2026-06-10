@@ -270,6 +270,7 @@ export const en = {
   "admin.nav.logs": "Activity Log",
   "admin.nav.users": "Users",
   "admin.nav.analytics": "Analytics",
+  "admin.nav.settings": "Payment Methods",
   "admin.role.admin": "Admin",
   "admin.role.moderator": "Moderator",
 

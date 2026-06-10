@@ -23,6 +23,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
+import UserAvatar from "../ui/UserAvatar";
 
 /* ═══════════════════════════════ Types ═══════════════════════════════════ */
 type Message = {
@@ -96,25 +97,6 @@ function fmtTime(iso: string) {
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("ar-EG", { month: "short", day: "numeric" });
 }
-function initial(name: string) {
-  return name?.trim().charAt(0).toUpperCase() ?? "?";
-}
-function Avatar({ name, role, size = "sm" }: { name: string; role?: string | null; size?: "sm" | "md" }) {
-  const isStaffRole = role && ROLE_META[role];
-  const dim = size === "md" ? "h-9 w-9 text-sm rounded-xl" : "h-7 w-7 text-[11px] rounded-lg";
-  return (
-    <div
-      className={`${dim} shrink-0 grid place-items-center font-black border bg-gradient-to-br ${
-        isStaffRole
-          ? "from-amber-600/25 to-orange-600/15 border-amber-500/25 text-amber-200"
-          : "from-purple-600/25 to-fuchsia-600/15 border-purple-500/25 text-purple-200"
-      }`}
-    >
-      {initial(name)}
-    </div>
-  );
-}
-
 /* ═══════════════════════════════ Component ═══════════════════════════════ */
 export default function ChatWorkspace({
   variant = "floating",
@@ -125,7 +107,7 @@ export default function ChatWorkspace({
   onRequestClose?: () => void;
   initialRoomId?: string | null;
 }) {
-  const { accessToken, role } = useAuth();
+  const { accessToken, role, profile } = useAuth();
   const isStaff = role === "admin" || role === "moderator" || role === "helper";
   const isAdmin = role === "admin";
 
@@ -611,7 +593,7 @@ export default function ChatWorkspace({
                       ${activeRoomId === room.id ? "bg-purple-500/[0.10] shadow-[inset_2px_0_0_0_rgb(168,85,247)]" : ""}`}
                   >
                     <div className="relative">
-                      <Avatar name={room.userName} size="md" />
+                      <UserAvatar role={null} size="md" />
                       {room.unread && (
                         <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#07070F] bg-red-500" />
                       )}
@@ -819,7 +801,11 @@ export default function ChatWorkspace({
                     ) : (
                     <div key={msg.id} className={`flex gap-2 ${msg.isOwn ? "flex-row-reverse" : "flex-row"}`}>
                       <div className="mt-5 shrink-0">
-                        <Avatar name={msg.senderName} role={msg.senderRole} />
+                        <UserAvatar
+                          role={msg.senderRole}
+                          verified={msg.isOwn ? profile?.verified : undefined}
+                          size="sm"
+                        />
                       </div>
                       <div className={`flex flex-col gap-0.5 max-w-[75%] ${msg.isOwn ? "items-end" : "items-start"}`}>
                         <div className={`flex items-center gap-1.5 ${msg.isOwn ? "flex-row-reverse" : "flex-row"}`}>

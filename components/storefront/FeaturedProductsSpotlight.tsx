@@ -10,10 +10,13 @@ type Product = {
   id: number | string;
   name: string;
   description: string;
+  short_description?: string | null;
   price: number | string;
+  original_price?: number | string | null;
   image: string;
   features?: string | string[] | null;
   sales_count?: number | string | null;
+  is_active?: boolean;
 };
 
 function toNumber(value: unknown): number {
@@ -25,22 +28,27 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
+function calcDiscount(price: number, orig: number): number {
+  if (orig > price && price > 0) return Math.round((1 - price / orig) * 100);
+  return 0;
+}
 
 export default function FeaturedProductsSpotlight({ product }: { product: Product }) {
   const prefersReducedMotion = useReducedMotion();
   const { translate } = useLanguage();
-  const price = toNumber(product.price);
-  const features = normalizeProductFeatures(product);
+
+  const price       = toNumber(product.price);
+  const origPrice   = toNumber(product.original_price);
+  const discountPct = calcDiscount(price, origPrice);
+  const savings     = origPrice - price;
+  const features    = normalizeProductFeatures(product);
+  const salesCount  = toNumber(product.sales_count);
 
   // Avoid duplicate metadata: badges (top benefits) must not repeat in the Features grid.
   const badgeFeatures = features.slice(0, 2);
-  const featureCards = features.slice(2, 8);
+  const featureCards  = features.slice(2, 8);
 
   const buyHref = `/checkout?product=${product.id}`;
-  const salesCount = toNumber(product.sales_count);
-
-  const glowPurple =
-    "0 0 60px rgba(168,85,247,0.22), 0 0 26px rgba(168,85,247,0.12)";
 
   return (
     <motion.div
@@ -50,7 +58,7 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="h-full relative"
     >
-      {/* Ambient glow — breathes continuously, always visible */}
+      {/* Ambient glow — breathes continuously */}
       <motion.div
         aria-hidden
         className="pointer-events-none absolute -inset-6 rounded-[3.5rem] bg-purple-600/[0.08] blur-[60px]"
@@ -59,14 +67,10 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
       />
 
       <motion.div
-        whileHover={
-          prefersReducedMotion
-            ? undefined
-            : {
-                y: -8,
-                boxShadow: `0 0 0 1px rgba(168,85,247,0.22), 0 0 80px rgba(168,85,247,0.32), 0 50px 160px rgba(0,0,0,0.8)`,
-              }
-        }
+        whileHover={prefersReducedMotion ? undefined : {
+          y: -8,
+          boxShadow: `0 0 0 1px rgba(168,85,247,0.22), 0 0 80px rgba(168,85,247,0.32), 0 50px 160px rgba(0,0,0,0.8)`,
+        }}
         transition={{ duration: 0.28, ease: "easeOut" }}
         className="relative overflow-hidden rounded-[2.6rem] border border-purple-500/25 bg-gradient-to-br from-zinc-900/50 to-black/60 backdrop-blur-xl shadow-[0 40px 140px rgba(0,0,0,0.7)]"
       >
@@ -88,9 +92,10 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
           />
         </div>
 
-        {/* Content grid inside the spotlight (no page layout changes) */}
+        {/* Content grid */}
         <div className="relative grid gap-8 p-7 md:p-8 lg:gap-10 lg:grid-cols-[0.9fr_1.1fr]">
-          {/* Image */}
+
+          {/* ── Image column ── */}
           <motion.div
             style={{ transformStyle: "preserve-3d" }}
             whileHover={prefersReducedMotion ? undefined : { rotateY: 6, rotateX: -3 }}
@@ -102,8 +107,8 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
               className="relative overflow-hidden rounded-[2.1rem] border border-white/10 bg-black/25"
             >
               <div aria-hidden className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_30%_0%,rgba(168,85,247,0.28),transparent_55%)]" />
-              {/* Glass reflection — top-left highlight on the image frame */}
               <div aria-hidden className="absolute inset-0 pointer-events-none rounded-[2.1rem] z-10 bg-[linear-gradient(135deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0.012)_25%,transparent_45%)]" />
+
               <motion.img
                 src={product.image}
                 alt={product.name}
@@ -113,18 +118,21 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
                 transition={{ duration: 0.35, ease: "easeOut" }}
                 whileHover={prefersReducedMotion ? undefined : { scale: 1.04 }}
               />
-              <motion.div 
+
+              {/* FEATURED badge */}
+              <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.3, duration: 0.4, ease: "backOut" }}
                 className="absolute top-5 left-5 inline-flex items-center gap-2 rounded-full border border-purple-400/40 bg-gradient-to-r from-purple-600/30 to-fuchsia-600/20 px-5 py-2.5 backdrop-blur-sm shadow-[0_0_30px_rgba(168,85,247,0.3)]"
               >
                 <Sparkles className="h-5 w-5 text-purple-200 animate-pulse" />
-                  <span className="text-sm font-black text-purple-100">{translate("home.featured.title").toUpperCase()}</span>
+                <span className="text-sm font-black text-purple-100">{translate("home.featured.title").toUpperCase()}</span>
               </motion.div>
-              
+
+              {/* Sales badge */}
               {salesCount > 0 && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.4, duration: 0.4, ease: "backOut" }}
@@ -134,8 +142,21 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
                   <span className="text-xl font-black text-fuchsia-100 leading-none">{salesCount}</span>
                 </motion.div>
               )}
-              
-              <motion.div 
+
+              {/* Discount badge on image (bottom right) */}
+              {discountPct > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.5, duration: 0.4, ease: "backOut" }}
+                  className="absolute bottom-5 right-5 rounded-2xl border border-red-500/35 bg-red-500/20 backdrop-blur-xl px-4 py-2.5 text-center"
+                >
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-red-400/60 mb-0.5">خصم</p>
+                  <p className="text-xl font-black text-red-300 leading-none">{discountPct}%</p>
+                </motion.div>
+              )}
+
+              <motion.div
                 aria-hidden
                 className="absolute inset-0 pointer-events-none bg-gradient-to-br from-purple-500/0 via-transparent to-fuchsia-500/0 opacity-0 hover:opacity-30 transition-opacity duration-500"
                 animate={{ opacity: [0, 0.1, 0] }}
@@ -143,12 +164,11 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
               />
             </motion.div>
 
-            {/* Product benefits come only from product.features (no hardcoded badges) */}
+            {/* Feature badges */}
             {badgeFeatures.length ? (
               <div className="mt-7 flex flex-wrap gap-3">
                 {badgeFeatures.map((f, i) => (
-                  <motion.span
-                    key={`${f}-${i}`}
+                  <motion.span key={`${f}-${i}`}
                     initial={{ opacity: 0, x: -10 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true, margin: "-60px" }}
@@ -163,11 +183,19 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
             ) : null}
           </motion.div>
 
-          {/* Text */}
+          {/* ── Text column ── */}
           <div className="flex flex-col justify-between gap-10">
             <div>
               <h2 className="text-5xl md:text-6xl font-black leading-[0.95] tracking-tight">{product.name}</h2>
-              <p className="mt-5 text-zinc-300 text-base md:text-lg leading-relaxed font-medium">
+
+              {/* Short description (tagline) — shown first if available */}
+              {product.short_description && (
+                <p className="mt-3 text-purple-300/80 text-base font-semibold leading-snug">
+                  {product.short_description}
+                </p>
+              )}
+
+              <p className="mt-4 text-zinc-300 text-base md:text-lg leading-relaxed font-medium">
                 {product.description}
               </p>
 
@@ -176,8 +204,7 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
                   <div className="text-sm font-black tracking-widest text-zinc-300 mb-5 uppercase">Features</div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     {featureCards.slice(0, 6).map((f, i) => (
-                      <motion.div
-                        key={`${f}-${i}`}
+                      <motion.div key={`${f}-${i}`}
                         initial={{ opacity: 0, y: 12 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true, margin: "-60px" }}
@@ -193,20 +220,47 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
               ) : null}
             </div>
 
+            {/* ── Price + CTA row ── */}
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-8">
+
+              {/* Price block */}
               <div>
                 <div className="text-xs uppercase tracking-[0.3em] font-black text-zinc-400 mb-3">Investment</div>
-                <motion.div
-                  whileHover={prefersReducedMotion ? undefined : { y: -2, textShadow: "0 0 30px rgba(168,85,247,0.4)" }}
-                  transition={{ duration: 0.28, ease: "easeOut" }}
-                  className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-fuchsia-400 drop-shadow-[0_0_25px_rgba(168,85,247,0.35)]"
-                >
-                  {price} EGP
-                </motion.div>
+
+                {/* Original price (strikethrough) */}
+                {discountPct > 0 && (
+                  <p className="text-base font-bold text-zinc-600 line-through tabular-nums leading-none mb-1.5">
+                    {origPrice.toLocaleString("en")} EGP
+                  </p>
+                )}
+
+                {/* Current price + OFF badge */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <motion.div
+                    whileHover={prefersReducedMotion ? undefined : { y: -2, textShadow: "0 0 30px rgba(168,85,247,0.4)" }}
+                    transition={{ duration: 0.28, ease: "easeOut" }}
+                    className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-fuchsia-400 drop-shadow-[0_0_25px_rgba(168,85,247,0.35)]"
+                  >
+                    {price.toLocaleString("en")} EGP
+                  </motion.div>
+                  {discountPct > 0 && (
+                    <span className="inline-flex items-center rounded-2xl border border-red-500/35 bg-red-500/15 px-4 py-2 text-base font-black text-red-300 leading-none">
+                      -{discountPct}% OFF
+                    </span>
+                  )}
+                </div>
+
+                {/* Savings */}
+                {discountPct > 0 && savings > 0 && (
+                  <p className="mt-2 text-sm font-semibold text-emerald-400 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                    وفّر {savings.toLocaleString("en")} EGP
+                  </p>
+                )}
               </div>
 
+              {/* CTA buttons */}
               <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
-                {/* Keep the whole card clickable via wrapper Link in FeaturedProductsGrid */}
                 <Link href={buyHref}>
                   <motion.button
                     whileHover={prefersReducedMotion ? undefined : { y: -3, boxShadow: "0 0 60px rgba(168,85,247,0.35)" }}

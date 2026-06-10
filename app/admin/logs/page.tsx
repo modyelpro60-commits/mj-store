@@ -17,6 +17,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useAuth } from "../../../components/auth/AuthProvider";
+import { AdminOnlyGuard } from "../admin-guard";
 
 /* ─── Types ─── */
 type Log = {
@@ -61,7 +62,7 @@ function absTime(iso: string) {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-export default function LogsPage() {
+function LogsPageInner() {
   const { accessToken } = useAuth();
   const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
@@ -185,4 +186,8 @@ export default function LogsPage() {
       </section>
     </div>
   );
+}
+
+export default function LogsPage() {
+  return <AdminOnlyGuard><LogsPageInner /></AdminOnlyGuard>;
 }

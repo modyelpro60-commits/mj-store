@@ -16,6 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useAuth } from "../../../components/auth/AuthProvider";
+import { AdminOnlyGuard } from "../admin-guard";
 
 /* ─── Types ──────────────────────────────────────────────── */
 
@@ -193,7 +194,7 @@ function InsightCard({
 
 /* ─── Main Page ──────────────────────────────────────────── */
 
-export default function AnalyticsPage() {
+function AnalyticsPageInner() {
   const { accessToken } = useAuth();
   const [period, setPeriod] = useState<Period>("30d");
   const [data, setData]     = useState<AnalyticsData | null>(null);
@@ -594,4 +595,8 @@ export default function AnalyticsPage() {
       )}
     </div>
   );
+}
+
+export default function AnalyticsPage() {
+  return <AdminOnlyGuard><AnalyticsPageInner /></AdminOnlyGuard>;
 }

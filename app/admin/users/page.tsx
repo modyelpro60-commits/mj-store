@@ -10,9 +10,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../../components/auth/AuthProvider";
+import { AdminOnlyGuard } from "../admin-guard";
 import { useLanguage } from "../../../lib/i18n/LanguageProvider";
 import StatusDropdown from "../../../components/StatusDropdown";
 import Skeleton from "../../../components/Skeleton";
+import UserAvatar, { VerifiedBadge } from "../../../components/ui/UserAvatar";
 
 const ROLE_OPTIONS = ["user", "helper", "moderator", "admin"] as const;
 type RoleOption = (typeof ROLE_OPTIONS)[number];
@@ -31,6 +33,7 @@ type AdminUserRow = {
   status: StatusOption;
   created_at: string | null;
   orders_count: number;
+  verified?: boolean;
 };
 
 type UsersApiResponse = { success: boolean; data?: AdminUserRow[]; error?: string };
@@ -54,14 +57,6 @@ function statusBadgeCls(status: StatusOption) {
   if (status === "Active")    return "border-emerald-500/25 bg-emerald-500/10 text-emerald-200";
   if (status === "Suspended") return "border-yellow-500/25 bg-yellow-500/10 text-yellow-200";
   return "border-red-500/25 bg-red-500/10 text-red-200";
-}
-
-function getInitials(name: string | null, email: string | null) {
-  const source = name || email || "?";
-  const parts = source.split(/[\s@]/).filter(Boolean);
-  const first = parts[0]?.[0] ?? "?";
-  const second = parts.length > 1 ? (parts[1]?.[0] ?? "") : "";
-  return (first + second).toUpperCase();
 }
 
 function formatJoinDate(value: string | null) {
@@ -99,7 +94,7 @@ function FilterPill({
   );
 }
 
-export default function UsersPage() {
+function UsersPageInner() {
   const router = useRouter();
   const { accessToken, profile, role, status, isLoading } = useAuth();
   const { translate } = useLanguage();
@@ -186,6 +181,26 @@ export default function UsersPage() {
       const json = (await res.json()) as ActionApiResponse;
       if (!json.success) { toast.error(json.error || translate("admin.toast.error")); return; }
       await loadUsers();
+    } catch (e) {
+      console.error(e);
+      toast.error(translate("admin.toast.error"));
+    } finally {
+      setSavingUserId(null);
+    }
+  }
+
+  async function setUserVerified(userId: string, verified: boolean) {
+    try {
+      setSavingUserId(userId);
+      const res = await fetch("/api/admin/users/set-verified", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+        body: JSON.stringify({ userId, verified }),
+      });
+      const json = (await res.json()) as ActionApiResponse;
+      if (!json.success) { toast.error(json.error || translate("admin.toast.error")); return; }
+      // Optimistic local update
+      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, verified } : u));
     } catch (e) {
       console.error(e);
       toast.error(translate("admin.toast.error"));
@@ -289,7 +304,6 @@ export default function UsersPage() {
             const isSelf = adminId ? u.id === adminId : false;
             const roleValue = (ROLE_OPTIONS.includes(u.role as RoleOption) ? u.role : "user") as RoleOption;
             const isSaving = savingUserId === u.id;
-            const initials = getInitials(u.full_name, u.email);
 
             return (
               <motion.div
@@ -301,11 +315,7 @@ export default function UsersPage() {
               >
                 {/* Top: avatar + name + badges */}
                 <div className="flex items-start gap-3">
-                  <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-sm font-black ${
-                    roleValue === "admin" ? "bg-gradient-to-br from-purple-600 to-fuchsia-600 text-white" : "bg-white/[0.06] text-zinc-300"
-                  }`}>
-                    {initials}
-                  </div>
+                  <UserAvatar role={roleValue} verified={u.verified} size="lg" />
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-black text-white">{u.full_name ?? "—"}</p>
@@ -325,6 +335,7 @@ export default function UsersPage() {
                   <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${statusBadgeCls(u.status)}`}>
                     {u.status}
                   </span>
+                  {u.verified && <VerifiedBadge />}
                 </div>
 
                 {/* Meta */}
@@ -345,31 +356,55 @@ export default function UsersPage() {
                     {translate("admin.users.protectedDesc")}
                   </p>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="mb-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
-                        {translate("admin.users.col.role")}
-                      </p>
-                      <StatusDropdown
-                        value={roleValue}
-                        onChange={(v) => setUserRole(u.id, v as RoleOption)}
-                        options={ROLE_OPTIONS}
-                        disabled={isSaving}
-                      />
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="mb-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
+                          {translate("admin.users.col.role")}
+                        </p>
+                        <StatusDropdown
+                          value={roleValue}
+                          onChange={(v) => setUserRole(u.id, v as RoleOption)}
+                          options={ROLE_OPTIONS}
+                          disabled={isSaving}
+                        />
+                      </div>
+
+                      <div>
+                        <p className="mb-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
+                          {translate("admin.users.col.status")}
+                        </p>
+                        <StatusDropdown
+                          value={u.status}
+                          onChange={(v) => setUserStatus(u.id, v as StatusOption)}
+                          options={STATUS_OPTIONS}
+                          disabled={isSaving}
+                        />
+                      </div>
                     </div>
 
-                    <div>
-                      <p className="mb-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
-                        {translate("admin.users.col.status")}
-                      </p>
-                      <StatusDropdown
-                        value={u.status}
-                        onChange={(v) => setUserStatus(u.id, v as StatusOption)}
-                        options={STATUS_OPTIONS}
-                        disabled={isSaving}
-                      />
-                    </div>
-                  </div>
+                    {/* Verified toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setUserVerified(u.id, !u.verified)}
+                      disabled={isSaving}
+                      className={`mt-3 w-full flex items-center justify-between rounded-xl border px-3 py-2 text-[12px] font-bold transition-all disabled:opacity-50 ${
+                        u.verified
+                          ? "border-teal-500/30 bg-teal-500/10 text-teal-200 hover:bg-teal-500/20"
+                          : "border-white/[0.07] bg-white/[0.02] text-zinc-500 hover:border-teal-500/20 hover:text-teal-400"
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <svg viewBox="0 0 10 10" fill="none" className={`h-3 w-3 shrink-0 ${u.verified ? "opacity-100" : "opacity-0"}`}>
+                          <path d="M1.5 5.5L4 8L8.5 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        {u.verified ? "Verified Customer" : "Not Verified"}
+                      </span>
+                      <span className="text-[10px] font-normal text-zinc-600">
+                        {u.verified ? "Click to unverify" : "Click to verify"}
+                      </span>
+                    </button>
+                  </>
                 )}
               </motion.div>
             );
@@ -379,4 +414,8 @@ export default function UsersPage() {
 
     </div>
   );
+}
+
+export default function UsersPage() {
+  return <AdminOnlyGuard><UsersPageInner /></AdminOnlyGuard>;
 }

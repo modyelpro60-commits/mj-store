@@ -5,218 +5,407 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
+  BadgeCheck,
+  CheckCircle2,
   CreditCard,
-  Loader2,
+  HeartHandshake,
+  LoaderCircle,
   LogIn,
+  MessageCircle,
   Minus,
   Package,
   Plus,
+  ShieldCheck,
   ShoppingBag,
+  Smartphone,
   Trash2,
+  Wallet,
 } from "lucide-react";
 import CommandBar from "../../components/nav/CommandBar";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { useCart } from "../../components/cart/CartProvider";
 import PaymentModal from "../../components/cart/PaymentModal";
 
+/* ── helpers ─────────────────────────────────────────────────── */
 function egp(n: number) {
-  return `${n.toLocaleString()} EGP`;
+  return `${n.toLocaleString("en")} EGP`;
+}
+function discountPct(price: number, orig: number) {
+  if (orig > price && price > 0) return Math.round((1 - price / orig) * 100);
+  return 0;
 }
 
+/* ── static data ─────────────────────────────────────────────── */
+const PAYMENT_METHODS = [
+  { icon: Smartphone, label: "VF Cash",  cls: "text-red-400   border-red-500/20   bg-red-500/[0.07]"   },
+  { icon: CreditCard, label: "InstaPay", cls: "text-blue-400  border-blue-500/20  bg-blue-500/[0.07]"  },
+  { icon: Wallet,     label: "USDT",     cls: "text-emerald-400 border-emerald-500/20 bg-emerald-500/[0.07]" },
+] as const;
+
+const TRUST = [
+  { icon: ShieldCheck,   label: "دفع آمن"       },
+  { icon: BadgeCheck,    label: "متجر موثق"     },
+  { icon: CheckCircle2,  label: "مراجعة يدوية"  },
+  { icon: MessageCircle, label: "دعم متاح"      },
+] as const;
+
+/* ═══════════════════════════════════════════════════════════════
+   CART PAGE
+═══════════════════════════════════════════════════════════════ */
 export default function CartPage() {
   const { accessToken, isLoading } = useAuth();
   const { items, subtotal, count, loading, setQty, remove, clear, refresh } = useCart();
-  const loggedIn = !isLoading && !!accessToken;
+  const loggedIn     = !isLoading && !!accessToken;
   const [paymentOpen, setPaymentOpen] = useState(false);
+
+  /* ── discount totals ── */
+  const originalTotal = items.reduce((s, it) => {
+    const orig = it.original_price && it.original_price > it.price
+      ? it.original_price : it.price;
+    return s + orig * it.quantity;
+  }, 0);
+  const totalDiscount = originalTotal - subtotal;
+  const hasDiscount   = totalDiscount > 0;
 
   return (
     <>
       <CommandBar />
-      <main className="relative min-h-screen bg-void-base text-white px-5 pt-28 pb-24 md:px-8">
-        {/* ambient glow */}
+
+      <main
+        className="relative min-h-screen text-white pb-24"
+        style={{ background: "radial-gradient(ellipse at 50% -8%, rgba(88,28,235,0.12) 0%, #07070D 55%)" }}
+      >
+        {/* ambient orb */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-[420px]"
-          style={{ background: "radial-gradient(circle at 50% -10%, rgba(124,58,237,0.18), transparent 60%)" }}
-        />
+          className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+        >
+          <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[500px] w-[700px] rounded-full bg-purple-700/[0.07] blur-[180px]" />
+        </div>
 
-        <div className="relative mx-auto max-w-[1100px]">
-          {/* ── Header ── */}
-          <div className="mb-8 flex items-center gap-4">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl border border-purple-500/25 bg-purple-500/10 text-purple-200 shadow-[0_0_24px_rgba(168,85,247,0.18)]">
-              <ShoppingBag className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black tracking-tight">Your Cart</h1>
-              <p className="text-sm text-zinc-500">
-                {loggedIn && count > 0 ? `${count} item${count > 1 ? "s" : ""} in your cart` : "Review your items before checkout"}
-              </p>
-            </div>
-          </div>
+        <div className="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-8 pt-28">
 
-          {/* ── Not logged in ── */}
-          {!loggedIn ? (
-            <div className="flex flex-col items-center justify-center rounded-[2rem] border border-white/[0.07] bg-zinc-950/60 py-20 text-center">
-              <div className="grid h-16 w-16 place-items-center rounded-2xl border border-white/10 bg-white/[0.03] text-zinc-500">
-                <LogIn className="h-7 w-7" />
+          {/* ── Page header ── */}
+          <div className="mb-8 flex items-center justify-between gap-4" dir="rtl">
+            <div className="flex items-center gap-4">
+              <div className="grid h-12 w-12 place-items-center rounded-2xl border border-purple-500/25 bg-purple-500/10 text-purple-200 shadow-[0_0_24px_rgba(168,85,247,0.18)]">
+                <ShoppingBag className="h-5 w-5" />
               </div>
-              <p className="mt-4 text-lg font-bold text-zinc-300">Sign in to view your cart</p>
-              <p className="mt-1 text-sm text-zinc-500">Your cart is saved to your account.</p>
-              <Link
-                href="/login"
-                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-6 py-3 text-sm font-bold text-white shadow-[0_0_24px_rgba(168,85,247,0.3)] transition hover:shadow-[0_0_40px_rgba(168,85,247,0.5)]"
-              >
-                <LogIn className="h-4 w-4" /> Log in
-              </Link>
-            </div>
-          ) : loading && items.length === 0 ? (
-            <div className="flex items-center justify-center gap-3 py-24 text-zinc-500">
-              <Loader2 className="h-5 w-5 animate-spin" /> Loading your cart…
-            </div>
-          ) : items.length === 0 ? (
-            /* ── Empty ── */
-            <div className="flex flex-col items-center justify-center rounded-[2rem] border border-white/[0.07] bg-zinc-950/60 py-20 text-center">
-              <div className="grid h-16 w-16 place-items-center rounded-2xl border border-white/10 bg-white/[0.03] text-zinc-600">
-                <ShoppingBag className="h-7 w-7" />
-              </div>
-              <p className="mt-4 text-lg font-bold text-zinc-300">Your cart is empty</p>
-              <p className="mt-1 text-sm text-zinc-500">Browse the catalog and add some products.</p>
-              <Link
-                href="/#products"
-                className="mt-6 inline-flex items-center gap-2 rounded-xl border border-purple-500/25 bg-purple-500/10 px-6 py-3 text-sm font-bold text-purple-200 transition hover:bg-purple-500/20"
-              >
-                <Package className="h-4 w-4" /> Browse Products
-              </Link>
-            </div>
-          ) : (
-            /* ── Cart content ── */
-            <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-              {/* Items */}
-              <div className="space-y-3">
-                <AnimatePresence initial={false}>
-                  {items.map((it) => (
-                    <motion.div
-                      key={it.productId}
-                      layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.2 }}
-                      className="flex items-center gap-4 rounded-2xl border border-white/[0.07] bg-zinc-950/60 p-3 sm:p-4"
-                    >
-                      {/* Thumb */}
-                      <Link
-                        href={`/product/${it.productId}`}
-                        className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/[0.07] bg-zinc-900"
-                      >
-                        {it.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={it.image} alt={it.name} className="h-full w-full object-contain p-1" />
-                        ) : (
-                          <Package className="h-5 w-5 text-zinc-600" />
-                        )}
-                      </Link>
-
-                      {/* Info */}
-                      <div className="min-w-0 flex-1">
-                        <Link href={`/product/${it.productId}`} className="block truncate font-bold text-white hover:text-purple-200">
-                          {it.name}
-                        </Link>
-                        {it.category && <p className="text-xs text-zinc-600">{it.category}</p>}
-                        <p className="mt-1 text-sm font-bold text-purple-300">{egp(it.price)}</p>
-                      </div>
-
-                      {/* Qty */}
-                      <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
-                        <button
-                          onClick={() => setQty(it.productId, it.quantity - 1)}
-                          className="grid h-7 w-7 place-items-center rounded-lg text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
-                          aria-label="Decrease"
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </button>
-                        <span className="w-7 text-center text-sm font-bold tabular-nums">{it.quantity}</span>
-                        <button
-                          onClick={() => setQty(it.productId, it.quantity + 1)}
-                          className="grid h-7 w-7 place-items-center rounded-lg text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
-                          aria-label="Increase"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-
-                      {/* Line total + remove */}
-                      <div className="hidden w-28 shrink-0 text-right sm:block">
-                        <p className="font-black tabular-nums text-white">{egp(it.lineTotal)}</p>
-                      </div>
-                      <button
-                        onClick={() => remove(it.productId)}
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-red-500/15 bg-red-500/[0.06] text-red-400/80 transition hover:bg-red-500/15 hover:text-red-300"
-                        aria-label="Remove"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-
-                <div className="flex justify-end pt-1">
-                  <button
-                    onClick={() => clear()}
-                    className="text-xs font-semibold text-zinc-600 transition hover:text-red-400"
-                  >
-                    Clear cart
-                  </button>
-                </div>
-              </div>
-
-              {/* Summary */}
-              <div className="lg:sticky lg:top-28 h-fit rounded-[1.5rem] border border-white/[0.08] bg-zinc-950/70 p-6">
-                <h2 className="text-sm font-black uppercase tracking-[0.2em] text-zinc-500">Order Summary</h2>
-
-                <div className="mt-5 space-y-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Subtotal ({count})</span>
-                    <span className="font-bold tabular-nums text-white">{egp(subtotal)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Delivery</span>
-                    <span className="font-semibold text-emerald-400">Instant</span>
-                  </div>
-                </div>
-
-                <div className="my-5 h-px bg-white/[0.07]" />
-
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm font-bold text-zinc-300">Total</span>
-                  <span
-                    className="text-2xl font-black tabular-nums text-white"
-                    style={{ textShadow: "0 0 22px rgba(168,85,247,0.4)" }}
-                  >
-                    {egp(subtotal)}
-                  </span>
-                </div>
-
-                <button
-                  onClick={() => setPaymentOpen(true)}
-                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 py-3.5 text-sm font-black tracking-wide text-white shadow-[0_0_24px_rgba(168,85,247,0.3)] transition hover:shadow-[0_0_44px_rgba(168,85,247,0.55)] active:scale-[0.99]"
-                >
-                  <CreditCard className="h-4 w-4" />
-                  ادفع الآن
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-
-                <Link
-                  href="/#products"
-                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.02] py-3 text-xs font-semibold text-zinc-400 transition hover:text-white"
-                >
-                  Continue shopping
-                </Link>
-
-                <p className="mt-4 text-center text-[11px] leading-relaxed text-zinc-600">
-                  🔒 الدفع عبر Vodafone Cash أو InstaPay
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight">سلة التسوق</h1>
+                <p className="text-sm text-zinc-500 mt-0.5">
+                  {loggedIn && count > 0
+                    ? `${count} ${count === 1 ? "منتج" : "منتجات"} في سلتك`
+                    : "راجع طلبك قبل الدفع"}
                 </p>
               </div>
+            </div>
+
+            {/* Clear cart — only when items exist */}
+            {loggedIn && items.length > 0 && (
+              <button
+                onClick={() => void clear()}
+                className="text-xs font-semibold text-zinc-600 transition hover:text-red-400 flex items-center gap-1.5"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                مسح الكل
+              </button>
+            )}
+          </div>
+
+          {/* ════════════════════════════════════════════
+              NOT LOGGED IN
+          ════════════════════════════════════════════ */}
+          {!loggedIn ? (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center rounded-[2rem] border border-white/[0.07] bg-zinc-950/60 py-24 px-8 text-center"
+            >
+              <div className="grid h-16 w-16 place-items-center rounded-2xl border border-white/[0.09] bg-white/[0.03] text-zinc-600 mb-5">
+                <LogIn className="h-7 w-7" />
+              </div>
+              <h2 className="text-lg font-black text-zinc-200">سجّل دخولك لعرض سلتك</h2>
+              <p className="mt-1.5 text-sm text-zinc-500">سلتك محفوظة على حسابك — سجّل الدخول للمتابعة.</p>
+              <Link
+                href="/login"
+                className="mt-7 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-6 py-3 text-sm font-bold text-white shadow-[0_0_24px_rgba(168,85,247,0.3)] transition hover:shadow-[0_0_40px_rgba(168,85,247,0.5)] hover:scale-[1.02]"
+              >
+                <LogIn className="h-4 w-4" />
+                تسجيل الدخول
+              </Link>
+            </motion.div>
+
+          ) : loading && items.length === 0 ? (
+            /* ─ Loading skeleton ─ */
+            <div className="flex items-center justify-center gap-3 py-32 text-zinc-600">
+              <LoaderCircle className="h-5 w-5 animate-spin" />
+              <span className="text-sm font-semibold">جاري تحميل سلتك…</span>
+            </div>
+
+          ) : items.length === 0 ? (
+            /* ════════════════════════════════════════════
+                EMPTY STATE
+            ════════════════════════════════════════════ */
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center rounded-[2rem] border border-white/[0.06] bg-zinc-950/50 py-24 px-8 text-center"
+            >
+              <div className="relative mb-7">
+                <div className="grid h-20 w-20 place-items-center rounded-[1.5rem] border border-purple-500/15 bg-purple-500/[0.06] text-purple-500/40 shadow-[0_0_48px_rgba(168,85,247,0.1)]">
+                  <ShoppingBag className="h-9 w-9" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-xl border border-white/[0.07] bg-zinc-950 text-zinc-700">
+                  <Plus className="h-3.5 w-3.5" />
+                </div>
+              </div>
+              <h2 className="text-xl font-black text-white">سلتك فارغة</h2>
+              <p className="mt-2 text-sm text-zinc-500 max-w-xs leading-relaxed">
+                تصفح كتالوج المتجر وأضف المنتجات التي تريدها
+              </p>
+              <Link
+                href="/#products"
+                className="mt-7 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_0_24px_rgba(168,85,247,0.25)] transition hover:shadow-[0_0_44px_rgba(168,85,247,0.45)] hover:scale-[1.02] active:scale-[0.99]"
+              >
+                <Package className="h-4 w-4" />
+                تصفح المنتجات
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </motion.div>
+
+          ) : (
+            /* ════════════════════════════════════════════
+                CART — items + summary
+            ════════════════════════════════════════════ */
+            <div className="grid gap-6 lg:grid-cols-[1fr_370px] items-start">
+
+              {/* ── LEFT: item rows ── */}
+              <div className="space-y-2.5">
+                <AnimatePresence initial={false}>
+                  {items.map((it) => {
+                    const hasItemDiscount = !!(it.original_price && it.original_price > it.price);
+                    const pct = hasItemDiscount
+                      ? discountPct(it.price, it.original_price!)
+                      : 0;
+
+                    return (
+                      <motion.div
+                        key={it.productId}
+                        layout
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -24, transition: { duration: 0.18 } }}
+                        transition={{ duration: 0.22 }}
+                        className="group relative flex items-center gap-3 sm:gap-4 rounded-2xl border border-white/[0.07] bg-zinc-950/70 p-3 sm:p-4 transition-all duration-200 hover:border-purple-500/25 hover:bg-[rgba(88,28,235,0.04)] hover:shadow-[0_0_24px_rgba(139,92,246,0.07)]"
+                      >
+                        {/* ── Thumbnail ── */}
+                        <Link
+                          href={`/product/${it.productId}`}
+                          className="block h-[66px] w-[66px] sm:h-[72px] sm:w-[72px] flex-shrink-0 overflow-hidden rounded-xl border border-white/[0.07] bg-zinc-900 transition-all duration-200 group-hover:border-purple-500/20"
+                        >
+                          {it.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={it.image}
+                              alt={it.name}
+                              className="h-full w-full object-contain p-1.5"
+                            />
+                          ) : (
+                            <div className="h-full w-full grid place-items-center">
+                              <Package className="h-5 w-5 text-zinc-700" />
+                            </div>
+                          )}
+                        </Link>
+
+                        {/* ── Product info ── */}
+                        <div className="flex-1 min-w-0">
+                          <Link
+                            href={`/product/${it.productId}`}
+                            className="block text-sm sm:text-[15px] font-bold text-white hover:text-purple-200 transition-colors leading-snug line-clamp-2"
+                          >
+                            {it.name}
+                          </Link>
+
+                          {it.category && (
+                            <span className="mt-0.5 inline-block text-[10px] font-black uppercase tracking-wider text-zinc-700">
+                              {it.category}
+                            </span>
+                          )}
+
+                          {/* Price row */}
+                          <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-black text-purple-300 tabular-nums">
+                              {egp(it.price)}
+                            </span>
+                            {hasItemDiscount && (
+                              <>
+                                <span className="text-xs text-zinc-600 line-through tabular-nums">
+                                  {egp(it.original_price!)}
+                                </span>
+                                <span className="text-[10px] font-black text-red-400 rounded-full border border-red-500/25 bg-red-500/10 px-1.5 py-px leading-none">
+                                  -{pct}%
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* ── Right controls ── */}
+                        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+
+                          {/* Qty controls */}
+                          <div className="flex items-center gap-0.5 rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
+                            <button
+                              onClick={() => void setQty(it.productId, it.quantity - 1)}
+                              className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 transition hover:bg-white/[0.07] hover:text-white"
+                              aria-label="Decrease"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="w-7 text-center text-sm font-black tabular-nums text-white">
+                              {it.quantity}
+                            </span>
+                            <button
+                              onClick={() => void setQty(it.productId, it.quantity + 1)}
+                              className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 transition hover:bg-white/[0.07] hover:text-white"
+                              aria-label="Increase"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+
+                          {/* Line total — desktop only */}
+                          <div className="hidden sm:block w-[88px] text-right">
+                            <p className="font-black tabular-nums text-white text-sm">{egp(it.lineTotal)}</p>
+                            {it.quantity > 1 && (
+                              <p className="text-[10px] text-zinc-700 tabular-nums mt-0.5">
+                                {it.quantity} × {egp(it.price)}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Delete */}
+                          <button
+                            onClick={() => void remove(it.productId)}
+                            className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-xl border border-red-500/15 bg-red-500/[0.06] text-red-500/60 transition hover:bg-red-500/15 hover:text-red-400 hover:border-red-500/25"
+                            aria-label="Remove"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+
+              {/* ── RIGHT: order summary ── */}
+              <div
+                className="lg:sticky lg:top-28 rounded-[1.5rem] border border-white/[0.08] bg-zinc-950/80 backdrop-blur-xl overflow-hidden"
+                style={{ boxShadow: "0 0 60px rgba(88,28,235,0.06)" }}
+              >
+                {/* Header bar */}
+                <div className="px-5 pt-5 pb-4 border-b border-white/[0.05]" dir="rtl">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                      ملخص الطلب
+                    </h2>
+                    <span className="text-xs font-bold text-zinc-600 tabular-nums">
+                      {count} {count === 1 ? "منتج" : "منتجات"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="px-5 py-5 space-y-5" dir="rtl">
+
+                  {/* ── Discount breakdown (only if discounts exist) ── */}
+                  {hasDiscount && (
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-zinc-500">الإجمالي الأصلي</span>
+                        <span className="font-semibold text-zinc-600 line-through tabular-nums">
+                          {egp(originalTotal)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-semibold text-emerald-400 flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          إجمالي الخصم
+                        </span>
+                        <span className="font-black text-emerald-400 tabular-nums">
+                          -{egp(totalDiscount)}
+                        </span>
+                      </div>
+                      <div className="h-px bg-white/[0.05]" />
+                    </div>
+                  )}
+
+                  {/* ── Final total ── */}
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm font-bold text-zinc-400">الإجمالي النهائي</span>
+                    <span
+                      className="text-[2rem] font-black tabular-nums text-white leading-none"
+                      style={{ textShadow: "0 0 28px rgba(168,85,247,0.4)" }}
+                    >
+                      {egp(subtotal)}
+                    </span>
+                  </div>
+
+                  {/* ── CTA buttons ── */}
+                  <div className="space-y-2.5 pt-1">
+                    <motion.button
+                      onClick={() => setPaymentOpen(true)}
+                      whileHover={{ scale: 1.02, boxShadow: "0 0 44px rgba(139,92,246,0.55)" }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 py-3.5 text-sm font-black tracking-wide text-white shadow-[0_0_24px_rgba(168,85,247,0.30)] transition-shadow"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      ادفع الآن
+                      <ArrowRight className="h-4 w-4" />
+                    </motion.button>
+
+                    <Link
+                      href="/#products"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] py-2.5 text-xs font-semibold text-zinc-500 transition hover:bg-white/[0.05] hover:text-zinc-300"
+                    >
+                      تصفح المزيد
+                    </Link>
+                  </div>
+
+                  {/* ── Payment methods preview ── */}
+                  <div className="pt-1">
+                    <p className="text-[9px] font-black uppercase tracking-[0.22em] text-zinc-700 mb-2.5">
+                      طرق الدفع المتاحة
+                    </p>
+                    <div className="flex gap-2">
+                      {PAYMENT_METHODS.map(({ icon: Icon, label, cls }) => (
+                        <div
+                          key={label}
+                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-2 ${cls}`}
+                        >
+                          <Icon className="h-3 w-3 flex-shrink-0" />
+                          <span className="text-[9px] font-black">{label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ── Trust badges ── */}
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 pt-1 border-t border-white/[0.04]">
+                    {TRUST.map(({ icon: Icon, label }) => (
+                      <div
+                        key={label}
+                        className="flex items-center gap-1.5 text-[10px] font-semibold text-zinc-600"
+                      >
+                        <Icon className="h-3 w-3 text-emerald-500/60 flex-shrink-0" />
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
             </div>
           )}
         </div>

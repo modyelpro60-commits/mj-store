@@ -8,7 +8,7 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-const VALID_METHODS = ["vodafone", "instapay"];
+const VALID_METHODS = ["vodafone", "instapay", "usdt"];
 
 /* ─── POST /api/checkout ─────────────────────────────────────────────────────
  * Turns the user's cart into orders with proof of payment already attached.
@@ -34,12 +34,19 @@ export async function POST(req: Request) {
   const raw = (await req.json().catch(() => ({}))) as {
     method?: string;
     payment_proof_url?: string;
+    usdt_amount?: number;
+    usdt_rate?: number;
+    usdt_fee_pct?: number;
+    payment_account_id?: string;
   };
 
   const method = VALID_METHODS.includes(raw.method ?? "") ? raw.method! : null;
   if (!method) {
     return NextResponse.json({ success: false, error: "اختر طريقة الدفع" }, { status: 400 });
   }
+
+  const suggestedAccountId =
+    typeof raw.payment_account_id === "string" ? raw.payment_account_id.trim() : null;
 
   const paymentProofUrl =
     typeof raw.payment_proof_url === "string" && raw.payment_proof_url.trim()
@@ -58,6 +65,43 @@ export async function POST(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
   const now = new Date().toISOString();
+
+  /* ── Resolve payment account (Round Robin) ─────────────────────── */
+  let resolvedAccountId: string | null = null;
+  let accountSnapshot: Record<string, unknown> | null = null;
+
+  try {
+    // Try suggested account first (what the user was shown at checkout)
+    if (suggestedAccountId) {
+      const { data: suggested } = await supabase
+        .from("payment_accounts")
+        .select("id, method, name, value, qr_image")
+        .eq("id", suggestedAccountId)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (suggested) {
+        resolvedAccountId = suggested.id as string;
+        accountSnapshot = { id: suggested.id, method: suggested.method, name: suggested.name, value: suggested.value, qr_image: suggested.qr_image };
+      }
+    }
+    // Fallback: Round Robin
+    if (!resolvedAccountId) {
+      const { data: rrAccount } = await supabase
+        .from("payment_accounts")
+        .select("id, method, name, value, qr_image")
+        .eq("method", method)
+        .eq("is_active", true)
+        .order("last_used_at", { ascending: true, nullsFirst: true })
+        .limit(1)
+        .maybeSingle();
+      if (rrAccount) {
+        resolvedAccountId = rrAccount.id as string;
+        accountSnapshot = { id: rrAccount.id, method: rrAccount.method, name: rrAccount.name, value: rrAccount.value, qr_image: rrAccount.qr_image };
+      }
+    }
+  } catch (accErr) {
+    console.warn("[checkout] account resolution failed:", accErr);
+  }
 
   /* ── 1. Customer name from profile ── */
   const { data: profile } = await supabase
@@ -100,15 +144,20 @@ export async function POST(req: Request) {
       const qty  = Math.max(1, toNum(c.quantity));
       const unit = toNum(p.price);
       return {
-        user_id:           ctx.userId,
-        customer_name:     customerName,
-        product_id:        c.product_id,
-        product_name:      qty > 1 ? `${p.name} ×${qty}` : p.name,
-        price:             unit * qty,
-        status:            "Awaiting Payment",
-        payment_method:    method,
-        order_ref:         orderRef,
-        payment_proof_url: paymentProofUrl,
+        user_id:                  ctx.userId,
+        customer_name:            customerName,
+        product_id:               c.product_id,
+        product_name:             qty > 1 ? `${p.name} ×${qty}` : p.name,
+        price:                    unit * qty,
+        status:                   "Awaiting Payment",
+        payment_method:           method,
+        order_ref:                orderRef,
+        payment_proof_url:        paymentProofUrl,
+        usdt_amount:              raw.usdt_amount  ?? null,
+        usdt_rate:                raw.usdt_rate    ?? null,
+        usdt_fee_pct:             raw.usdt_fee_pct ?? null,
+        payment_account_id:       resolvedAccountId,
+        payment_account_snapshot: accountSnapshot,
       };
     })
     .filter(Boolean) as Array<Record<string, unknown>>;
@@ -134,6 +183,15 @@ export async function POST(req: Request) {
   }
 
   const firstOrderId = (insertedOrders?.[0] as any)?.id ?? null;
+
+  /* ── Update account usage stats (non-blocking, fire-and-forget) ── */
+  if (resolvedAccountId) {
+    void (async () => {
+      const { error: usageErr } = await supabase
+        .rpc("increment_account_usage", { account_id: resolvedAccountId });
+      if (usageErr) console.warn("[checkout] usage increment failed:", usageErr.message);
+    })();
+  }
 
   /* ── 6. Clear cart ── */
   await supabase.from("cart_items").delete().eq("user_id", ctx.userId);

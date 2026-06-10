@@ -40,7 +40,7 @@ export async function GET(req: Request) {
     let profile: any = null;
     const fullSel = await supabaseService
       .from("profiles")
-      .select("id, email, full_name, role, status, created_at, phone, phone_verified")
+      .select("id, email, full_name, role, status, created_at, phone, phone_verified, verified")
       .eq("id", ctx.userId)
       .single();
     if (!fullSel.error) {
@@ -48,7 +48,7 @@ export async function GET(req: Request) {
     } else {
       const baseSel = await supabaseService
         .from("profiles")
-        .select("id, email, full_name, role, status, created_at")
+        .select("id, email, full_name, role, status, created_at, verified")
         .eq("id", ctx.userId)
         .single();
       profile = baseSel.data;
@@ -78,6 +78,7 @@ export async function GET(req: Request) {
         created_at: profile.created_at,
         phone: profile.phone ?? null,
         phone_verified: profile.phone_verified ?? false,
+        verified: profile.verified ?? false,
       },
     });
   } catch (err) {

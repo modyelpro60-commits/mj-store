@@ -9,11 +9,14 @@ export default async function ProductPage({
 }) {
   const { id } = await params;
 
-  const { data: product } = await supabase
-    .from("products")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const [{ data: product }, { data: featuresData }] = await Promise.all([
+    supabase.from("products").select("*").eq("id", id).single(),
+    supabase
+      .from("product_features")
+      .select("name")
+      .eq("product_id", id)
+      .order("sort_order", { ascending: true }),
+  ]);
 
   if (!product) {
     return (
@@ -23,10 +26,13 @@ export default async function ProductPage({
     );
   }
 
+  const features = (featuresData ?? []).map((f: { name: string }) => f.name);
+  const productWithFeatures = { ...(product as Record<string, unknown>), features };
+
   return (
     <main className="min-h-screen bg-black text-white">
       <ProductViewTracker productId={(product as any).id} />
-      <ProductDetailsViewV2 product={product as any} />
+      <ProductDetailsViewV2 product={productWithFeatures as any} />
     </main>
   );
 }
