@@ -31,9 +31,9 @@ const NAV_LINKS = [
 ] as const;
 
 const LANG_OPTIONS = [
-  { value: "en", flag: "🇬🇧", label: "English"  },
-  { value: "ar", flag: "🇪🇬", label: "العربية"  },
-  { value: "fr", flag: "🇫🇷", label: "Français" },
+  { value: "en", flag: "🇬🇧", labelKey: "nav.language.english" as const },
+  { value: "ar", flag: "🇪🇬", labelKey: "nav.language.arabic"  as const },
+  { value: "fr", flag: "🇫🇷", labelKey: "nav.language.french"  as const },
 ] as const;
 
 /* ── Online pulse dot ──────────────────────────────────────────── */
@@ -219,7 +219,7 @@ export default function StorefrontNavbar() {
                   className="flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 text-[12px] font-medium text-white/35 transition-all duration-200 hover:border-white/12 hover:text-white/60"
                 >
                   <span className="text-sm leading-none">{currentLang?.flag}</span>
-                  <span className="hidden sm:inline">{currentLang?.label}</span>
+                  <span className="hidden sm:inline">{currentLang ? translate(currentLang.labelKey) : ""}</span>
                   <motion.span animate={{ rotate: langOpen ? 180 : 0 }} transition={{ duration: 0.18 }}>
                     <ChevronDown className="h-2.5 w-2.5" />
                   </motion.span>
@@ -246,7 +246,7 @@ export default function StorefrontNavbar() {
                           }`}
                         >
                           <span className="text-sm leading-none">{opt.flag}</span>
-                          {opt.label}
+                          {translate(opt.labelKey)}
                         </button>
                       ))}
                     </motion.div>
@@ -563,7 +563,7 @@ export default function StorefrontNavbar() {
                         : "border-white/[0.07] text-white/30 hover:border-white/12 hover:text-white/55"
                     }`}
                   >
-                    {opt.flag} {opt.label}
+                    {opt.flag} {translate(opt.labelKey)}
                   </button>
                 ))}
               </div>

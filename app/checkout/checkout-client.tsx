@@ -61,6 +61,7 @@ const DEFAULT_SETTINGS: PaymentSettings = {
 
 /* ─────────────────────────── Step Indicator ────────────────── */
 function StepIndicator({ step }: { step: Step }) {
+  const { translate } = useLanguage();
   return (
     <div className="flex items-center justify-center gap-0 mb-7" dir="ltr">
       {/* Step 1 */}
@@ -74,7 +75,7 @@ function StepIndicator({ step }: { step: Step }) {
           {step > 1 ? <CheckCircle className="h-4 w-4" /> : "1"}
         </div>
         <span className={`text-[10px] font-bold transition-colors ${step === 1 ? "text-white" : "text-emerald-400"}`}>
-          الدفع
+          {translate("checkout.step.payment")}
         </span>
       </div>
 
@@ -99,7 +100,7 @@ function StepIndicator({ step }: { step: Step }) {
           2
         </div>
         <span className={`text-[10px] font-bold transition-colors ${step === 2 ? "text-white" : "text-zinc-600"}`}>
-          إثبات الدفع
+          {translate("checkout.step.proof")}
         </span>
       </div>
     </div>
@@ -109,6 +110,7 @@ function StepIndicator({ step }: { step: Step }) {
 /* ─────────────────────────── Success Screen ─────────────────── */
 function SuccessScreen({ orderId, roomId }: { orderId: number | null; roomId: string | null }) {
   const router = useRouter();
+  const { translate } = useLanguage();
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -156,14 +158,14 @@ function SuccessScreen({ orderId, roomId }: { orderId: number | null; roomId: st
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35, duration: 0.35 }}
         >
-          <h2 className="text-3xl font-black text-white">تم إنشاء الطلب! ✅</h2>
+          <h2 className="text-3xl font-black text-white">{translate("checkout.success.title")}</h2>
           {orderId && (
             <p className="mt-1 text-zinc-400 text-sm">
-              رقم الطلب: <span className="text-white font-bold">#{orderId}</span>
+              {translate("checkout.success.orderNo")} <span className="text-white font-bold">#{orderId}</span>
             </p>
           )}
           <p className="mt-2 text-zinc-500 text-sm leading-relaxed">
-            تم إرسال صورة الدفع للأدمن — سيراجعها ويتواصل معك قريباً.
+            {translate("checkout.success.adminNote")}
           </p>
 
           <div className="mt-7 flex flex-col gap-3">
@@ -174,10 +176,10 @@ function SuccessScreen({ orderId, roomId }: { orderId: number | null; roomId: st
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-7 py-3.5 text-base font-black text-white shadow-[0_0_30px_rgba(168,85,247,0.35)]"
             >
               <MessageCircle className="h-4 w-4" />
-              فتح محادثة الطلب
+              {translate("checkout.success.openChat")}
             </motion.button>
             <p className="text-xs text-zinc-700">
-              سيتم التحويل تلقائياً…
+              {translate("checkout.success.redirecting")}
             </p>
           </div>
         </motion.div>
@@ -314,8 +316,8 @@ export default function CheckoutClient() {
 
   /* ── Proof file handling ── */
   function acceptFile(file: File) {
-    if (!file.type.startsWith("image/")) { setError("يرجى اختيار صورة فقط"); return; }
-    if (file.size > 8 * 1024 * 1024)    { setError("حجم الصورة يجب أن يكون أقل من 8MB"); return; }
+    if (!file.type.startsWith("image/")) { setError(translate("checkout.error.invalidImage")); return; }
+    if (file.size > 8 * 1024 * 1024)    { setError(translate("checkout.error.tooLarge")); return; }
     setProofFile(file);
     setError(null);
     const reader = new FileReader();
@@ -372,13 +374,13 @@ export default function CheckoutClient() {
       setUploading(false);
 
       if (!upData.success || !upData.url) {
-        setError(upData.error ?? "فشل رفع الصورة. حاول مرة أخرى.");
+        setError(upData.error ?? translate("checkout.error.uploadFailed"));
         return;
       }
 
       /* 2 ── Create order */
       const orderBody: Record<string, unknown> = {
-        customer_name:      name.trim() || profile?.full_name || "العميل",
+        customer_name:      name.trim() || profile?.full_name || translate("checkout.defaultCustomer"),
         product_id:         product.id,
         product_name:       product.name,
         price:              product.price,
@@ -407,10 +409,10 @@ export default function CheckoutClient() {
         setSuccess(true);
         void trackEvent(product.id, "add_to_cart");
       } else {
-        setError(data.error ?? "حدث خطأ أثناء إنشاء الطلب");
+        setError(data.error ?? translate("checkout.error.createFailed"));
       }
     } catch {
-      setError("حدث خطأ غير متوقع. حاول مرة أخرى.");
+      setError(translate("checkout.error.unexpected"));
     } finally {
       setSubmitting(false);
       setUploading(false);
@@ -434,12 +436,12 @@ export default function CheckoutClient() {
       <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 text-white">
         <div className="w-full max-w-sm rounded-3xl border border-white/[0.07] bg-zinc-900/60 p-10 text-center">
           <Package className="h-10 w-10 text-zinc-600 mx-auto mb-4" />
-          <p className="text-xl font-black">Product not found</p>
+          <p className="text-xl font-black">{translate("checkout.productNotFound")}</p>
           <button
             onClick={() => router.push("/#products")}
             className="mt-6 inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-zinc-800/60 px-5 py-2.5 text-sm font-semibold text-zinc-300 transition hover:text-white"
           >
-            <ArrowLeft className="h-4 w-4" /> Browse Products
+            <ArrowLeft className="h-4 w-4" /> {translate("checkout.browseProducts")}
           </button>
         </div>
       </main>
@@ -479,11 +481,11 @@ export default function CheckoutClient() {
             className="inline-flex items-center gap-2 rounded-xl border border-white/[0.07] bg-zinc-900/60 px-3.5 py-2 text-sm font-semibold text-zinc-400 transition hover:border-white/10 hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" />
-            {step === 2 ? "الخطوة السابقة" : "Back"}
+            {step === 2 ? translate("checkout.prevStep") : translate("checkout.prevStep")}
           </button>
           <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-400">
             <Lock className="h-3.5 w-3.5 text-emerald-400" />
-            Secure Checkout
+            {translate("checkout.secureCheckout")}
           </div>
         </div>
       </div>
@@ -508,7 +510,7 @@ export default function CheckoutClient() {
                   <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
                   <div className="absolute right-4 top-4">
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-black/60 px-3 py-1 text-xs font-bold text-emerald-300 backdrop-blur-sm">
-                      <Zap className="h-2.5 w-2.5" /> Instant Delivery
+                      <Zap className="h-2.5 w-2.5" /> {translate("checkout.instantDelivery")}
                     </span>
                   </div>
                 </div>
@@ -527,7 +529,7 @@ export default function CheckoutClient() {
                 {/* Price */}
                 <div className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-purple-500/15 bg-purple-500/[0.07] px-5 py-4">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Total Price</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{translate("checkout.totalPrice")}</p>
                     <div className="mt-0.5 flex items-baseline gap-1">
                       <span className="text-3xl font-black tabular-nums text-white">
                         {Number(product.price).toLocaleString()}
@@ -549,12 +551,12 @@ export default function CheckoutClient() {
 
             {/* Trust badges */}
             <div className="space-y-3.5 rounded-3xl border border-white/[0.06] bg-zinc-900/40 p-5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Why MJ Store</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{translate("checkout.whyMjStore")}</p>
               {[
-                { icon: Zap,            color: "border-amber-500/20 bg-amber-500/10 text-amber-300",   title: "Instant Delivery",  desc: "Get access immediately after payment confirmation." },
-                { icon: ShieldCheck,    color: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300", title: "Secure Purchase", desc: "Every order is reviewed by staff before delivery." },
-                { icon: HeadphonesIcon, color: "border-purple-500/20 bg-purple-500/10 text-purple-300",  title: "Support Available", desc: "Dedicated chat room created for every order." },
-              ].map(({ icon: Icon, color, title, desc }, i) => (
+                { icon: Zap,            color: "border-amber-500/20 bg-amber-500/10 text-amber-300",       titleKey: "checkout.trust.instant.title", descKey: "checkout.trust.instant.desc" },
+                { icon: ShieldCheck,    color: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300", titleKey: "checkout.trust.secure.title",  descKey: "checkout.trust.secure.desc"  },
+                { icon: HeadphonesIcon, color: "border-purple-500/20 bg-purple-500/10 text-purple-300",    titleKey: "checkout.trust.support.title", descKey: "checkout.trust.support.desc" },
+              ].map(({ icon: Icon, color, titleKey, descKey }, i) => (
                 <div key={i}>
                   {i > 0 && <div className="border-t border-white/[0.04]" />}
                   <div className="flex items-start gap-3 pt-3.5 first:pt-0">
@@ -562,8 +564,8 @@ export default function CheckoutClient() {
                       <Icon className="h-4 w-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-white">{title}</p>
-                      <p className="mt-0.5 text-xs text-zinc-500">{desc}</p>
+                      <p className="text-sm font-bold text-white">{translate(titleKey)}</p>
+                      <p className="mt-0.5 text-xs text-zinc-500">{translate(descKey)}</p>
                     </div>
                   </div>
                 </div>
@@ -585,12 +587,12 @@ export default function CheckoutClient() {
               <div className="border-b border-white/[0.06] bg-gradient-to-r from-purple-900/30 to-fuchsia-900/20 px-7 py-6">
                 <StepIndicator step={step} />
                 <h2 className="text-center text-xl font-black text-white">
-                  {step === 1 ? "اختر طريقة الدفع" : "ارفع صورة الإيصال"}
+                  {step === 1 ? translate("checkout.paymentMethod") : translate("checkout.step2.title")}
                 </h2>
                 <p className="mt-1 text-center text-xs text-zinc-500">
                   {step === 1
-                    ? "اختر الطريقة المناسبة وأجرِ التحويل"
-                    : "الخطوة الأخيرة — أرفق سكرين شوت التحويل لتأكيد طلبك"}
+                    ? translate("checkout.step1.subtitle")
+                    : translate("checkout.step2.subtitle")}
                 </p>
               </div>
 
@@ -609,7 +611,7 @@ export default function CheckoutClient() {
                     {/* Payment Method selector */}
                     <section>
                       <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                        طريقة الدفع
+                        {translate("checkout.paymentMethod")}
                       </p>
                       <div className={`grid gap-3 ${enabledMethods.length >= 3 ? "grid-cols-3" : "grid-cols-2"}`}>
                         {enabledMethods.map((m) => {
@@ -648,19 +650,19 @@ export default function CheckoutClient() {
                         transition={{ duration: 0.18 }}
                       >
                         <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                          تعليمات التحويل
+                          {translate("checkout.transferInstructions")}
                         </p>
 
                         {/* ── Payment Account Display (data-driven, all methods) ── */}
                         {assignedAccountLoading ? (
                           <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.06] bg-zinc-900/40 py-8 text-zinc-600">
                             <LoaderCircle className="h-4 w-4 animate-spin" />
-                            <span className="text-xs font-semibold">جاري تحميل بيانات الدفع…</span>
+                            <span className="text-xs font-semibold">{translate("payment.account.loading")}</span>
                           </div>
                         ) : !assignedAccount ? (
                           <div className="flex items-center gap-3 rounded-2xl border border-red-500/25 bg-red-500/[0.06] px-4 py-4 text-sm text-red-300">
                             <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                            <span>لا توجد حسابات متاحة لهذه الطريقة حالياً. يرجى اختيار طريقة أخرى أو التواصل مع الدعم.</span>
+                            <span>{translate("payment.account.error")}</span>
                           </div>
                         ) : (
                           <div className={`space-y-4 rounded-2xl border p-5 ${
@@ -673,7 +675,7 @@ export default function CheckoutClient() {
                               <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5">
                                 <AlertTriangle className="h-4 w-4 flex-shrink-0 text-red-400" />
                                 <p className="text-xs font-bold text-red-300">
-                                  تأكد من الإرسال على شبكة <span className="text-white">BNB Smart Chain (BEP20)</span> فقط
+                                  {translate("payment.usdt.warning")}
                                 </p>
                               </div>
                             )}
@@ -681,12 +683,12 @@ export default function CheckoutClient() {
                             {/* USDT amount */}
                             {payMethod === "usdt" && (
                               <div className="rounded-xl border border-yellow-500/25 bg-yellow-500/10 px-4 py-3 text-center">
-                                <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600 mb-1">المبلغ المطلوب</p>
+                                <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600 mb-1">{translate("payment.usdt.amountLabel")}</p>
                                 <p className="text-3xl font-black tabular-nums text-yellow-300">
                                   {usdtAmount} <span className="text-lg text-yellow-400/80">USDT</span>
                                 </p>
                                 <p className="mt-1 text-[11px] text-zinc-600">
-                                  {Number(product.price).toLocaleString()} EGP ÷ {usdtRate} + {usdtFeePct}% رسوم
+                                  {Number(product.price).toLocaleString()} EGP ÷ {usdtRate} + {usdtFeePct}% {translate("payment.usdt.feeSuffix")}
                                 </p>
                               </div>
                             )}
@@ -739,7 +741,7 @@ export default function CheckoutClient() {
                                       ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
                                       : "border-white/[0.08] bg-zinc-800/60 text-zinc-500 hover:border-yellow-500/30 hover:text-yellow-300",
                                   ].join(" ")}
-                                  title="نسخ العنوان"
+                                  title={translate("checkout.copyAddress")}
                                 >
                                   {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                                 </button>
@@ -747,7 +749,7 @@ export default function CheckoutClient() {
                             </div>
 
                             {copied && payMethod === "usdt" && (
-                              <p className="text-[10px] font-bold text-emerald-400">✓ تم النسخ!</p>
+                              <p className="text-[10px] font-bold text-emerald-400">{translate("payment.copied")}</p>
                             )}
 
                             {/* QR code */}
@@ -770,24 +772,24 @@ export default function CheckoutClient() {
                             {/* Payment instructions */}
                             <div className="rounded-xl border border-white/[0.06] bg-zinc-950/40 px-4 py-3 text-sm leading-relaxed text-zinc-300">
                               {payMethod === "vodafone" && (<>
-                                <span className="font-bold text-amber-300">خطوات الدفع:</span><br />
-                                ١. افتح تطبيق فودافون كاش<br />
-                                ٢. اضغط "تحويل أموال"<br />
-                                ٣. حوّل <span className="font-bold text-white">{Number(product.price).toLocaleString()} EGP</span> للرقم أعلاه<br />
-                                ٤. خذ سكرين شوت للإيصال ← ثم اضغط التالي
+                                <span className="font-bold text-amber-300">{translate("payment.stepsHeader")}</span><br />
+                                {translate("payment.vodafone.step1")}<br />
+                                {translate("payment.vodafone.step2")}<br />
+                                {translate("payment.vodafone.step3a")} <span className="font-bold text-white">{Number(product.price).toLocaleString()} EGP</span> {translate("payment.vodafone.step3b")}<br />
+                                {translate("payment.vodafone.step4a")} <span className="font-bold text-white">{translate("payment.vodafone.step4b")}</span> {translate("payment.vodafone.step4c")}
                               </>)}
                               {payMethod === "instapay" && (<>
-                                <span className="font-bold text-amber-300">خطوات الدفع:</span><br />
-                                ١. افتح تطبيق InstaPay أو بنكك<br />
-                                ٢. حوّل <span className="font-bold text-white">{Number(product.price).toLocaleString()} EGP</span><br />
-                                ٣. خذ سكرين شوت للإيصال ← ثم اضغط التالي
+                                <span className="font-bold text-amber-300">{translate("payment.stepsHeader")}</span><br />
+                                {translate("payment.instapay.step1")}<br />
+                                {translate("payment.instapay.step2a")} <span className="font-bold text-white">{Number(product.price).toLocaleString()} EGP</span> {translate("payment.instapay.step2b")}<br />
+                                {translate("payment.instapay.step3a")} <span className="font-bold text-white">{translate("payment.instapay.step3b")}</span> {translate("payment.instapay.step3c")}
                               </>)}
                               {payMethod === "usdt" && (<>
-                                <span className="font-bold text-yellow-300">خطوات الدفع:</span><br />
-                                ١. افتح محفظتك (Trust Wallet / MetaMask / Binance…)<br />
-                                ٢. اختر شبكة <span className="font-bold text-white">BNB Smart Chain</span><br />
-                                ٣. أرسل <span className="font-bold text-yellow-300">{usdtAmount} USDT</span> للعنوان أعلاه<br />
-                                ٤. خذ سكرين شوت للمعاملة ← ثم اضغط التالي
+                                <span className="font-bold text-yellow-300">{translate("payment.stepsHeader")}</span><br />
+                                {translate("payment.usdt.step1")}<br />
+                                {translate("payment.usdt.step2")}<br />
+                                {translate("payment.usdt.step3a")} <span className="font-bold text-yellow-300">{usdtAmount} USDT</span> {translate("payment.usdt.step3b")}<br />
+                                {translate("payment.usdt.step4a")} <span className="font-bold text-white">{translate("payment.usdt.step4b")}</span> {translate("payment.usdt.step4c")}
                               </>)}
                             </div>
                           </div>
@@ -798,7 +800,7 @@ export default function CheckoutClient() {
                     {/* Customer Name */}
                     <section>
                       <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                        اسمك
+                        {translate("checkout.yourName")}
                       </p>
                       <div>
                         <div className="group relative">
@@ -809,7 +811,7 @@ export default function CheckoutClient() {
                             type="text"
                             value={name}
                             onChange={(e) => { setName(e.target.value); if (e.target.value.trim()) setNameError(false); }}
-                            placeholder="الاسم بالكامل"
+                            placeholder={translate("checkout.fullNamePlaceholder")}
                             className={[
                               "h-14 w-full rounded-2xl border pl-12 pr-4 text-sm font-semibold text-white outline-none transition-all duration-200 placeholder:text-zinc-600",
                               nameError
@@ -819,7 +821,7 @@ export default function CheckoutClient() {
                           />
                         </div>
                         {nameError && (
-                          <p className="mt-1.5 text-xs text-red-400">يرجى إدخال اسمك.</p>
+                          <p className="mt-1.5 text-xs text-red-400">{translate("checkout.nameRequired")}</p>
                         )}
                       </div>
                     </section>
@@ -833,12 +835,12 @@ export default function CheckoutClient() {
                       className="relative w-full overflow-hidden rounded-2xl border border-purple-400/25 bg-gradient-to-r from-purple-600 to-fuchsia-600 py-4 text-base font-black text-white shadow-[0_0_30px_rgba(168,85,247,0.22)] transition-all duration-300 flex items-center justify-center gap-3 group"
                     >
                       <span aria-hidden className="absolute inset-0 translate-x-[-100%] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent transition-transform duration-700 group-hover:translate-x-[100%] pointer-events-none" />
-                      <span>التالي — رفع الإيصال</span>
+                      <span>{translate("payment.next.uploadReceipt")}</span>
                       <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
                     </motion.button>
 
                     <p className="text-center text-xs leading-relaxed text-zinc-700">
-                      في الخطوة التالية ستقوم برفع سكرين شوت إيصال التحويل.
+                      {translate("checkout.nextStepNote")}
                     </p>
                   </motion.div>
 
@@ -882,10 +884,10 @@ export default function CheckoutClient() {
                           : <Smartphone className="h-4 w-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600">طريقة الدفع المختارة</p>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600">{translate("checkout.selectedMethod")}</p>
                         <p className="truncate text-sm font-bold text-white">
-                          {payMethod === "vodafone" ? "فودافون كاش"
-                            : payMethod === "instapay" ? "InstaPay"
+                          {payMethod === "vodafone" ? translate("payment.method.vodafone.name")
+                            : payMethod === "instapay" ? translate("payment.method.instapay.name")
                             : "USDT (BEP20)"}
                           {assignedAccount && (
                             <span className="ml-1.5 font-mono text-zinc-400">
@@ -907,7 +909,7 @@ export default function CheckoutClient() {
                         onClick={goBackToStep1}
                         className="text-[10px] font-bold text-zinc-600 hover:text-purple-400 transition-colors"
                       >
-                        تغيير
+                        {translate("checkout.changeMethod")}
                       </button>
                     </div>
 
@@ -915,9 +917,9 @@ export default function CheckoutClient() {
                     <section>
                       <div className="mb-3 flex items-center justify-between">
                         <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                          {payMethod === "usdt" ? "سكرين شوت المعاملة" : "صورة إيصال التحويل"}
+                          {payMethod === "usdt" ? translate("payment.proof.label.usdt") : translate("payment.proof.label.other")}
                         </p>
-                        <span className="text-[10px] font-bold text-red-400">* مطلوبة</span>
+                        <span className="text-[10px] font-bold text-red-400">{translate("payment.proof.required")}</span>
                       </div>
 
                       <input
@@ -955,7 +957,7 @@ export default function CheckoutClient() {
                               <div className="absolute left-3 top-3">
                                 <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/25 px-3 py-1 text-xs font-black text-emerald-300 backdrop-blur-sm">
                                   <CheckCircle className="h-3 w-3" />
-                                  الصورة جاهزة
+                                  {translate("payment.proof.imageReady")}
                                 </span>
                               </div>
                             </div>
@@ -963,7 +965,7 @@ export default function CheckoutClient() {
                             {/* Actions */}
                             <div className="flex items-center gap-2 border-t border-white/[0.05] px-4 py-3">
                               <p className="flex-1 truncate text-xs text-zinc-600">
-                                {proofFile?.name ?? "صورة الإيصال"}
+                                {proofFile?.name ?? translate("payment.proof.fileName")}
                               </p>
                               <button
                                 type="button"
@@ -971,7 +973,7 @@ export default function CheckoutClient() {
                                 className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-zinc-900/60 px-3.5 py-2 text-xs font-bold text-zinc-400 transition hover:border-purple-500/30 hover:text-purple-300"
                               >
                                 <RefreshCw className="h-3 w-3" />
-                                استبدال
+                                {translate("payment.proof.replace")}
                               </button>
                               <button
                                 type="button"
@@ -979,7 +981,7 @@ export default function CheckoutClient() {
                                 className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3.5 py-2 text-xs font-bold text-red-400 transition hover:bg-red-500/15"
                               >
                                 <Trash2 className="h-3 w-3" />
-                                إزالة
+                                {translate("payment.proof.remove")}
                               </button>
                             </div>
                           </motion.div>
@@ -1014,10 +1016,10 @@ export default function CheckoutClient() {
                             </div>
                             <div className="text-center">
                               <p className="text-sm font-black">
-                                {isDragging ? "أفلت الصورة هنا" : "اضغط أو اسحب صورة الإيصال"}
+                                {isDragging ? translate("payment.proof.dropzone.drag") : translate("payment.proof.dropzone.idle")}
                               </p>
                               <p className="mt-1 text-xs text-zinc-600">
-                                PNG · JPG · WEBP · حتى 8MB
+                                {translate("payment.proof.dropzone.types")}
                               </p>
                             </div>
                           </motion.div>
@@ -1027,7 +1029,7 @@ export default function CheckoutClient() {
 
                     {/* Order summary */}
                     <div className="rounded-2xl border border-white/[0.06] bg-zinc-950/50 p-4 space-y-2.5">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">ملخص الطلب</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{translate("checkout.orderSummary")}</p>
                       <div className="flex items-center justify-between text-sm">
                         <span className="mr-4 truncate text-zinc-400">{product.name}</span>
                         <span className="flex-shrink-0 font-bold tabular-nums text-white">
@@ -1036,14 +1038,14 @@ export default function CheckoutClient() {
                       </div>
                       {payMethod === "usdt" && (
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-zinc-400">USDT المطلوب</span>
+                          <span className="text-zinc-400">{translate("checkout.usdtRequired")}</span>
                           <span className="flex-shrink-0 font-bold tabular-nums text-yellow-300">
                             {usdtAmount} USDT
                           </span>
                         </div>
                       )}
                       <div className="flex items-center justify-between border-t border-white/[0.05] pt-2.5">
-                        <span className="text-sm font-black text-white">الإجمالي</span>
+                        <span className="text-sm font-black text-white">{translate("checkout.total")}</span>
                         <span className="text-lg font-black tabular-nums text-white">
                           {payMethod === "usdt" ? (
                             <><span className="text-yellow-300">{usdtAmount}</span><span className="ml-1 text-xs font-bold text-yellow-400/70">USDT</span></>
@@ -1079,24 +1081,24 @@ export default function CheckoutClient() {
                         {submitting ? (
                           <>
                             <LoaderCircle className="h-5 w-5 animate-spin" />
-                            {uploading ? "جاري رفع الصورة…" : "جاري إنشاء الطلب…"}
+                            {uploading ? translate("payment.submit.uploading") : translate("payment.submit.placing")}
                           </>
                         ) : proofFile ? (
                           <>
                             <CheckCircle className="h-5 w-5" />
-                            <span>إتمام الطلب</span>
+                            <span>{translate("payment.submit.ready")}</span>
                             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
                           </>
                         ) : (
                           <>
                             <Upload className="h-5 w-5" />
-                            <span>ارفع صورة الإيصال أولاً</span>
+                            <span>{translate("payment.submit.waitProof")}</span>
                           </>
                         )}
                       </motion.button>
 
                       <p className="text-center text-xs leading-relaxed text-zinc-700">
-                        بالضغط على الزر فإنك تؤكد أن عملية التحويل تمت بالفعل.
+                        {translate("payment.submit.confirm")}
                       </p>
                     </div>
                   </motion.div>

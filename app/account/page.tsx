@@ -99,14 +99,26 @@ function StatCard({
 }
 
 /* ─────────────────────── Order row ──────────────────── */
+const ORDER_STATUS_KEYS: Record<string, string> = {
+  "Awaiting Payment": "order.status.awaitingPayment",
+  "Completed":        "order.status.completed",
+  "Processing":       "order.status.processing",
+  "Pending":          "order.status.pending",
+  "Cancelled":        "order.status.cancelled",
+};
+
 function OrderCard({
   order, index,
 }: {
   order: { productName: string; status: string; price: number | string; createdAt: string | null };
   index: number;
 }) {
+  const { translate } = useLanguage();
   const sc    = statusConfig(order.status);
   const price = parseMoney(order.price);
+  const statusLabel = ORDER_STATUS_KEYS[order.status]
+    ? translate(ORDER_STATUS_KEYS[order.status])
+    : order.status;
 
   return (
     <motion.div
@@ -135,7 +147,7 @@ function OrderCard({
         {/* Status chip — mobile only */}
         <span className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold sm:hidden ${sc.pill}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
-          {order.status}
+          {statusLabel}
         </span>
       </div>
 
@@ -143,7 +155,7 @@ function OrderCard({
       <div className="flex flex-shrink-0 items-center gap-3">
         <span className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${sc.pill}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
-          {order.status}
+          {statusLabel}
         </span>
         <span className="text-sm font-black text-white tabular-nums">
           {price.toLocaleString()}
@@ -160,6 +172,7 @@ function ActivityTimeline({
 }: {
   orders: Array<{ productName: string; status: string; price: number | string; createdAt: string | null }>;
 }) {
+  const { translate } = useLanguage();
   const items = orders.slice(0, 6);
   if (items.length === 0) return null;
 
@@ -169,6 +182,9 @@ function ActivityTimeline({
       <div className="space-y-0">
         {items.map((o, i) => {
           const sc = statusConfig(o.status);
+          const statusLabel = ORDER_STATUS_KEYS[o.status]
+            ? translate(ORDER_STATUS_KEYS[o.status])
+            : o.status;
           return (
             <motion.div
               key={i}
@@ -186,7 +202,7 @@ function ActivityTimeline({
                   </div>
                   <div className="flex-shrink-0 text-right">
                     <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${sc.pill}`}>
-                      {o.status}
+                      {statusLabel}
                     </span>
                     <p className="mt-1 text-xs font-black text-white tabular-nums">
                       {parseMoney(o.price).toLocaleString()}{" "}
@@ -330,7 +346,7 @@ export default function AccountPage() {
                   <h1 className="text-xl sm:text-2xl font-black text-white leading-none">{fullName}</h1>
                   {isAdmin && (
                     <span className="inline-flex items-center gap-1 rounded-full border border-purple-400/30 bg-purple-500/15 px-2.5 py-0.5 text-[11px] font-bold text-purple-200">
-                      <Crown className="h-2.5 w-2.5" /> Admin
+                      <Crown className="h-2.5 w-2.5" /> {translate("admin.role.admin")}
                     </span>
                   )}
                   {profile?.verified && <VerifiedBadge />}
@@ -341,7 +357,7 @@ export default function AccountPage() {
                 </div>
                 <p className="mt-1.5 text-sm text-zinc-500 truncate">{email}</p>
                 <p className="mt-0.5 text-xs text-zinc-700">
-                  Member since {fmtDate(createdAt, "long")}
+                  {translate("account.memberSince")} {fmtDate(createdAt, "long")}
                 </p>
               </div>
 
@@ -352,7 +368,7 @@ export default function AccountPage() {
                   className="hidden sm:inline-flex items-center gap-2 rounded-xl border border-purple-500/25 bg-purple-500/10 px-4 py-2.5 text-sm font-bold text-purple-200 transition hover:bg-purple-500/20 hover:border-purple-400/40 flex-shrink-0 mb-1"
                 >
                   <Layers className="h-4 w-4" />
-                  Admin Panel
+                  {translate("account.adminPanel")}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               )}
@@ -415,7 +431,7 @@ export default function AccountPage() {
                 {!ordersLoading && (
                   <p className="text-[11px] text-zinc-600 mt-0.5">
                     {allOrders.length > 0
-                      ? `${allOrders.length} ${allOrders.length === 1 ? "order" : "orders"}`
+                      ? `${allOrders.length} ${allOrders.length === 1 ? translate("account.orderCount.one") : translate("account.orderCount.other")}`
                       : translate("account.noOrders")}
                   </p>
                 )}
@@ -426,7 +442,7 @@ export default function AccountPage() {
               className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-zinc-800/60 px-3 py-1.5 text-xs font-semibold text-zinc-400 transition hover:border-purple-500/25 hover:text-purple-300"
             >
               <MessageCircle className="h-3.5 w-3.5" />
-              Support
+              {translate("account.support")}
             </Link>
           </div>
 
@@ -445,14 +461,14 @@ export default function AccountPage() {
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-bold text-zinc-400">{translate("account.noOrders")}</p>
-                  <p className="text-xs text-zinc-600 mt-0.5">Your orders will appear here</p>
+                  <p className="text-xs text-zinc-600 mt-0.5">{translate("account.ordersEmptyDesc")}</p>
                 </div>
                 <Link
                   href="/#products"
                   className="inline-flex items-center gap-2 rounded-xl border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/15"
                 >
                   <ShoppingBag className="h-4 w-4" />
-                  Browse Products
+                  {translate("account.browseProducts")}
                 </Link>
               </div>
             ) : (
@@ -479,14 +495,14 @@ export default function AccountPage() {
             className="rounded-3xl border border-white/[0.06] bg-zinc-900/40 p-5"
           >
             <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 mb-4">
-              Account Information
+              {translate("account.accountInfo")}
             </p>
             <div className="space-y-2.5">
               {[
                 { label: translate("account.email"),    value: email },
                 { label: translate("account.joinDate"), value: fmtDate(createdAt, "long") },
-                { label: "Role",                        value: role ?? "user" },
-                { label: "Status",                      value: status ?? "Active" },
+                { label: translate("account.roleLabel"), value: role === "admin" ? translate("admin.role.admin") : role === "moderator" ? translate("admin.role.moderator") : translate("account.roleUser") },
+                { label: translate("account.status"),   value: status ?? translate("account.active") },
               ].map(({ label, value }) => (
                 <div
                   key={label}
@@ -503,11 +519,11 @@ export default function AccountPage() {
               {/* Verified row */}
               <div className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-zinc-900/50 px-3.5 py-2.5">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-600">
-                  Verified
+                  {translate("account.verified")}
                 </span>
                 {profile?.verified
                   ? <VerifiedBadge />
-                  : <span className="text-xs font-semibold text-zinc-600">Not yet</span>}
+                  : <span className="text-xs font-semibold text-zinc-600">{translate("account.notYet")}</span>}
               </div>
             </div>
           </motion.div>
@@ -536,7 +552,7 @@ export default function AccountPage() {
             <div className="flex items-center gap-2 mb-5">
               <TrendingUp className="h-3.5 w-3.5 text-purple-400" />
               <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                Recent Activity
+                {translate("account.recentActivity")}
               </p>
             </div>
             <ActivityTimeline orders={allOrders} />
@@ -553,7 +569,7 @@ export default function AccountPage() {
           className="rounded-3xl border border-white/[0.06] bg-zinc-900/40 p-5"
         >
           <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 mb-4">
-            Quick Actions
+            {translate("account.quickActions")}
           </p>
 
           <div className="flex flex-wrap gap-2.5">
@@ -563,7 +579,7 @@ export default function AccountPage() {
               className="inline-flex items-center gap-2 rounded-2xl border border-purple-500/25 bg-purple-500/10 px-4 py-2.5 text-sm font-semibold text-purple-200 transition hover:bg-purple-500/20 hover:border-purple-400/35"
             >
               <MessageCircle className="h-4 w-4" />
-              محادثات الطلبات والدعم
+              {translate("account.chatsAndSupport")}
             </Link>
 
             {/* Browse Products */}
@@ -572,7 +588,7 @@ export default function AccountPage() {
               className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-zinc-800/50 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-purple-500/20 hover:bg-purple-500/[0.06] hover:text-white"
             >
               <Package className="h-4 w-4" />
-              Browse Products
+              {translate("account.browseProducts")}
             </Link>
 
             {/* Best Sellers */}
@@ -581,7 +597,7 @@ export default function AccountPage() {
               className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-zinc-800/50 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-amber-500/20 hover:bg-amber-500/[0.06] hover:text-amber-200"
             >
               <Zap className="h-4 w-4" />
-              Best Sellers
+              {translate("account.bestSellers")}
             </Link>
 
             {/* Admin-only shortcuts */}
@@ -592,21 +608,21 @@ export default function AccountPage() {
                   className="inline-flex items-center gap-2 rounded-2xl border border-purple-500/30 bg-purple-500/15 px-4 py-2.5 text-sm font-semibold text-purple-200 transition hover:bg-purple-500/25 hover:border-purple-400/45"
                 >
                   <Package2 className="h-4 w-4" />
-                  Admin Panel
+                  {translate("account.adminPanel")}
                 </Link>
                 <Link
                   href="/admin/orders"
                   className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-zinc-800/50 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-purple-500/20 hover:bg-purple-500/[0.06] hover:text-white"
                 >
                   <ClipboardList className="h-4 w-4" />
-                  Manage Orders
+                  {translate("account.manageOrders")}
                 </Link>
                 <Link
                   href="/admin/users"
                   className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-zinc-800/50 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-purple-500/20 hover:bg-purple-500/[0.06] hover:text-white"
                 >
                   <Users className="h-4 w-4" />
-                  Manage Users
+                  {translate("account.manageUsers")}
                 </Link>
               </>
             )}

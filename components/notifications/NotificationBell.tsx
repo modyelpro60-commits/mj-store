@@ -28,21 +28,22 @@ import {
 import { useNotifications, type AppNotification } from "../../lib/notifications/useNotifications";
 import { useNotificationSound } from "../../lib/sounds/useNotificationSound";
 import NotificationSoundToggle from "./NotificationSoundToggle";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 /* ══════════════════════════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════════════════════════ */
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, translate: (key: string) => string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const s = Math.floor(diff / 1000);
-  if (s < 60)  return "just now";
+  if (s < 60)  return translate("notifications.timeAgo.justNow");
   const m = Math.floor(s / 60);
-  if (m < 60)  return `${m}m ago`;
+  if (m < 60)  return `${m}${translate("notifications.timeAgo.minsAgo")}`;
   const h = Math.floor(m / 60);
-  if (h < 24)  return `${h}h ago`;
+  if (h < 24)  return `${h}${translate("notifications.timeAgo.hoursAgo")}`;
   const d = Math.floor(h / 24);
-  return `${d}d ago`;
+  return `${d}${translate("notifications.timeAgo.daysAgo")}`;
 }
 
 /** Always sort newest-first */
@@ -78,6 +79,7 @@ const DEFAULT_META = { icon: Bell, color: "text-white/40", dot: "bg-white/30" };
 ══════════════════════════════════════════════════════════════════ */
 
 function EmptyState({ large = false }: { large?: boolean }) {
+  const { translate } = useLanguage();
   return (
     <div className="flex flex-col items-center justify-center px-8 text-center" style={{ paddingTop: large ? "3rem" : "2.5rem", paddingBottom: large ? "3rem" : "2.5rem" }}>
       {/* Animated icon */}
@@ -117,10 +119,10 @@ function EmptyState({ large = false }: { large?: boolean }) {
       </div>
 
       <p className={`font-black text-white/30 ${large ? "text-[16px]" : "text-[13px]"}`}>
-        All caught up!
+        {translate("notifications.allCaughtUp")}
       </p>
       <p className={`mt-1.5 text-white/15 leading-relaxed ${large ? "text-[13px] max-w-[220px]" : "text-[11px] max-w-[180px]"}`}>
-        New notifications will appear here when something happens.
+        {translate("notifications.noNewDesc")}
       </p>
     </div>
   );
@@ -139,6 +141,7 @@ function NotifRow({
   onRead: (id: number, link: string | null) => void;
   large?: boolean;
 }) {
+  const { translate } = useLanguage();
   const meta = TYPE_META[n.type] ?? DEFAULT_META;
   const Icon = meta.icon;
 
@@ -185,7 +188,7 @@ function NotifRow({
         <p className={`mt-1 font-semibold
           ${large ? "text-[11px]" : "text-[10px]"}
           ${n.is_read ? "text-white/15" : "text-purple-400/55"}`}>
-          {timeAgo(n.created_at)}
+          {timeAgo(n.created_at, translate)}
         </p>
       </div>
     </motion.button>
@@ -210,6 +213,7 @@ function PanelContent({
   notifications, unreadCount, loading,
   large = false, onMarkAllRead, onClose, onRead,
 }: PanelProps) {
+  const { translate } = useLanguage();
   const sorted   = newestFirst(notifications);
   const isEmpty  = sorted.length === 0;
   const px       = large ? "px-5" : "px-4";
@@ -226,14 +230,14 @@ function PanelContent({
 
         <div className="relative flex items-center gap-2">
           <Bell className={`text-purple-400/75 ${iconSz}`} />
-          <span className={`font-black text-white ${titleSz}`}>Notifications</span>
+          <span className={`font-black text-white ${titleSz}`}>{translate("notifications.title")}</span>
           {unreadCount > 0 && (
             <motion.span
               initial={{ scale: 0.7, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               className="rounded-full border border-purple-500/30 bg-purple-500/18 px-1.5 py-0.5 text-[10px] font-black text-purple-300"
             >
-              {unreadCount} new
+              {unreadCount} {translate("notifications.new")}
             </motion.span>
           )}
         </div>
@@ -253,7 +257,7 @@ function PanelContent({
                   ${large ? "px-3 py-1.5 text-[11px]" : "px-2.5 py-1 text-[10px]"}`}
               >
                 <CheckCheck className={large ? "h-3.5 w-3.5" : "h-3 w-3"} />
-                All read
+                {translate("notifications.markAllRead")}
               </motion.button>
             )}
           </AnimatePresence>
@@ -276,7 +280,7 @@ function PanelContent({
         {loading && sorted.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-12 text-white/20">
             <LoaderCircle className="h-4 w-4 animate-spin" />
-            <span className="text-xs">Loading…</span>
+            <span className="text-xs">{translate("notifications.loading")}</span>
           </div>
         ) : isEmpty ? (
           <EmptyState large={large} />
@@ -297,7 +301,7 @@ function PanelContent({
       {/* ── STICKY FOOTER ── */}
       <div className={`border-t border-white/[0.04] flex items-center justify-between gap-3 shrink-0 ${px} ${large ? "py-3" : "py-2.5"}`}>
         <p className={`text-white/15 leading-none tabular-nums ${large ? "text-[11px]" : "text-[10px]"}`}>
-          {isEmpty ? "No notifications" : `${sorted.length} notification${sorted.length !== 1 ? "s" : ""}`}
+          {isEmpty ? translate("notifications.none") : `${sorted.length} ${sorted.length !== 1 ? translate("notifications.countPlural") : translate("notifications.countSingular")}`}
         </p>
         <NotificationSoundToggle variant="inline" />
       </div>
@@ -403,6 +407,7 @@ export default function NotificationBell() {
   const router = useRouter();
   const { notifications, unreadCount, loading, markRead, markAllRead } = useNotifications();
   const { processNotifications } = useNotificationSound();
+  const { translate } = useLanguage();
 
   const [open,    setOpen]    = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -479,7 +484,7 @@ export default function NotificationBell() {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          aria-label="Notifications"
+          aria-label={translate("notifications.bellAriaLabel")}
           aria-expanded={open}
           className={`relative flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200 ${
             open

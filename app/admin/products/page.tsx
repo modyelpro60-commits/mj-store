@@ -385,11 +385,11 @@ function StudioEditor({
           {productId && (
             <>
               <a href={`/product/${productId}`} target="_blank" rel="noopener noreferrer"
-                title="عرض صفحة المنتج"
+                title={translate("admin.products.form.viewPage")}
                 className="grid h-7 w-7 place-items-center rounded-lg border border-white/[0.08] bg-zinc-800/60 text-zinc-400 hover:text-white hover:bg-zinc-700/60 transition">
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
-              <button type="button" title="نسخ" onClick={onDuplicate}
+              <button type="button" title={translate("admin.products.form.duplicate")} onClick={onDuplicate}
                 className="grid h-7 w-7 place-items-center rounded-lg border border-white/[0.08] bg-zinc-800/60 text-zinc-400 hover:text-white hover:bg-zinc-700/60 transition">
                 <Copy className="h-3.5 w-3.5" />
               </button>

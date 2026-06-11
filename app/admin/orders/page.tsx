@@ -318,7 +318,7 @@ function OrderDrawer({
                     {order.usdt_amount} USDT
                     {order.usdt_rate != null && (
                       <span className="block text-[10px] font-semibold text-zinc-600">
-                        @ {order.usdt_rate} EGP{order.usdt_fee_pct != null ? ` · +${order.usdt_fee_pct}% fee` : ""}
+                        @ {order.usdt_rate} EGP{order.usdt_fee_pct != null ? ` · +${order.usdt_fee_pct}% ${translate("payment.usdt.feeSuffix")}` : ""}
                       </span>
                     )}
                   </span>
