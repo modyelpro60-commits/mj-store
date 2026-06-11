@@ -190,12 +190,12 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
 
               {/* Short description (tagline) — shown first if available */}
               {product.short_description && (
-                <p className="mt-3 text-purple-300/80 text-base font-semibold leading-snug">
+                <p className="mt-3 text-purple-300/80 text-base font-semibold leading-snug line-clamp-2">
                   {product.short_description}
                 </p>
               )}
 
-              <p className="mt-4 text-zinc-300 text-base md:text-lg leading-relaxed font-medium">
+              <p className="mt-4 text-zinc-300 text-base md:text-lg leading-relaxed font-medium line-clamp-3">
                 {product.description}
               </p>
 
