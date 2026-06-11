@@ -10,7 +10,7 @@ import {
   useSpring,
   useTransform,
 } from "framer-motion";
-import { ArrowRight, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, Clock, ShieldCheck, Sparkles } from "lucide-react";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
 import MJHeroBrand from "./MJHeroBrand";
 
@@ -228,7 +228,7 @@ export default function StorefrontHero() {
                   whileHover={{ scale: 1.15, backgroundColor: "rgba(168,85,247,0.30)" }}
                   transition={{ duration: 0.2 }}
                 >
-                  <Zap className="h-4 w-4 text-purple-300" />
+                  <Clock className="h-4 w-4 text-purple-300" />
                 </motion.div>
                 <span>{translate("home.hero.featureInstantDelivery")}</span>
               </motion.div>

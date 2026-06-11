@@ -35,9 +35,9 @@ const NAV_LINKS = [
 ] as const;
 
 const LANG_OPTIONS = [
-  { value: "en", flag: "🇬🇧", label: "English"  },
-  { value: "ar", flag: "🇪🇬", label: "العربية"  },
-  { value: "fr", flag: "🇫🇷", label: "Français" },
+  { value: "en", flag: "🇬🇧", labelKey: "nav.language.english" },
+  { value: "ar", flag: "🇪🇬", labelKey: "nav.language.arabic"  },
+  { value: "fr", flag: "🇫🇷", labelKey: "nav.language.french"  },
 ] as const;
 
 /* ── Online status dot ──────────────────────────────────────────── */
@@ -235,7 +235,7 @@ export default function CommandBar() {
             </nav>
 
             {/* ── RIGHT ───────────────────────────────────────── */}
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2 ms-auto">
 
               {/* Language picker */}
               <div ref={langRef} className="relative">
@@ -246,7 +246,7 @@ export default function CommandBar() {
                   className="flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 text-[11px] font-medium text-white/30 transition-all duration-200 hover:border-white/10 hover:text-white/55"
                 >
                   <span className="text-sm leading-none">{currentLang.flag}</span>
-                  <span className="hidden sm:inline">{currentLang.label}</span>
+                  <span className="hidden sm:inline">{translate(currentLang.labelKey)}</span>
                   <motion.span animate={{ rotate: langOpen ? 180 : 0 }} transition={{ duration: 0.18 }}>
                     <ChevronDown className="h-2.5 w-2.5" />
                   </motion.span>
@@ -259,7 +259,7 @@ export default function CommandBar() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -6, scale: 0.95 }}
                       transition={{ duration: 0.14, ease: "easeOut" }}
-                      className="absolute right-0 top-[calc(100%+8px)] w-[164px] overflow-hidden rounded-xl border border-white/[0.08] bg-[#0B0B18]/98 p-1.5 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
+                      className="absolute end-0 top-[calc(100%+8px)] w-[164px] overflow-hidden rounded-xl border border-white/[0.08] bg-[#0B0B18]/98 p-1.5 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
                     >
                       {LANG_OPTIONS.map((opt) => (
                         <button
@@ -273,7 +273,7 @@ export default function CommandBar() {
                           }`}
                         >
                           <span className="text-sm leading-none">{opt.flag}</span>
-                          {opt.label}
+                          {translate(opt.labelKey)}
                         </button>
                       ))}
                     </motion.div>
@@ -288,7 +288,7 @@ export default function CommandBar() {
               {isLoggedIn && (
                 <Link
                   href="/chat"
-                  aria-label="Chats"
+                  aria-label={translate("nav.chatsAriaLabel")}
                   className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-white/65 transition-all duration-200 hover:border-purple-500/25 hover:bg-purple-500/[0.08] hover:text-white"
                 >
                   <MessageSquare className="h-[17px] w-[17px]" />
@@ -299,12 +299,12 @@ export default function CommandBar() {
               {isLoggedIn && (
                 <Link
                   href="/cart"
-                  aria-label="Cart"
+                  aria-label={translate("nav.cartAriaLabel")}
                   className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-white/65 transition-all duration-200 hover:border-purple-500/25 hover:bg-purple-500/[0.08] hover:text-white"
                 >
                   <ShoppingBag className="h-[18px] w-[18px]" />
                   {cartCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full border-2 border-[#08081A] bg-gradient-to-r from-purple-600 to-fuchsia-600 px-1 text-[10px] font-black leading-none text-white">
+                    <span className="absolute -top-1.5 -end-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full border-2 border-[#08081A] bg-gradient-to-r from-purple-600 to-fuchsia-600 px-1 text-[10px] font-black leading-none text-white">
                       {cartCount > 9 ? "9+" : cartCount}
                     </span>
                   )}
@@ -345,7 +345,7 @@ export default function CommandBar() {
                         type="button"
                         onClick={() => setAccountOpen((v) => !v)}
                         whileHover={{ borderColor: "rgba(168,85,247,0.28)" }}
-                        className="flex h-9 items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-2.5 pr-3 text-[13px] font-medium text-white/65 transition-all duration-200 hover:bg-purple-500/[0.06]"
+                        className="flex h-9 items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-2.5 pe-3 text-[13px] font-medium text-white/65 transition-all duration-200 hover:bg-purple-500/[0.06]"
                       >
                         {/* Avatar */}
                         <UserAvatar role={role} verified={profile?.verified} size="sm" />
@@ -363,7 +363,7 @@ export default function CommandBar() {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: -8, scale: 0.96 }}
                             transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                            className="absolute right-0 top-[calc(100%+10px)] w-[252px] overflow-hidden rounded-2xl border border-white/[0.07] bg-[#09091A]/98 shadow-[0_24px_72px_rgba(0,0,0,0.65),0_0_0_1px_rgba(168,85,247,0.07)_inset] backdrop-blur-2xl"
+                            className="absolute end-0 top-[calc(100%+10px)] w-[252px] overflow-hidden rounded-2xl border border-white/[0.07] bg-[#09091A]/98 shadow-[0_24px_72px_rgba(0,0,0,0.65),0_0_0_1px_rgba(168,85,247,0.07)_inset] backdrop-blur-2xl"
                           >
                             {/* User header */}
                             <div className="relative px-4 py-4 border-b border-white/[0.05]">
@@ -375,7 +375,7 @@ export default function CommandBar() {
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center justify-between gap-2">
                                     <p className="text-[13px] font-bold text-white truncate">{fullName}</p>
-                                    <span className="text-[10px] font-semibold text-emerald-400/75 shrink-0">● Online</span>
+                                    <span className="text-[10px] font-semibold text-emerald-400/75 shrink-0">● {translate("nav.online")}</span>
                                   </div>
                                   {profile?.email && (
                                     <p className="text-[11px] text-white/22 truncate mt-0.5">{profile.email}</p>
@@ -386,7 +386,7 @@ export default function CommandBar() {
                                         ? "bg-purple-500/15 text-purple-300/75 border-purple-500/20"
                                         : "bg-blue-500/15 text-blue-300/75 border-blue-500/20"
                                     }`}>
-                                      {isAdmin ? "Admin" : "Moderator"}
+                                      {isAdmin ? translate("admin.role.admin") : translate("admin.role.moderator")}
                                     </span>
                                   )}
                                 </div>
@@ -408,7 +408,7 @@ export default function CommandBar() {
                                     <DropItem href="/admin" icon={LayoutDashboard} label={translate("account.adminPanel")} accent="purple" onClick={() => setAccountOpen(false)} />
                                   )}
                                   {isModerator && (
-                                    <DropItem href="/admin" icon={ShieldCheck} label="Moderator Panel" accent="blue" onClick={() => setAccountOpen(false)} />
+                                    <DropItem href="/admin" icon={ShieldCheck} label={translate("nav.moderatorPanel")} accent="blue" onClick={() => setAccountOpen(false)} />
                                   )}
                                 </div>
                               </>
@@ -438,7 +438,7 @@ export default function CommandBar() {
                 type="button"
                 onClick={() => setMobileOpen((v) => !v)}
                 whileTap={{ scale: 0.9 }}
-                aria-label={mobileOpen ? "إغلاق القائمة" : "فتح القائمة"}
+                aria-label={mobileOpen ? translate("nav.mobileMenuClose") : translate("nav.mobileMenuOpen")}
                 className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.03] text-white/35 transition-all hover:border-purple-500/20 hover:text-white/65"
               >
                 <AnimatePresence mode="wait" initial={false}>
@@ -538,7 +538,7 @@ export default function CommandBar() {
                         <Link href="/admin" onClick={() => setMobileOpen(false)}
                           className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-[13px] font-medium text-blue-300/70 transition-all hover:bg-blue-500/10 hover:text-blue-200">
                           <ShieldCheck className="h-4 w-4 text-blue-400/50 shrink-0" />
-                          Moderator Panel
+                          {translate("nav.moderatorPanel")}
                         </Link>
                       )}
 
@@ -571,7 +571,7 @@ export default function CommandBar() {
                         : "border-white/[0.07] text-white/28 hover:border-white/12 hover:text-white/55"
                     }`}
                   >
-                    {opt.flag} {opt.label}
+                    {opt.flag} {translate(opt.labelKey)}
                   </button>
                 ))}
               </div>
@@ -586,7 +586,7 @@ export default function CommandBar() {
       <ConfirmModal
         open={showLogout}
         title={translate("auth.logout")}
-        message="Are you sure you want to sign out?"
+        message={translate("nav.signOutConfirmMsg")}
         confirmLabel={translate("nav.logout")}
         variant="default"
         loading={isSigningOut}

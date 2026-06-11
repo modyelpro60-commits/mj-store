@@ -3,15 +3,17 @@ import { getHomeStats } from "./lib/home/getHomeStats";
 import FeaturedProductsGrid from "../components/storefront/FeaturedProductsGrid";
 import StorefrontHero from "../components/storefront/StorefrontHero";
 import CommandBar from "../components/nav/CommandBar";
-import HomeProductsHeading from "../components/storefront/HomeProductsHeading";
-import HomeFooter from "../components/storefront/HomeFooter";
 import HomeFeaturedProductsHeading from "../components/storefront/HomeFeaturedProductsHeading";
+import HomeFooter from "../components/storefront/HomeFooter";
 import HomeLiveStats from "../components/storefront/home/HomeLiveStats";
+import HomeHowItWorks from "../components/storefront/HomeHowItWorks";
+import HomeProductsSection from "../components/storefront/HomeProductsSection";
+import HomeTrustSection from "../components/storefront/HomeTrustSection";
 import PageAmbient from "../components/storefront/PageAmbient";
 
 // Actual DB schema: id, name, description, image, price, sales_count, category,
 //   badge, features, full_description, is_active, created_at
-// Plus migration-added: original_price NUMERIC NULL, short_description TEXT NULL
+// Migration-added: original_price NUMERIC NULL, short_description TEXT NULL
 type Product = {
   id: number | string;
   name: string;
@@ -37,6 +39,7 @@ function toNumber(value: unknown): number {
 }
 
 export default async function Home() {
+  /* ── Parallel fetches ── */
   const [{ data: products }, stats] = await Promise.all([
     supabase.from("products").select("*"),
     getHomeStats(),
@@ -44,7 +47,7 @@ export default async function Home() {
 
   const list = (products ?? []) as Product[];
 
-  // Fetch best-selling product from completed orders
+  /* ── Featured = best-selling active product ── */
   const { data: orderData } = await supabase
     .from("orders")
     .select("product_id")
@@ -54,58 +57,62 @@ export default async function Home() {
   let featuredProduct: Product | null = null;
 
   if (orderData && orderData.length > 0) {
-    const salesCount = new Map<string | number, number>();
-    orderData.forEach(order => {
-      const id = order.product_id;
-      salesCount.set(id, (salesCount.get(id) || 0) + 1);
-    });
+    const salesMap = new Map<string | number, number>();
+    orderData.forEach((o) => salesMap.set(o.product_id, (salesMap.get(o.product_id) || 0) + 1));
 
     let maxSales = 0;
-    for (const product of list) {
-      const sales = salesCount.get(product.id) || 0;
-      if (sales > maxSales) {
-        maxSales = sales;
-        featuredProduct = product;
-      }
+    for (const p of list) {
+      if (p.is_active === false) continue;
+      const sales = salesMap.get(p.id) || 0;
+      if (sales > maxSales) { maxSales = sales; featuredProduct = p; }
     }
   }
 
   if (!featuredProduct) {
-    const sorted = [...list].sort((a, b) => toNumber(b.sales_count) - toNumber(a.sales_count));
+    const sorted = [...list]
+      .filter((p) => p.is_active !== false)
+      .sort((a, b) => toNumber(b.sales_count) - toNumber(a.sales_count));
     featuredProduct = sorted[0] || null;
   }
 
-  const featured = featuredProduct ? [featuredProduct] : [];
+  const featured        = featuredProduct ? [featuredProduct] : [];
+  const activeProducts  = list.filter((p) => p.is_active !== false);
 
   return (
     <>
-      {/* Navbar rendered OUTSIDE <main> to prevent any parent containment issues */}
       <CommandBar />
 
       <main className="relative min-h-screen bg-void-base">
         <PageAmbient />
-        {/* Hero */}
+
+        {/* ── Hero ── */}
         <StorefrontHero />
 
-        {/* Stats directly below CTA — compact pills */}
+        {/* ── Stats ── */}
         <HomeLiveStats
-          activeCustomers={stats.activeCustomers}
-          totalCustomers={stats.totalCustomers}
-          totalProducts={list.length}
+          registeredUsers={stats.registeredUsers}
+          completedOrders={stats.completedOrders}
+          totalProducts={activeProducts.length}
         />
 
-        {/* Featured Products — compact spacing */}
-        <section id="best-sellers" className="max-w-[1600px] mx-auto px-8 pt-4 pb-12">
-          <HomeFeaturedProductsHeading />
-          <FeaturedProductsGrid products={featured} variant="featured" />
-        </section>
+        {/* ── How It Works ── */}
+        <HomeHowItWorks />
 
-        {/* Products Grid */}
-        <section id="products" className="max-w-[1600px] mx-auto px-8 pb-28">
-          <HomeProductsHeading />
-          <FeaturedProductsGrid products={list} variant="all" />
-        </section>
+        {/* ── Featured / Best Seller ── */}
+        {featured.length > 0 && (
+          <section id="best-sellers" className="max-w-[1600px] mx-auto px-8 pt-4 pb-12">
+            <HomeFeaturedProductsHeading />
+            <FeaturedProductsGrid products={featured} variant="featured" />
+          </section>
+        )}
 
+        {/* ── All Products (with category filter) ── */}
+        <HomeProductsSection products={list} />
+
+        {/* ── Trust Section ── */}
+        <HomeTrustSection />
+
+        {/* ── Footer ── */}
         <HomeFooter />
       </main>
     </>

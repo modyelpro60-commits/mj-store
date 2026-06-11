@@ -22,6 +22,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { PaymentAccount } from "../../app/lib/payment/config";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 /* ── Types ─────────────────────────────────────────────────── */
 type Method = "vodafone" | "instapay" | "usdt";
@@ -52,6 +53,8 @@ export default function PaymentModal({
   onPaid?:      () => void;
 }) {
   const router = useRouter();
+  const { translate, language } = useLanguage();
+  const dir = language === "ar" ? "rtl" : "ltr";
 
   /* ── Wizard ── */
   const [step,   setStep]   = useState<Step>("method");
@@ -159,11 +162,11 @@ export default function PaymentModal({
   /* ── Proof file ── */
   function acceptFile(file: File) {
     if (!file.type.startsWith("image/")) {
-      setUploadError("يرجى اختيار صورة فقط (PNG · JPG · WEBP)");
+      setUploadError(translate("payment.error.notImage"));
       return;
     }
     if (file.size > 8 * 1024 * 1024) {
-      setUploadError("حجم الصورة يجب أن يكون أقل من 8MB");
+      setUploadError(translate("payment.error.tooLarge"));
       return;
     }
     setUploadError(null);
@@ -206,18 +209,18 @@ export default function PaymentModal({
       });
       const upData = await upRes.json() as { success?: boolean; url?: string; error?: string };
       if (!upData.success || !upData.url) {
-        setUploadError(upData.error ?? "فشل رفع الصورة، حاول مرة أخرى.");
+        setUploadError(upData.error ?? translate("payment.error.uploadFailed"));
         return;
       }
       proofUrl = upData.url;
     } catch {
-      setUploadError("خطأ في الاتصال أثناء رفع الصورة.");
+      setUploadError(translate("payment.error.connectionFailed"));
       return;
     } finally {
       setUploading(false);
     }
 
-    /* 2. Place the order — pass account_id so the server locks it to this order */
+    /* 2. Place the order */
     setPlacing(true);
     try {
       const body: Record<string, unknown> = {
@@ -243,25 +246,31 @@ export default function PaymentModal({
         onClose();
         router.push(d.roomId ? `/chat?room=${d.roomId}` : "/chat");
       } else {
-        toast.error(d.error ?? "تعذّر إنشاء الطلب");
+        toast.error(d.error ?? translate("payment.error.orderFailed"));
         setPlacing(false);
       }
     } catch {
-      toast.error("تعذّر إنشاء الطلب");
+      toast.error(translate("payment.error.orderFailed"));
       setPlacing(false);
     }
   }
 
   /* ── Step title ── */
   const stepTitle =
-    step === "method" ? "اختر طريقة الدفع" :
-    step === "pay"    ? (method === "vodafone" ? "فودافون كاش" : method === "instapay" ? "إنستا باي" : "USDT (BEP20)") :
-                        "ارفع صورة الإيصال";
+    step === "method" ? translate("payment.title.chooseMethod") :
+    step === "pay"    ? (
+      method === "vodafone"
+        ? translate("payment.method.vodafone.name")
+        : method === "instapay"
+        ? translate("payment.method.instapay.name")
+        : "USDT (BEP20)"
+    ) :
+    translate("payment.title.uploadProof");
 
   const STEPS: { key: Step; label: string }[] = [
-    { key: "method", label: "الطريقة" },
-    { key: "pay",    label: "التحويل" },
-    { key: "upload", label: "الإيصال" },
+    { key: "method", label: translate("payment.step.method") },
+    { key: "pay",    label: translate("payment.step.pay")    },
+    { key: "upload", label: translate("payment.step.upload") },
   ];
   const stepIdx = step === "method" ? 0 : step === "pay" ? 1 : 2;
 
@@ -271,7 +280,7 @@ export default function PaymentModal({
       return (
         <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.06] bg-zinc-900/40 py-6 text-zinc-500">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-xs font-semibold">جاري تحميل بيانات الحساب…</span>
+          <span className="text-xs font-semibold">{translate("payment.account.loading")}</span>
         </div>
       );
     }
@@ -279,7 +288,7 @@ export default function PaymentModal({
       return (
         <div className="flex items-start gap-3 rounded-xl border border-red-500/25 bg-red-500/[0.06] px-4 py-3 text-sm text-red-300">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-          <span>لا توجد حسابات متاحة لهذه الطريقة حالياً. جرّب طريقة أخرى أو تواصل مع الدعم.</span>
+          <span>{translate("payment.account.error")}</span>
         </div>
       );
     }
@@ -295,7 +304,7 @@ export default function PaymentModal({
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[120] grid place-items-center bg-black/80 p-4 backdrop-blur-sm"
           onClick={close}
-          dir="rtl"
+          dir={dir}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 12 }}
@@ -355,7 +364,7 @@ export default function PaymentModal({
 
               {/* ── Amount chip ── */}
               <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
-                <span className="text-sm text-zinc-400">المبلغ المطلوب</span>
+                <span className="text-sm text-zinc-400">{translate("payment.amount.label")}</span>
                 <div className="text-right">
                   <span className="text-lg font-black text-white" style={{ textShadow: "0 0 20px rgba(168,85,247,0.4)" }}>
                     {egp(subtotal)}
@@ -388,7 +397,7 @@ export default function PaymentModal({
                       </div>
                       <div className="flex-1 text-right">
                         <p className="font-black text-white">Vodafone Cash</p>
-                        <p className="text-xs text-zinc-500">حوّل على رقم المحفظة</p>
+                        <p className="text-xs text-zinc-500">{translate("payment.vodafone.desc")}</p>
                       </div>
                       <ChevronLeft className="h-4 w-4 text-zinc-600 transition group-hover:text-white" />
                     </button>
@@ -401,7 +410,7 @@ export default function PaymentModal({
                       </div>
                       <div className="flex-1 text-right">
                         <p className="font-black text-white">InstaPay</p>
-                        <p className="text-xs text-zinc-500">امسح كود الـ QR وحوّل</p>
+                        <p className="text-xs text-zinc-500">{translate("payment.instapay.desc")}</p>
                       </div>
                       <ChevronLeft className="h-4 w-4 text-zinc-600 transition group-hover:text-white" />
                     </button>
@@ -414,7 +423,7 @@ export default function PaymentModal({
                       </div>
                       <div className="flex-1 text-right">
                         <p className="font-black text-white">USDT (BEP20)</p>
-                        <p className="text-xs text-zinc-500">BNB Smart Chain</p>
+                        <p className="text-xs text-zinc-500">{translate("payment.usdt.desc")}</p>
                       </div>
                       <ChevronLeft className="h-4 w-4 text-zinc-600 transition group-hover:text-white" />
                     </button>
@@ -434,7 +443,7 @@ export default function PaymentModal({
                     {/* ── Vodafone Cash ── */}
                     {method === "vodafone" && assignedAccount && (
                       <div className="rounded-2xl border border-red-500/25 bg-red-500/[0.05] p-4 text-center">
-                        <p className="text-xs text-zinc-400">حوّل المبلغ على رقم فودافون كاش</p>
+                        <p className="text-xs text-zinc-400">{translate("payment.vodafone.subtitle")}</p>
                         {assignedAccount.name && (
                           <p className="mt-0.5 text-[11px] font-semibold text-zinc-500">{assignedAccount.name}</p>
                         )}
@@ -447,9 +456,8 @@ export default function PaymentModal({
                             {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
                           </button>
                         </div>
-                        {copied && <p className="mt-1 text-[10px] font-bold text-emerald-400">✓ تم النسخ!</p>}
+                        {copied && <p className="mt-1 text-[10px] font-bold text-emerald-400">{translate("payment.copied")}</p>}
 
-                        {/* QR if available */}
                         {assignedAccount.qr_image && (
                           <div className="mt-3 flex justify-center">
                             <img src={assignedAccount.qr_image} alt="QR"
@@ -458,11 +466,15 @@ export default function PaymentModal({
                           </div>
                         )}
 
-                        <div className="mt-3 rounded-xl border border-white/[0.05] bg-zinc-950/50 px-3 py-2.5 text-xs leading-relaxed text-zinc-400 text-right">
-                          ١. افتح تطبيق فودافون كاش<br />
-                          ٢. اضغط «تحويل أموال»<br />
-                          ٣. حوّل <span className="font-bold text-white">{egp(subtotal)}</span> للرقم أعلاه<br />
-                          ٤. خذ <span className="font-bold text-amber-300">سكرين شوت للإيصال</span> — ستحتاجه في الخطوة التالية
+                        <div className="mt-3 rounded-xl border border-white/[0.05] bg-zinc-950/50 px-3 py-2.5 text-xs leading-relaxed text-zinc-400 text-start" dir={dir}>
+                          {translate("payment.vodafone.step1")}<br />
+                          {translate("payment.vodafone.step2")}<br />
+                          {translate("payment.vodafone.step3a")}{" "}
+                          <span className="font-bold text-white">{egp(subtotal)}</span>
+                          {" "}{translate("payment.vodafone.step3b")}<br />
+                          {translate("payment.vodafone.step4a")}{" "}
+                          <span className="font-bold text-amber-300">{translate("payment.vodafone.step4b")}</span>
+                          {" "}{translate("payment.vodafone.step4c")}
                         </div>
                       </div>
                     )}
@@ -470,12 +482,11 @@ export default function PaymentModal({
                     {/* ── InstaPay ── */}
                     {method === "instapay" && assignedAccount && (
                       <div className="rounded-2xl border border-purple-500/25 bg-purple-500/[0.05] p-4 text-center">
-                        <p className="mb-1 text-xs text-zinc-400">حوّل عبر InstaPay إلى</p>
+                        <p className="mb-1 text-xs text-zinc-400">{translate("payment.instapay.subtitle")}</p>
                         {assignedAccount.name && (
                           <p className="text-[11px] font-semibold text-zinc-500 mb-2">{assignedAccount.name}</p>
                         )}
 
-                        {/* Handle / username */}
                         <div className="flex items-center justify-center gap-2 mb-3">
                           <span className="text-xl font-black text-white" dir="ltr">
                             @{assignedAccount.value}
@@ -485,9 +496,8 @@ export default function PaymentModal({
                             {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
                           </button>
                         </div>
-                        {copied && <p className="mb-2 text-[10px] font-bold text-emerald-400">✓ تم النسخ!</p>}
+                        {copied && <p className="mb-2 text-[10px] font-bold text-emerald-400">{translate("payment.copied")}</p>}
 
-                        {/* QR if available */}
                         {assignedAccount.qr_image ? (
                           <img src={assignedAccount.qr_image} alt="InstaPay QR"
                             className="mx-auto h-44 w-44 rounded-xl border border-white/10 bg-white object-contain p-1"
@@ -495,14 +505,18 @@ export default function PaymentModal({
                         ) : (
                           <div className="mx-auto grid h-36 w-36 place-items-center rounded-xl border border-dashed border-white/15 bg-white/[0.02] text-center text-[11px] leading-relaxed text-zinc-600">
                             <QrCode className="h-8 w-8 mb-1 opacity-30" />
-                            لا يوجد QR
+                            {translate("payment.instapay.noQr")}
                           </div>
                         )}
 
-                        <div className="mt-3 rounded-xl border border-white/[0.05] bg-zinc-950/50 px-3 py-2.5 text-xs leading-relaxed text-zinc-400 text-right">
-                          ١. افتح تطبيق InstaPay أو بنكك<br />
-                          ٢. حوّل <span className="font-bold text-white">{egp(subtotal)}</span> للحساب أعلاه<br />
-                          ٣. خذ <span className="font-bold text-amber-300">سكرين شوت للإيصال</span> — ستحتاجه في الخطوة التالية
+                        <div className="mt-3 rounded-xl border border-white/[0.05] bg-zinc-950/50 px-3 py-2.5 text-xs leading-relaxed text-zinc-400 text-start" dir={dir}>
+                          {translate("payment.instapay.step1")}<br />
+                          {translate("payment.instapay.step2a")}{" "}
+                          <span className="font-bold text-white">{egp(subtotal)}</span>
+                          {" "}{translate("payment.instapay.step2b")}<br />
+                          {translate("payment.instapay.step3a")}{" "}
+                          <span className="font-bold text-amber-300">{translate("payment.instapay.step3b")}</span>
+                          {" "}{translate("payment.instapay.step3c")}
                         </div>
                       </div>
                     )}
@@ -514,18 +528,20 @@ export default function PaymentModal({
                         <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5">
                           <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
                           <p className="text-xs font-bold text-red-300">
-                            تأكد من الإرسال على شبكة <span className="text-white">BNB Smart Chain (BEP20)</span> فقط
+                            {translate("payment.usdt.warning")}
                           </p>
                         </div>
 
                         {/* USDT amount */}
                         <div className="rounded-xl border border-yellow-500/25 bg-yellow-500/10 px-4 py-3 text-center">
-                          <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600 mb-1">المبلغ المطلوب</p>
+                          <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600 mb-1">
+                            {translate("payment.usdt.amountLabel")}
+                          </p>
                           <p className="text-3xl font-black tabular-nums text-yellow-300">
                             {usdtAmount} <span className="text-lg text-yellow-400/80">USDT</span>
                           </p>
-                          <p className="mt-1 text-[11px] text-zinc-600">
-                            {subtotal.toLocaleString("en")} EGP ÷ {usdtRate} + {usdtFeePct}% رسوم
+                          <p className="mt-1 text-[11px] text-zinc-600" dir="ltr">
+                            {subtotal.toLocaleString("en")} {translate("payment.usdt.fees")} {usdtRate} + {usdtFeePct}% {translate("payment.usdt.feeSuffix")}
                           </p>
                         </div>
 
@@ -534,7 +550,9 @@ export default function PaymentModal({
                           <p className="text-[11px] font-semibold text-zinc-500 text-center">{assignedAccount.name}</p>
                         )}
                         <div className="rounded-xl border border-yellow-500/20 bg-zinc-950/50 px-3 py-2.5">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 mb-1.5">عنوان المحفظة</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 mb-1.5">
+                            {translate("payment.usdt.walletLabel")}
+                          </p>
                           <div className="flex items-center gap-2">
                             <p className="flex-1 break-all text-xs font-mono text-zinc-300 leading-relaxed" dir="ltr">
                               {assignedAccount.value}
@@ -544,10 +562,9 @@ export default function PaymentModal({
                               {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
                             </button>
                           </div>
-                          {copied && <p className="mt-1 text-[10px] font-bold text-emerald-400">✓ تم النسخ!</p>}
+                          {copied && <p className="mt-1 text-[10px] font-bold text-emerald-400">{translate("payment.copied")}</p>}
                         </div>
 
-                        {/* QR if available */}
                         {assignedAccount.qr_image && (
                           <div className="flex justify-center">
                             <img src={assignedAccount.qr_image} alt="USDT QR"
@@ -556,11 +573,15 @@ export default function PaymentModal({
                           </div>
                         )}
 
-                        <div className="rounded-xl border border-white/[0.05] bg-zinc-950/50 px-3 py-2.5 text-xs leading-relaxed text-zinc-400 text-right">
-                          ١. افتح محفظتك (Trust Wallet / MetaMask / Binance…)<br />
-                          ٢. اختر شبكة <span className="font-bold text-white">BNB Smart Chain</span><br />
-                          ٣. أرسل <span className="font-bold text-yellow-300">{usdtAmount} USDT</span> للعنوان أعلاه<br />
-                          ٤. خذ <span className="font-bold text-amber-300">سكرين شوت للمعاملة</span> — ستحتاجه في الخطوة التالية
+                        <div className="rounded-xl border border-white/[0.05] bg-zinc-950/50 px-3 py-2.5 text-xs leading-relaxed text-zinc-400 text-start" dir={dir}>
+                          {translate("payment.usdt.step1")}<br />
+                          {translate("payment.usdt.step2")}<br />
+                          {translate("payment.usdt.step3a")}{" "}
+                          <span className="font-bold text-yellow-300">{usdtAmount} USDT</span>
+                          {" "}{translate("payment.usdt.step3b")}<br />
+                          {translate("payment.usdt.step4a")}{" "}
+                          <span className="font-bold text-amber-300">{translate("payment.usdt.step4b")}</span>
+                          {" "}{translate("payment.usdt.step4c")}
                         </div>
                       </div>
                     )}
@@ -572,7 +593,7 @@ export default function PaymentModal({
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 py-3.5 text-sm font-black text-white shadow-[0_0_24px_rgba(168,85,247,0.3)] transition hover:shadow-[0_0_44px_rgba(168,85,247,0.55)] disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <ImageIcon className="h-4 w-4" />
-                      التالي — رفع الإيصال
+                      {translate("payment.next.uploadReceipt")}
                     </button>
                   </motion.div>
                 )}
@@ -636,9 +657,11 @@ export default function PaymentModal({
                     <div>
                       <div className="mb-2 flex items-center justify-between">
                         <p className="text-xs font-black text-zinc-500 uppercase tracking-widest">
-                          {method === "usdt" ? "سكرين شوت المعاملة" : "صورة إيصال التحويل"}
+                          {method === "usdt"
+                            ? translate("payment.proof.label.usdt")
+                            : translate("payment.proof.label.other")}
                         </p>
-                        <span className="text-[10px] font-bold text-red-400">* مطلوبة</span>
+                        <span className="text-[10px] font-bold text-red-400">{translate("payment.proof.required")}</span>
                       </div>
 
                       <AnimatePresence mode="wait">
@@ -655,19 +678,19 @@ export default function PaymentModal({
                               <div className="absolute left-2 top-2">
                                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/25 px-2.5 py-0.5 text-[10px] font-black text-emerald-300 backdrop-blur-sm">
                                   <CheckCircle className="h-2.5 w-2.5" />
-                                  الصورة جاهزة
+                                  {translate("payment.proof.imageReady")}
                                 </span>
                               </div>
                             </div>
                             <div className="flex items-center gap-2 border-t border-white/[0.05] px-3 py-2.5">
-                              <p className="flex-1 truncate text-xs text-zinc-600">{proofFile?.name ?? "صورة الإيصال"}</p>
+                              <p className="flex-1 truncate text-xs text-zinc-600">{proofFile?.name ?? translate("payment.proof.label.other")}</p>
                               <button type="button" onClick={() => fileRef.current?.click()}
                                 className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-zinc-900/60 px-3 py-1.5 text-xs font-bold text-zinc-400 transition hover:border-purple-500/30 hover:text-purple-300">
-                                <RefreshCw className="h-3 w-3" /> استبدال
+                                <RefreshCw className="h-3 w-3" /> {translate("payment.proof.replace")}
                               </button>
                               <button type="button" onClick={removeProof}
                                 className="inline-flex items-center gap-1 rounded-lg border border-red-500/20 bg-red-500/[0.06] px-3 py-1.5 text-xs font-bold text-red-400 transition hover:bg-red-500/15">
-                                <Trash2 className="h-3 w-3" /> إزالة
+                                <Trash2 className="h-3 w-3" /> {translate("payment.proof.remove")}
                               </button>
                             </div>
                           </motion.div>
@@ -692,8 +715,12 @@ export default function PaymentModal({
                                 : <Upload className="h-5 w-5" />}
                             </div>
                             <div className="text-center">
-                              <p className="text-sm font-black">{isDragging ? "أفلت الصورة هنا" : "اضغط أو اسحب صورة الإيصال"}</p>
-                              <p className="mt-0.5 text-xs text-zinc-600">PNG · JPG · WEBP · حتى 8MB</p>
+                              <p className="text-sm font-black">
+                                {isDragging
+                                  ? translate("payment.proof.dropzone.drag")
+                                  : translate("payment.proof.dropzone.idle")}
+                              </p>
+                              <p className="mt-0.5 text-xs text-zinc-600">{translate("payment.proof.dropzone.types")}</p>
                             </div>
                           </motion.div>
                         )}
@@ -714,17 +741,17 @@ export default function PaymentModal({
                         ].join(" ")}
                       >
                         {uploading ? (
-                          <><Loader2 className="h-4 w-4 animate-spin" /> جاري رفع الصورة…</>
+                          <><Loader2 className="h-4 w-4 animate-spin" /> {translate("payment.submit.uploading")}</>
                         ) : placing ? (
-                          <><Loader2 className="h-4 w-4 animate-spin" /> جاري إنشاء الطلب…</>
+                          <><Loader2 className="h-4 w-4 animate-spin" /> {translate("payment.submit.placing")}</>
                         ) : proofFile ? (
-                          <><CheckCircle className="h-4 w-4" /> إتمام الطلب</>
+                          <><CheckCircle className="h-4 w-4" /> {translate("payment.submit.ready")}</>
                         ) : (
-                          <><Upload className="h-4 w-4" /> ارفع صورة الإيصال أولاً</>
+                          <><Upload className="h-4 w-4" /> {translate("payment.submit.waitProof")}</>
                         )}
                       </button>
                       <p className="text-center text-[10px] leading-relaxed text-zinc-700">
-                        بالضغط فإنك تؤكد أن عملية التحويل تمت فعلاً.
+                        {translate("payment.submit.confirm")}
                       </p>
                     </div>
                   </motion.div>

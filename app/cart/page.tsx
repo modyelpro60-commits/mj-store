@@ -25,6 +25,7 @@ import CommandBar from "../../components/nav/CommandBar";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { useCart } from "../../components/cart/CartProvider";
 import PaymentModal from "../../components/cart/PaymentModal";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 /* ── helpers ─────────────────────────────────────────────────── */
 function egp(n: number) {
@@ -43,10 +44,10 @@ const PAYMENT_METHODS = [
 ] as const;
 
 const TRUST = [
-  { icon: ShieldCheck,   label: "دفع آمن"       },
-  { icon: BadgeCheck,    label: "متجر موثق"     },
-  { icon: CheckCircle2,  label: "مراجعة يدوية"  },
-  { icon: MessageCircle, label: "دعم متاح"      },
+  { icon: ShieldCheck,   labelKey: "cart.trust.securePayment"    },
+  { icon: BadgeCheck,    labelKey: "cart.trust.verifiedStore"     },
+  { icon: CheckCircle2,  labelKey: "cart.trust.manualReview"      },
+  { icon: MessageCircle, labelKey: "cart.trust.supportAvailable"  },
 ] as const;
 
 /* ═══════════════════════════════════════════════════════════════
@@ -55,8 +56,10 @@ const TRUST = [
 export default function CartPage() {
   const { accessToken, isLoading } = useAuth();
   const { items, subtotal, count, loading, setQty, remove, clear, refresh } = useCart();
+  const { language, translate } = useLanguage();
   const loggedIn     = !isLoading && !!accessToken;
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const dir = language === "ar" ? "rtl" : "ltr";
 
   /* ── discount totals ── */
   const originalTotal = items.reduce((s, it) => {
@@ -72,6 +75,7 @@ export default function CartPage() {
       <CommandBar />
 
       <main
+        dir={dir}
         className="relative min-h-screen text-white pb-24"
         style={{ background: "radial-gradient(ellipse at 50% -8%, rgba(88,28,235,0.12) 0%, #07070D 55%)" }}
       >
@@ -86,17 +90,17 @@ export default function CartPage() {
         <div className="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-8 pt-28">
 
           {/* ── Page header ── */}
-          <div className="mb-8 flex items-center justify-between gap-4" dir="rtl">
+          <div className="mb-8 flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="grid h-12 w-12 place-items-center rounded-2xl border border-purple-500/25 bg-purple-500/10 text-purple-200 shadow-[0_0_24px_rgba(168,85,247,0.18)]">
                 <ShoppingBag className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tight">سلة التسوق</h1>
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight">{translate("cart.title")}</h1>
                 <p className="text-sm text-zinc-500 mt-0.5">
                   {loggedIn && count > 0
-                    ? `${count} ${count === 1 ? "منتج" : "منتجات"} في سلتك`
-                    : "راجع طلبك قبل الدفع"}
+                    ? `${count} ${translate(count === 1 ? "cart.itemCount.one" : "cart.itemCount.other")}`
+                    : translate("cart.reviewOrder")}
                 </p>
               </div>
             </div>
@@ -108,7 +112,7 @@ export default function CartPage() {
                 className="text-xs font-semibold text-zinc-600 transition hover:text-red-400 flex items-center gap-1.5"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                مسح الكل
+                {translate("cart.clearAll")}
               </button>
             )}
           </div>
@@ -125,14 +129,14 @@ export default function CartPage() {
               <div className="grid h-16 w-16 place-items-center rounded-2xl border border-white/[0.09] bg-white/[0.03] text-zinc-600 mb-5">
                 <LogIn className="h-7 w-7" />
               </div>
-              <h2 className="text-lg font-black text-zinc-200">سجّل دخولك لعرض سلتك</h2>
-              <p className="mt-1.5 text-sm text-zinc-500">سلتك محفوظة على حسابك — سجّل الدخول للمتابعة.</p>
+              <h2 className="text-lg font-black text-zinc-200">{translate("cart.notLoggedIn.title")}</h2>
+              <p className="mt-1.5 text-sm text-zinc-500">{translate("cart.notLoggedIn.desc")}</p>
               <Link
                 href="/login"
                 className="mt-7 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-6 py-3 text-sm font-bold text-white shadow-[0_0_24px_rgba(168,85,247,0.3)] transition hover:shadow-[0_0_40px_rgba(168,85,247,0.5)] hover:scale-[1.02]"
               >
                 <LogIn className="h-4 w-4" />
-                تسجيل الدخول
+                {translate("cart.notLoggedIn.btn")}
               </Link>
             </motion.div>
 
@@ -140,7 +144,7 @@ export default function CartPage() {
             /* ─ Loading skeleton ─ */
             <div className="flex items-center justify-center gap-3 py-32 text-zinc-600">
               <LoaderCircle className="h-5 w-5 animate-spin" />
-              <span className="text-sm font-semibold">جاري تحميل سلتك…</span>
+              <span className="text-sm font-semibold">{translate("cart.loading")}</span>
             </div>
 
           ) : items.length === 0 ? (
@@ -156,21 +160,21 @@ export default function CartPage() {
                 <div className="grid h-20 w-20 place-items-center rounded-[1.5rem] border border-purple-500/15 bg-purple-500/[0.06] text-purple-500/40 shadow-[0_0_48px_rgba(168,85,247,0.1)]">
                   <ShoppingBag className="h-9 w-9" />
                 </div>
-                <div className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-xl border border-white/[0.07] bg-zinc-950 text-zinc-700">
+                <div className="absolute -bottom-1 -end-1 grid h-7 w-7 place-items-center rounded-xl border border-white/[0.07] bg-zinc-950 text-zinc-700">
                   <Plus className="h-3.5 w-3.5" />
                 </div>
               </div>
-              <h2 className="text-xl font-black text-white">سلتك فارغة</h2>
+              <h2 className="text-xl font-black text-white">{translate("cart.empty.title")}</h2>
               <p className="mt-2 text-sm text-zinc-500 max-w-xs leading-relaxed">
-                تصفح كتالوج المتجر وأضف المنتجات التي تريدها
+                {translate("cart.empty.desc")}
               </p>
               <Link
                 href="/#products"
                 className="mt-7 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_0_24px_rgba(168,85,247,0.25)] transition hover:shadow-[0_0_44px_rgba(168,85,247,0.45)] hover:scale-[1.02] active:scale-[0.99]"
               >
                 <Package className="h-4 w-4" />
-                تصفح المنتجات
-                <ArrowRight className="h-4 w-4" />
+                {translate("cart.empty.browse")}
+                <ArrowRight className="h-4 w-4 rtl:rotate-180" />
               </Link>
             </motion.div>
 
@@ -259,7 +263,7 @@ export default function CartPage() {
                             <button
                               onClick={() => void setQty(it.productId, it.quantity - 1)}
                               className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 transition hover:bg-white/[0.07] hover:text-white"
-                              aria-label="Decrease"
+                              aria-label={translate("cart.item.decrease")}
                             >
                               <Minus className="h-3 w-3" />
                             </button>
@@ -269,14 +273,14 @@ export default function CartPage() {
                             <button
                               onClick={() => void setQty(it.productId, it.quantity + 1)}
                               className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 transition hover:bg-white/[0.07] hover:text-white"
-                              aria-label="Increase"
+                              aria-label={translate("cart.item.increase")}
                             >
                               <Plus className="h-3 w-3" />
                             </button>
                           </div>
 
                           {/* Line total — desktop only */}
-                          <div className="hidden sm:block w-[88px] text-right">
+                          <div className="hidden sm:block w-[88px] text-end">
                             <p className="font-black tabular-nums text-white text-sm">{egp(it.lineTotal)}</p>
                             {it.quantity > 1 && (
                               <p className="text-[10px] text-zinc-700 tabular-nums mt-0.5">
@@ -289,7 +293,7 @@ export default function CartPage() {
                           <button
                             onClick={() => void remove(it.productId)}
                             className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-xl border border-red-500/15 bg-red-500/[0.06] text-red-500/60 transition hover:bg-red-500/15 hover:text-red-400 hover:border-red-500/25"
-                            aria-label="Remove"
+                            aria-label={translate("cart.item.remove")}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -306,24 +310,24 @@ export default function CartPage() {
                 style={{ boxShadow: "0 0 60px rgba(88,28,235,0.06)" }}
               >
                 {/* Header bar */}
-                <div className="px-5 pt-5 pb-4 border-b border-white/[0.05]" dir="rtl">
+                <div className="px-5 pt-5 pb-4 border-b border-white/[0.05]">
                   <div className="flex items-center justify-between">
                     <h2 className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">
-                      ملخص الطلب
+                      {translate("cart.summary.title")}
                     </h2>
                     <span className="text-xs font-bold text-zinc-600 tabular-nums">
-                      {count} {count === 1 ? "منتج" : "منتجات"}
+                      {count} {translate(count === 1 ? "cart.summary.itemCount.one" : "cart.summary.itemCount.other")}
                     </span>
                   </div>
                 </div>
 
-                <div className="px-5 py-5 space-y-5" dir="rtl">
+                <div className="px-5 py-5 space-y-5">
 
                   {/* ── Discount breakdown (only if discounts exist) ── */}
                   {hasDiscount && (
                     <div className="space-y-2.5">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-zinc-500">الإجمالي الأصلي</span>
+                        <span className="text-zinc-500">{translate("cart.summary.originalTotal")}</span>
                         <span className="font-semibold text-zinc-600 line-through tabular-nums">
                           {egp(originalTotal)}
                         </span>
@@ -331,7 +335,7 @@ export default function CartPage() {
                       <div className="flex items-center justify-between text-sm">
                         <span className="font-semibold text-emerald-400 flex items-center gap-1.5">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                          إجمالي الخصم
+                          {translate("cart.summary.discount")}
                         </span>
                         <span className="font-black text-emerald-400 tabular-nums">
                           -{egp(totalDiscount)}
@@ -343,7 +347,7 @@ export default function CartPage() {
 
                   {/* ── Final total ── */}
                   <div className="flex items-baseline justify-between">
-                    <span className="text-sm font-bold text-zinc-400">الإجمالي النهائي</span>
+                    <span className="text-sm font-bold text-zinc-400">{translate("cart.summary.finalTotal")}</span>
                     <span
                       className="text-[2rem] font-black tabular-nums text-white leading-none"
                       style={{ textShadow: "0 0 28px rgba(168,85,247,0.4)" }}
@@ -361,22 +365,22 @@ export default function CartPage() {
                       className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 py-3.5 text-sm font-black tracking-wide text-white shadow-[0_0_24px_rgba(168,85,247,0.30)] transition-shadow"
                     >
                       <CreditCard className="h-4 w-4" />
-                      ادفع الآن
-                      <ArrowRight className="h-4 w-4" />
+                      {translate("cart.summary.payNow")}
+                      <ArrowRight className="h-4 w-4 rtl:rotate-180" />
                     </motion.button>
 
                     <Link
                       href="/#products"
                       className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] py-2.5 text-xs font-semibold text-zinc-500 transition hover:bg-white/[0.05] hover:text-zinc-300"
                     >
-                      تصفح المزيد
+                      {translate("cart.summary.browseMore")}
                     </Link>
                   </div>
 
                   {/* ── Payment methods preview ── */}
                   <div className="pt-1">
                     <p className="text-[9px] font-black uppercase tracking-[0.22em] text-zinc-700 mb-2.5">
-                      طرق الدفع المتاحة
+                      {translate("cart.summary.paymentMethods")}
                     </p>
                     <div className="flex gap-2">
                       {PAYMENT_METHODS.map(({ icon: Icon, label, cls }) => (
@@ -393,13 +397,13 @@ export default function CartPage() {
 
                   {/* ── Trust badges ── */}
                   <div className="grid grid-cols-2 gap-x-3 gap-y-2 pt-1 border-t border-white/[0.04]">
-                    {TRUST.map(({ icon: Icon, label }) => (
+                    {TRUST.map(({ icon: Icon, labelKey }) => (
                       <div
-                        key={label}
+                        key={labelKey}
                         className="flex items-center gap-1.5 text-[10px] font-semibold text-zinc-600"
                       >
                         <Icon className="h-3 w-3 text-emerald-500/60 flex-shrink-0" />
-                        {label}
+                        {translate(labelKey)}
                       </div>
                     ))}
                   </div>

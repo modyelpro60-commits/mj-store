@@ -47,7 +47,7 @@ type Step = 1 | 2;
 
 /* ─────────────────────────── Default settings ───────────────── */
 const DEFAULT_SETTINGS: PaymentSettings = {
-  vodafone_number:     "01000000000",
+  vodafone_number:     "",
   vodafone_enabled:    "true",
   instapay_handle:     "",
   instapay_qr_image:   "",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireRole, type UserRole } from "../../lib/auth/requireAuthContext";
 import { logActivity } from "../../lib/logs/logActivity";
+import { sanitizeCategory } from "../../lib/categories";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { id, name, description, short_description, price, original_price, image, is_active, features } = body;
+    const { id, name, description, short_description, price, original_price, image, is_active, category, badge, features } = body;
 
     console.log("[update-product] Starting update for product ID:", id);
     console.log("[update-product] Payload:", JSON.stringify({ name, description, price, original_price, image, is_active }));
@@ -31,6 +32,8 @@ export async function POST(req: Request) {
         original_price:    original_price ?? null,
         image,
         is_active:         typeof is_active === "boolean" ? is_active : true,
+        category:          sanitizeCategory(category),
+        badge:             badge?.trim() || null,
       })
       .eq("id", id);
 

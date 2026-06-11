@@ -8,7 +8,7 @@ const supabase = createClient(
 
 // Default fallback values if table doesn't exist yet
 const DEFAULTS: Record<string, string> = {
-  vodafone_number:     "01000000000",
+  vodafone_number:     "",
   vodafone_enabled:    "true",
   instapay_handle:     "",
   instapay_qr_image:   "",

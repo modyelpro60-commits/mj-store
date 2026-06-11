@@ -6,11 +6,14 @@ import { MessageCircle, X } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { useChatUnread } from "./useChatUnread";
 import ChatWorkspace from "./ChatWorkspace";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 export default function LiveChat() {
   const { accessToken, isLoading, role } = useAuth();
+  const { language, translate } = useLanguage();
   const isStaff = role === "admin" || role === "moderator" || role === "helper";
   const loggedIn = !isLoading && !!accessToken;
+  const dir = language === "ar" ? "rtl" : "ltr";
 
   const [open, setOpen] = useState(false);
   const [initialRoomId, setInitialRoomId] = useState<string | null>(null);
@@ -45,7 +48,7 @@ export default function LiveChat() {
   if (!loggedIn) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-[9999]" dir="rtl">
+    <div className="fixed bottom-5 end-5 z-[9999]" dir={dir}>
       {/* ─── Chat panel ─── */}
       <AnimatePresence>
         {open && (
@@ -54,7 +57,7 @@ export default function LiveChat() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.88, y: 20 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute bottom-[72px] right-0 overflow-hidden rounded-2xl border border-white/[0.07] shadow-[0_32px_96px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.03)]"
+            className="absolute bottom-[72px] end-0 overflow-hidden rounded-2xl border border-white/[0.07] shadow-[0_32px_96px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.03)]"
             style={{
               width: isStaff ? "min(700px, calc(100vw - 24px))" : "min(380px, calc(100vw - 24px))",
               height: "min(560px, calc(100vh - 110px))",
@@ -68,6 +71,7 @@ export default function LiveChat() {
       {/* ─── Floating button ─── */}
       <motion.button
         onClick={() => setOpen((v) => !v)}
+        aria-label={open ? translate("chat.workspace.close") : translate("nav.chatsAriaLabel")}
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.92 }}
         className="relative h-14 w-14 rounded-2xl grid place-items-center"
@@ -112,7 +116,7 @@ export default function LiveChat() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
               transition={{ type: "spring", stiffness: 500, damping: 25 }}
-              className="absolute -top-1.5 -left-1.5 min-w-[20px] h-5 px-1 rounded-full border-2 border-[#0A0A14] bg-red-500 grid place-items-center text-[10px] font-black text-white"
+              className="absolute -top-1.5 -start-1.5 min-w-[20px] h-5 px-1 rounded-full border-2 border-[#0A0A14] bg-red-500 grid place-items-center text-[10px] font-black text-white"
             >
               {unread > 9 ? "9+" : unread}
             </motion.span>

@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../components/auth/AuthProvider";
 import { useLanguage } from "../../../lib/i18n/LanguageProvider";
+import { normalizeCategory, sortCategories } from "../../lib/categories";
 
 /* ─────────────────────────── Types ─────────────────────────── */
 // Actual DB schema: id, name, description, image, price, sales_count, category,
@@ -53,8 +54,8 @@ interface UploadImageResponse  { success: boolean; url?: string; error?: string 
 /* ─────────────────────────── Active state display ──────────── */
 function activeDisplay(isActive: boolean) {
   return isActive
-    ? { label: "متوفر",  dot: "bg-emerald-400", text: "text-emerald-300", ring: "border-emerald-500/35 bg-emerald-500/10" }
-    : { label: "مخفي",   dot: "bg-zinc-500",    text: "text-zinc-400",   ring: "border-zinc-500/35  bg-zinc-600/10"      };
+    ? { labelKey: "admin.products.form.active",   dot: "bg-emerald-400", text: "text-emerald-300", ring: "border-emerald-500/35 bg-emerald-500/10" }
+    : { labelKey: "admin.products.form.inactive",  dot: "bg-zinc-500",    text: "text-zinc-400",   ring: "border-zinc-500/35  bg-zinc-600/10"      };
 }
 
 /* ─────────────────────────── Tiny helpers ───────────────────── */
@@ -82,6 +83,7 @@ function ProductRow({
   product: ProductRecord; isSelected: boolean;
   onSelect: () => void; onDuplicate: () => void; onDelete: () => void;
 }) {
+  const { translate } = useLanguage();
   const m = activeDisplay(product.is_active !== false);
   const priceNum = Number(product.price ?? 0);
   const origNum  = Number(product.original_price ?? 0);
@@ -116,7 +118,7 @@ function ProductRow({
         </p>
         <div className="mt-1 flex items-center gap-1.5 flex-wrap">
           <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${m.dot}`} />
-          <span className={`text-[10px] font-bold ${m.text}`}>{m.label}</span>
+          <span className={`text-[10px] font-bold ${m.text}`}>{translate(m.labelKey)}</span>
           <span className="text-zinc-700 text-[10px]">·</span>
           <span className="text-[10px] font-bold text-purple-400/80 tabular-nums">
             {priceNum.toLocaleString()} EGP
@@ -154,16 +156,32 @@ function WelcomePanel({ products, onNew, onSelect }: {
   products: ProductRecord[];
   onNew: () => void; onSelect: (p: ProductRecord) => void;
 }) {
+  const { translate, language } = useLanguage();
+  const dir = language === "ar" ? "rtl" : "ltr";
   const totalValue = products.reduce((s, p) => s + Number(p.price ?? 0), 0);
   const recent = products.slice(0, 5);
 
+  const categoryCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of products) {
+      const cat = p.category?.trim() || "General";
+      map.set(cat, (map.get(cat) ?? 0) + 1);
+    }
+    return map;
+  }, [products]);
+
+  const catEntries = useMemo(
+    () => sortCategories([...categoryCounts.keys()]).map((cat) => [cat, categoryCounts.get(cat)!] as [string, number]),
+    [categoryCounts],
+  );
+
   return (
-    <div className="p-5 space-y-5" dir="rtl">
+    <div className="p-5 space-y-5" dir={dir}>
       {/* Stats */}
       <div className="grid grid-cols-2 gap-2.5">
         {[
-          { icon: Package,    label: "المنتجات",       value: String(products.length) },
-          { icon: TrendingUp, label: "القيمة الإجمالية", value: `${totalValue.toLocaleString()} EGP` },
+          { icon: Package,    label: translate("admin.stat.products"),             value: String(products.length) },
+          { icon: TrendingUp, label: translate("admin.products.welcome.statsValue"), value: `${totalValue.toLocaleString()} EGP` },
         ].map(({ icon: Icon, label, value }) => (
           <div key={label} className="rounded-2xl border border-white/[0.06] bg-zinc-900/50 px-3 py-3 text-center">
             <Icon className="h-3.5 w-3.5 text-purple-400 mx-auto mb-1.5" />
@@ -173,6 +191,23 @@ function WelcomePanel({ products, onNew, onSelect }: {
         ))}
       </div>
 
+      {/* Category distribution */}
+      {catEntries.length > 0 && (
+        <div className="rounded-2xl border border-white/[0.05] bg-zinc-900/30 px-3 py-3">
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-600 mb-2.5">{translate("admin.products.welcome.categories")}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {catEntries.map(([cat, count]) => (
+              <span key={cat} className="inline-flex items-center gap-1 rounded-xl border border-white/[0.07] bg-zinc-900/60 px-2.5 py-1 text-[11px] font-bold text-zinc-300">
+                {cat}
+                <span className="text-[9px] font-black rounded-full bg-purple-500/20 text-purple-300 px-1.5 py-px">
+                  {count}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Create CTA */}
       <button onClick={onNew}
         className="w-full rounded-2xl border border-dashed border-purple-500/25 bg-purple-500/[0.05] p-5 flex flex-col items-center gap-3 transition-all duration-200 hover:border-purple-400/45 hover:bg-purple-500/[0.09] group"
@@ -181,15 +216,15 @@ function WelcomePanel({ products, onNew, onSelect }: {
           <Plus className="h-5 w-5" />
         </div>
         <div className="text-center">
-          <p className="text-sm font-bold text-white">إضافة منتج جديد</p>
-          <p className="text-xs text-zinc-500 mt-0.5">أضف منتجاً لكتالوج المتجر</p>
+          <p className="text-sm font-bold text-white">{translate("admin.products.welcome.newProduct")}</p>
+          <p className="text-xs text-zinc-500 mt-0.5">{translate("admin.products.welcome.newProductDesc")}</p>
         </div>
       </button>
 
       {/* Recent */}
       {recent.length > 0 && (
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600 mb-2.5">آخر المنتجات</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600 mb-2.5">{translate("admin.products.welcome.recent")}</p>
           <div className="rounded-2xl border border-white/[0.05] bg-zinc-900/30 overflow-hidden divide-y divide-white/[0.04]">
             {recent.map((p) => (
               <button key={p.id} onClick={() => onSelect(p)}
@@ -214,12 +249,77 @@ function WelcomePanel({ products, onNew, onSelect }: {
   );
 }
 
+/* ─────────────────────────── Category Picker ───────────────── */
+function CategoryPicker({
+  value, onChange, categoryCounts,
+}: {
+  value: string;
+  onChange(v: string): void;
+  categoryCounts: Map<string, number>;
+}) {
+  const { translate } = useLanguage();
+  const sorted = useMemo(() => sortCategories([...categoryCounts.keys()]), [categoryCounts]);
+  const normalizedValue = value.trim() ? normalizeCategory(value) : "";
+  const isNew = normalizedValue && !categoryCounts.has(normalizedValue);
+
+  return (
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-600 mb-2">{translate("admin.products.form.categoryLabel")}</p>
+
+      {/* Chips row — existing categories with counts */}
+      {sorted.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2.5">
+          {sorted.map((cat) => {
+            const isSelected = normalizeCategory(value) === cat;
+            const count = categoryCounts.get(cat) ?? 0;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => onChange(cat)}
+                className={[
+                  "inline-flex items-center gap-1 rounded-xl border px-2.5 py-1 text-[11px] font-bold transition-all duration-150",
+                  isSelected
+                    ? "border-purple-500/50 bg-purple-500/15 text-white shadow-[0_0_12px_rgba(168,85,247,0.18)]"
+                    : "border-white/[0.07] bg-zinc-900/50 text-zinc-400 hover:border-purple-500/25 hover:text-zinc-200 hover:bg-purple-500/[0.06]",
+                ].join(" ")}
+              >
+                {cat}
+                <span className={`text-[9px] font-black rounded-full px-1 py-px ${isSelected ? "bg-purple-500/30 text-purple-200" : "bg-zinc-800 text-zinc-600"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Text input for new/custom category */}
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={sorted.length > 0 ? translate("admin.products.form.newCategory") : "Gaming"}
+        className={inp}
+      />
+
+      {/* Live normalization preview when typing a new category */}
+      {isNew && (
+        <p className="mt-1.5 text-[10px] text-purple-400/80 font-semibold">
+          {translate("admin.products.form.savedAs")} <span className="font-black text-purple-300">{normalizedValue}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ─────────────────────────── Studio Editor ────────────────── */
 function StudioEditor({
   editingId, name, setName,
   price, setPrice, originalPrice, setOriginalPrice,
   shortDescription, setShortDescription,
   description, setDescription,
+  category, setCategory, badge, setBadge,
+  categoryCounts,
   editorIsActive, setEditorIsActive,
   features, setFeatures, featuresLoading,
   preview, imageUploading, onImagePick,
@@ -232,6 +332,9 @@ function StudioEditor({
   originalPrice: string; setOriginalPrice(v: string): void;
   shortDescription: string; setShortDescription(v: string): void;
   description: string; setDescription(v: string): void;
+  category: string; setCategory(v: string): void;
+  badge: string; setBadge(v: string): void;
+  categoryCounts: Map<string, number>;
   editorIsActive: boolean; setEditorIsActive(v: boolean): void;
   features: string[]; setFeatures(v: string[]): void; featuresLoading: boolean;
   preview: string; imageUploading: boolean;
@@ -240,6 +343,8 @@ function StudioEditor({
   onSave(): void; onDelete(): void; onClose(): void; onDuplicate(): void;
   productId: number | null;
 }) {
+  const { translate, language } = useLanguage();
+  const dir = language === "ar" ? "rtl" : "ltr";
   const priceNum    = Number(price) || 0;
   const origNum     = Number(originalPrice) || 0;
   const discountPct = calcDiscount(priceNum, origNum);
@@ -261,13 +366,13 @@ function StudioEditor({
   }
 
   return (
-    <div className="flex flex-col h-full" dir="rtl">
+    <div className="flex flex-col h-full" dir={dir}>
 
       {/* ── Sticky top bar ── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-zinc-950/80 backdrop-blur-xl sticky top-0 z-20 flex-shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-black text-white truncate max-w-[160px]">
-            {name || (editingId ? "تعديل المنتج" : "منتج جديد")}
+            {name || (editingId ? translate("admin.products.form.editTitle") : translate("admin.products.form.editorNewTitle"))}
           </span>
           {editingId && (
             <span className="text-[10px] font-bold rounded-md bg-white/[0.05] border border-white/[0.07] px-1.5 py-0.5 text-zinc-600">
@@ -309,7 +414,7 @@ function StudioEditor({
                 {imageUploading
                   ? <LoaderCircle className="h-5 w-5 animate-spin text-white" />
                   : <div className="flex items-center gap-2 rounded-xl border border-white/20 bg-black/60 px-4 py-2 text-xs font-bold text-white">
-                      <Upload className="h-3.5 w-3.5" /> استبدال الصورة
+                      <Upload className="h-3.5 w-3.5" /> {translate("admin.products.form.replaceImage")}
                     </div>}
               </div>
               {/* Active/hidden badge overlay */}
@@ -317,7 +422,7 @@ function StudioEditor({
                 {(() => { const m = activeDisplay(editorIsActive); return (
                   <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${m.ring} ${m.text}`}>
                     <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} />
-                    {m.label}
+                    {translate(m.labelKey)}
                   </span>
                 ); })()}
               </div>
@@ -340,7 +445,7 @@ function StudioEditor({
                     <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/[0.07] bg-zinc-800/60 text-zinc-600 group-hover:text-purple-400 group-hover:border-purple-500/25 transition-colors">
                       <ImageIcon className="h-5 w-5" />
                     </div>
-                    <p className="text-sm font-semibold text-zinc-500 group-hover:text-zinc-300 transition-colors">انقر لرفع صورة</p>
+                    <p className="text-sm font-semibold text-zinc-500 group-hover:text-zinc-300 transition-colors">{translate("admin.products.form.uploadImage")}</p>
                   </>}
             </div>
           )}
@@ -353,17 +458,17 @@ function StudioEditor({
 
           {/* GENERAL */}
           <div>
-            <SectionLabel>بيانات المنتج</SectionLabel>
+            <SectionLabel>{translate("admin.products.form.generalInfo")}</SectionLabel>
             <div className="space-y-2.5">
 
               {/* Name */}
               <input value={name} onChange={(e) => setName(e.target.value)}
-                placeholder="اسم المنتج"
+                placeholder={translate("admin.products.form.namePlaceholder")}
                 className={`${inp} text-base font-semibold`} />
 
               {/* Short description */}
               <input value={shortDescription} onChange={(e) => setShortDescription(e.target.value)}
-                placeholder="وصف قصير (اختياري) — مثال: باقة Netflix Premium 4K"
+                placeholder={translate("admin.products.form.shortDescPlaceholder")}
                 className={inp} />
 
               {/* Pricing row */}
@@ -371,14 +476,14 @@ function StudioEditor({
                 {/* Current price */}
                 <div className="relative">
                   <input value={price} onChange={(e) => setPrice(e.target.value)}
-                    placeholder="السعر الحالي" type="number" min="0"
+                    placeholder={translate("admin.products.form.currentPrice")} type="number" min="0"
                     className={inp} />
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-600">EGP</span>
                 </div>
                 {/* Original price (optional — for discount) */}
                 <div className="relative">
                   <input value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)}
-                    placeholder="السعر القديم (اختياري)" type="number" min="0"
+                    placeholder={translate("admin.products.form.originalPrice")} type="number" min="0"
                     className={inp} />
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-600">EGP</span>
                 </div>
@@ -388,9 +493,29 @@ function StudioEditor({
               {discountPct > 0 && (
                 <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1.5">
                   <Check className="h-3 w-3" />
-                  سيظهر خصم {discountPct}% تلقائياً على صفحة المنتج
+                  {discountPct}% {translate("admin.products.form.discountMsg")}
                 </p>
               )}
+
+              {/* Category picker */}
+              <div className="pt-1">
+                <CategoryPicker
+                  value={category}
+                  onChange={setCategory}
+                  categoryCounts={categoryCounts}
+                />
+              </div>
+
+              {/* Badge */}
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-600 mb-1.5">{translate("admin.products.form.badgeOptional")}</p>
+                <input
+                  value={badge}
+                  onChange={(e) => setBadge(e.target.value)}
+                  placeholder={translate("admin.products.form.badgePlaceholder")}
+                  className={inp}
+                />
+              </div>
             </div>
           </div>
 
@@ -398,7 +523,7 @@ function StudioEditor({
 
           {/* IS_ACTIVE TOGGLE */}
           <div>
-            <SectionLabel>حالة المنتج</SectionLabel>
+            <SectionLabel>{translate("admin.products.form.statusSection")}</SectionLabel>
             <div className="grid grid-cols-2 gap-2">
               {([true, false] as const).map((val) => {
                 const m = activeDisplay(val);
@@ -413,7 +538,7 @@ function StudioEditor({
                     ].join(" ")}
                   >
                     <span className={`h-2 w-2 rounded-full ${active ? m.dot : "bg-zinc-700"} transition-colors`} />
-                    <span className="text-[11px] font-bold leading-none">{m.label}</span>
+                    <span className="text-[11px] font-bold leading-none">{translate(m.labelKey)}</span>
                   </button>
                 );
               })}
@@ -425,7 +550,7 @@ function StudioEditor({
           {/* FEATURES */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <SectionLabel>مميزات المنتج</SectionLabel>
+              <SectionLabel>{translate("admin.products.form.featuresSection")}</SectionLabel>
               {featuresLoading && <LoaderCircle className="h-3 w-3 animate-spin text-zinc-600 mb-3" />}
             </div>
             <div className="space-y-2">
@@ -436,7 +561,7 @@ function StudioEditor({
                     value={f}
                     onChange={(e) => updateFeature(i, e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFeature(); } }}
-                    placeholder={`ميزة ${i + 1} — مثال: دقة 4K`}
+                    placeholder={`${translate("admin.products.form.featureN")} ${i + 1}`}
                     className={`${inp} flex-1`}
                   />
                   <button type="button" onClick={() => removeFeature(i)}
@@ -448,12 +573,12 @@ function StudioEditor({
               <button type="button" onClick={addFeature}
                 className="flex items-center justify-center gap-1.5 w-full rounded-xl border border-dashed border-white/[0.07] bg-transparent px-3.5 py-2 text-xs font-semibold text-zinc-600 hover:border-purple-500/20 hover:text-purple-400 hover:bg-purple-500/[0.04] transition">
                 <Plus className="h-3.5 w-3.5" />
-                إضافة ميزة
+                {translate("admin.products.form.addFeature")}
               </button>
             </div>
             {features.length === 0 && !featuresLoading && (
               <p className="mt-2 text-[10px] text-zinc-700 text-center">
-                ستظهر المميزات الافتراضية إذا تركتها فارغة
+                {translate("admin.products.form.featuresDefault")}
               </p>
             )}
           </div>
@@ -462,9 +587,9 @@ function StudioEditor({
 
           {/* DESCRIPTION */}
           <div>
-            <SectionLabel>وصف المنتج (تفصيلي)</SectionLabel>
+            <SectionLabel>{translate("admin.products.form.descSection")}</SectionLabel>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)}
-              placeholder="اكتب وصفاً تفصيلياً للمنتج…"
+              placeholder={translate("admin.products.form.descPlaceholder")}
               rows={5} className={`${inp} resize-none`} />
           </div>
 
@@ -477,14 +602,14 @@ function StudioEditor({
           className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 py-3 text-sm font-bold text-white shadow-[0_0_20px_rgba(168,85,247,0.20)] transition hover:shadow-[0_0_36px_rgba(168,85,247,0.35)] disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99]"
         >
           {saving
-            ? <><LoaderCircle className="h-4 w-4 animate-spin" /> جاري الحفظ…</>
-            : <><Check className="h-4 w-4" /> {editingId ? "تحديث المنتج" : "إنشاء المنتج"}</>}
+            ? <><LoaderCircle className="h-4 w-4 animate-spin" /> {translate("admin.products.form.saving")}</>
+            : <><Check className="h-4 w-4" /> {editingId ? translate("admin.products.form.updateBtn") : translate("admin.products.form.saveBtn")}</>}
         </button>
         {editingId && (
           <button type="button" onClick={onDelete}
             className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-500/15 bg-transparent py-2.5 text-xs font-semibold text-red-400/80 transition hover:bg-red-500/[0.07] hover:text-red-400 active:scale-[0.99]"
           >
-            <Trash2 className="h-3.5 w-3.5" /> حذف المنتج
+            <Trash2 className="h-3.5 w-3.5" /> {translate("admin.products.form.deleteBtn")}
           </button>
         )}
       </div>
@@ -497,7 +622,8 @@ function StudioEditor({
 ═══════════════════════════════════════════════════ */
 export default function ProductsPage() {
   const { accessToken, role } = useAuth();
-  const { translate } = useLanguage();
+  const { translate, language } = useLanguage();
+  const dir = language === "ar" ? "rtl" : "ltr";
 
   /* Library */
   const [products, setProducts]             = useState<ProductRecord[]>([]);
@@ -518,6 +644,8 @@ export default function ProductsPage() {
   const [originalPrice, setOriginalPrice]           = useState("");
   const [shortDescription, setShortDescription]     = useState("");
   const [description, setDescription]               = useState("");
+  const [category, setCategory]                     = useState("");
+  const [badge, setBadge]                           = useState("");
   const [editorIsActive, setEditorIsActive]         = useState<boolean>(true);
   const [features, setFeatures]                     = useState<string[]>([]);
   const [featuresLoading, setFeaturesLoading]       = useState(false);
@@ -525,6 +653,16 @@ export default function ProductsPage() {
   const [preview, setPreview]                       = useState("");
   const [imageUploading, setImageUploading]         = useState(false);
   const [saving, setSaving]                         = useState(false);
+
+  /* ── Category counts (for CategoryPicker chips) ── */
+  const categoryCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of products) {
+      const cat = p.category?.trim() || "General";
+      map.set(cat, (map.get(cat) ?? 0) + 1);
+    }
+    return map;
+  }, [products]);
 
   /* ── Load products ── */
   const loadProducts = useCallback(async () => {
@@ -558,7 +696,9 @@ export default function ProductsPage() {
   function openNew() {
     setSelectedId(null); setEditingId(null);
     setName(""); setPrice(""); setOriginalPrice("");
-    setShortDescription(""); setDescription(""); setEditorIsActive(true);
+    setShortDescription(""); setDescription("");
+    setCategory(""); setBadge("");
+    setEditorIsActive(true);
     setFeatures([]); setPreview(""); setImage(null);
     setPanelMode("editor");
   }
@@ -570,6 +710,8 @@ export default function ProductsPage() {
     setOriginalPrice(p.original_price ? String(p.original_price) : "");
     setShortDescription(p.short_description ?? "");
     setDescription(p.description ?? "");
+    setCategory(p.category ?? "");
+    setBadge(p.badge ?? "");
     setEditorIsActive(p.is_active !== false);
     setPreview(p.image ?? ""); setImage(null);
     setPanelMode("editor");
@@ -580,7 +722,7 @@ export default function ProductsPage() {
   function closeEditor() {
     setSelectedId(null); setEditingId(null);
     setPanelMode("welcome"); setPreview(""); setImage(null);
-    setShortDescription(""); setFeatures([]);
+    setShortDescription(""); setCategory(""); setBadge(""); setFeatures([]);
   }
 
   /* ── Duplicate ── */
@@ -599,18 +741,20 @@ export default function ProductsPage() {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       body: JSON.stringify({
-        name: src.name + " (نسخة)",
+        name: src.name + translate("admin.products.studio.duplicateSuffix"),
         description: src.description,
         short_description: src.short_description ?? null,
         price: Number(src.price),
         original_price: src.original_price ?? null,
         image: src.image,
         is_active: src.is_active !== false,
+        category: src.category ?? null,
+        badge: src.badge ?? null,
         features: srcFeatures,
       }),
     });
     const data = await res.json() as SaveProductResponse;
-    if (data.success) { toast.success("تم نسخ المنتج"); void loadProducts(); }
+    if (data.success) { toast.success(translate("admin.toast.productDuplicated")); void loadProducts(); }
     else toast.error(data.error || translate("admin.toast.error"));
   }
 
@@ -639,6 +783,8 @@ export default function ProductsPage() {
         original_price: origPriceNum,
         image: imageUrl,
         is_active: editorIsActive,
+        category: category.trim() || null,
+        badge:    badge.trim()    || null,
         features: cleanFeatures,
       };
 
@@ -683,13 +829,13 @@ export default function ProductsPage() {
       <div className="flex flex-col h-full min-h-screen bg-zinc-950 text-white">
 
         {/* ── TOP BAR ── */}
-        <header className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.05] bg-zinc-950/90 backdrop-blur-xl sticky top-0 z-30 flex-wrap gap-y-2" dir="rtl">
+        <header className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.05] bg-zinc-950/90 backdrop-blur-xl sticky top-0 z-30 flex-wrap gap-y-2" dir={dir}>
           {/* Brand */}
           <div className="flex items-center gap-2 ml-1">
             <div className="grid h-7 w-7 place-items-center rounded-lg border border-purple-500/20 bg-purple-500/[0.10] text-purple-300">
               <Layers className="h-3.5 w-3.5" />
             </div>
-            <span className="text-sm font-black text-white">استوديو المنتجات</span>
+            <span className="text-sm font-black text-white">{translate("admin.products.studio.title")}</span>
           </div>
 
           <div className="h-4 w-px bg-white/[0.07] hidden sm:block" />
@@ -698,7 +844,7 @@ export default function ProductsPage() {
           <div className="relative flex-1 min-w-[120px] max-w-[240px]">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-600 pointer-events-none" />
             <input value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="بحث…"
+              placeholder={translate("admin.products.studio.search")}
               className="w-full rounded-xl border border-white/[0.07] bg-zinc-900/70 pr-8 pl-3 py-1.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-purple-500/40 transition" />
           </div>
 
@@ -706,15 +852,15 @@ export default function ProductsPage() {
           <div className="relative hidden sm:block">
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
               className="appearance-none rounded-xl border border-white/[0.07] bg-zinc-900/70 pr-2.5 pl-7 py-1.5 text-xs text-zinc-400 outline-none focus:border-purple-500/30 cursor-pointer">
-              <option value="all">كل المنتجات</option>
-              <option value="active">متوفر</option>
-              <option value="inactive">مخفي</option>
+              <option value="all">{translate("admin.products.studio.filterAll")}</option>
+              <option value="active">{translate("admin.products.studio.filterActive")}</option>
+              <option value="inactive">{translate("admin.products.studio.filterInactive")}</option>
             </select>
             <ChevronDown className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-600" />
           </div>
 
           <span className="text-xs text-zinc-700 font-semibold tabular-nums hidden md:block">
-            {filtered.length}{products.length !== filtered.length ? `/${products.length}` : ""} منتج
+            {filtered.length}{products.length !== filtered.length ? `/${products.length}` : ""} {translate("admin.products.studio.productCount")}
           </span>
 
           <div className="flex-1" />
@@ -723,7 +869,7 @@ export default function ProductsPage() {
             className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-4 py-2 text-sm font-bold text-white shadow-[0_0_16px_rgba(168,85,247,0.20)] transition hover:shadow-[0_0_28px_rgba(168,85,247,0.35)] hover:scale-[1.02] active:scale-[0.98]"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">منتج جديد</span>
+            <span className="hidden sm:inline">{translate("admin.products.studio.newProduct")}</span>
           </button>
         </header>
 
@@ -734,10 +880,10 @@ export default function ProductsPage() {
           <div className="flex flex-col border-r border-white/[0.04]" style={{ width: "48%", minWidth: 220, flexShrink: 0 }}>
 
             {/* Column head */}
-            <div className="flex items-center gap-3 px-3 py-2 border-b border-white/[0.03] bg-zinc-900/20" dir="rtl">
+            <div className="flex items-center gap-3 px-3 py-2 border-b border-white/[0.03] bg-zinc-900/20" dir={dir}>
               <div className="w-10 flex-shrink-0" />
-              <span className="flex-1 text-[9px] font-black uppercase tracking-[0.2em] text-zinc-700">المنتج</span>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-700 w-24 pl-2">السعر</span>
+              <span className="flex-1 text-[9px] font-black uppercase tracking-[0.2em] text-zinc-700">{translate("admin.products.studio.colProduct")}</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-700 w-24 pl-2">{translate("admin.products.studio.colPrice")}</span>
             </div>
 
             {/* Rows */}
@@ -757,14 +903,14 @@ export default function ProductsPage() {
                   <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/[0.06] bg-zinc-900/50 text-zinc-700">
                     <Package className="h-5 w-5" />
                   </div>
-                  <div className="text-center" dir="rtl">
-                    <p className="text-sm font-bold text-zinc-500">{search ? "لا توجد نتائج" : "لا توجد منتجات"}</p>
-                    <p className="text-xs text-zinc-700 mt-0.5">{search ? "جرب بحثاً آخر" : "أنشئ أول منتج"}</p>
+                  <div className="text-center" dir={dir}>
+                    <p className="text-sm font-bold text-zinc-500">{search ? translate("admin.products.studio.noResults") : translate("admin.products.studio.noProductsMsg")}</p>
+                    <p className="text-xs text-zinc-700 mt-0.5">{search ? translate("admin.products.studio.trySearch") : translate("admin.products.studio.createFirst")}</p>
                   </div>
                   {!search && (
                     <button onClick={openNew}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-xs font-semibold text-purple-300 transition hover:bg-purple-500/15">
-                      <Plus className="h-3.5 w-3.5" /> منتج جديد
+                      <Plus className="h-3.5 w-3.5" /> {translate("admin.products.studio.newProduct")}
                     </button>
                   )}
                 </div>
@@ -796,6 +942,9 @@ export default function ProductsPage() {
                     originalPrice={originalPrice} setOriginalPrice={setOriginalPrice}
                     shortDescription={shortDescription} setShortDescription={setShortDescription}
                     description={description} setDescription={setDescription}
+                    category={category} setCategory={setCategory}
+                    badge={badge} setBadge={setBadge}
+                    categoryCounts={categoryCounts}
                     editorIsActive={editorIsActive} setEditorIsActive={setEditorIsActive}
                     features={features} setFeatures={setFeatures} featuresLoading={featuresLoading}
                     preview={preview} imageUploading={imageUploading}
@@ -822,7 +971,7 @@ export default function ProductsPage() {
                 initial={{ opacity: 0, scale: 0.94, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.15 }}
                 onClick={(e) => e.stopPropagation()}
                 className="w-full max-w-sm rounded-2xl border border-red-500/20 bg-zinc-950 p-6 shadow-[0_40px_80px_rgba(0,0,0,0.7)]"
-                dir="rtl"
+                dir={dir}
               >
                 <div className="mx-auto grid h-10 w-10 place-items-center rounded-2xl border border-red-500/20 bg-red-500/10 text-red-400">
                   <AlertCircle className="h-5 w-5" />

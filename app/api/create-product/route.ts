@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireRole, type UserRole } from "../../lib/auth/requireAuthContext";
 import { logActivity } from "../../lib/logs/logActivity";
+import { sanitizeCategory } from "../../lib/categories";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,6 +37,8 @@ export async function POST(req: Request) {
           original_price:    body.original_price ?? null,
           image:             body.image,
           is_active:         body.is_active !== false,
+          category:          sanitizeCategory(body.category),
+          badge:             body.badge?.trim() || null,
           sales_count:       0,
         },
       ])

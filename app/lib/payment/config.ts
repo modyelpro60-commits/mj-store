@@ -1,25 +1,9 @@
 /* ════════════════════════════════════════════════════════════════════════════
  *  Payment configuration
- *  Static fallback values — live settings are managed in Admin → Settings
- *  and stored in the store_settings table.
+ *  All live account values come from the payment_accounts table.
+ *  Use GET /api/payment-accounts/next?method=vodafone|instapay|usdt
+ *  to fetch the current active account (Round Robin).
  * ════════════════════════════════════════════════════════════════════════════ */
-
-export const PAYMENT = {
-  vodafone: {
-    number: "01000000000",
-  },
-  instapay: {
-    qrImage: "/instapay-qr.png",
-    handle: "",
-  },
-  usdt: {
-    walletAddress: "",
-    qrImage: "",
-    network: "BNB Smart Chain (BEP20)",
-    rateEgp: 50,   // 1 USDT = X EGP — overridden by admin settings
-    feePct: 3,     // transfer fee % — overridden by admin settings
-  },
-};
 
 export const PAYMENT_METHODS = [
   { id: "vodafone", label: "Vodafone Cash", labelAr: "فودافون كاش" },

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 import CommandBar from "../../components/nav/CommandBar";
 import ChatWorkspace from "../../components/chat/ChatWorkspace";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 function ChatInner() {
   const sp = useSearchParams();
@@ -17,10 +18,13 @@ function ChatInner() {
 }
 
 export default function ChatPage() {
+  const { language, translate } = useLanguage();
+  const dir = language === "ar" ? "rtl" : "ltr";
+
   return (
     <>
       <CommandBar />
-      <main className="relative min-h-screen bg-void-base px-4 pt-24 pb-8 text-white md:px-8" dir="rtl">
+      <main className="relative min-h-screen bg-void-base px-4 pt-24 pb-8 text-white md:px-8" dir={dir}>
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-[360px]"
@@ -32,8 +36,8 @@ export default function ChatPage() {
               <MessageCircle className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-black tracking-tight">محادثاتي وطلباتي</h1>
-              <p className="text-sm text-zinc-500">تابع حالة طلباتك والدعم الفني — كل طلب في محادثة لوحده</p>
+              <h1 className="text-2xl font-black tracking-tight">{translate("chat.title")}</h1>
+              <p className="text-sm text-zinc-500">{translate("chat.subtitle")}</p>
             </div>
           </div>
 

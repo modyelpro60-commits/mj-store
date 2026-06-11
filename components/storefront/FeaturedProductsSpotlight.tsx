@@ -138,7 +138,7 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
                   transition={{ delay: 0.4, duration: 0.4, ease: "backOut" }}
                   className="absolute top-5 right-5 inline-flex flex-col items-end gap-1 rounded-full border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-600/30 to-purple-600/20 px-5 py-2.5 backdrop-blur-sm shadow-[0_0_30px_rgba(168,85,247,0.3)]"
                 >
-                  <span className="text-xs font-black text-fuchsia-200 uppercase tracking-wider">Sales</span>
+                  <span className="text-xs font-black text-fuchsia-200 uppercase tracking-wider">{translate('product.sales.label')}</span>
                   <span className="text-xl font-black text-fuchsia-100 leading-none">{salesCount}</span>
                 </motion.div>
               )}
@@ -151,7 +151,7 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
                   transition={{ delay: 0.5, duration: 0.4, ease: "backOut" }}
                   className="absolute bottom-5 right-5 rounded-2xl border border-red-500/35 bg-red-500/20 backdrop-blur-xl px-4 py-2.5 text-center"
                 >
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-red-400/60 mb-0.5">خصم</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-red-400/60 mb-0.5">{translate("product.discount.label")}</p>
                   <p className="text-xl font-black text-red-300 leading-none">{discountPct}%</p>
                 </motion.div>
               )}
@@ -201,7 +201,7 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
 
               {featureCards.length ? (
                 <div className="mt-10">
-                  <div className="text-sm font-black tracking-widest text-zinc-300 mb-5 uppercase">Features</div>
+                  <div className="text-sm font-black tracking-widest text-zinc-300 mb-5 uppercase">{translate('home.featured.features')}</div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     {featureCards.slice(0, 6).map((f, i) => (
                       <motion.div key={`${f}-${i}`}
@@ -225,7 +225,7 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
 
               {/* Price block */}
               <div>
-                <div className="text-xs uppercase tracking-[0.3em] font-black text-zinc-400 mb-3">Investment</div>
+                <div className="text-xs uppercase tracking-[0.3em] font-black text-zinc-400 mb-3">{translate('home.featured.investment')}</div>
 
                 {/* Original price (strikethrough) */}
                 {discountPct > 0 && (
@@ -245,7 +245,7 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
                   </motion.div>
                   {discountPct > 0 && (
                     <span className="inline-flex items-center rounded-2xl border border-red-500/35 bg-red-500/15 px-4 py-2 text-base font-black text-red-300 leading-none">
-                      -{discountPct}% OFF
+                      -{discountPct}% {translate('product.discountOff')}
                     </span>
                   )}
                 </div>
@@ -254,7 +254,7 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
                 {discountPct > 0 && savings > 0 && (
                   <p className="mt-2 text-sm font-semibold text-emerald-400 flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
-                    وفّر {savings.toLocaleString("en")} EGP
+                    {translate("product.savings.prefix")} {savings.toLocaleString("en")} EGP
                   </p>
                 )}
               </div>
@@ -268,7 +268,7 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
                     className="inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 px-9 py-5 text-lg font-black text-white border border-purple-400/40 shadow-[0_0_40px_rgba(168,85,247,0.28)] transition-all duration-300"
                   >
                     <ShoppingBag className="h-5 w-5" />
-                    Buy now
+                    {translate('home.featured.buyNow')}
                   </motion.button>
                 </Link>
 
@@ -278,7 +278,7 @@ export default function FeaturedProductsSpotlight({ product }: { product: Produc
                     whileTap={{ scale: 0.98 }}
                     className="inline-flex items-center justify-center rounded-2xl border border-purple-500/30 bg-black/30 backdrop-blur-sm px-8 py-5 text-base font-bold text-white hover:border-purple-500/50 hover:bg-black/40 transition-all"
                   >
-                    View details
+                    {translate('home.featured.viewDetails')}
                   </motion.button>
                 </Link>
               </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, LoaderCircle, LogOut, Trash2, X } from "lucide-react";
+import { useLanguage } from "../lib/i18n/LanguageProvider";
 
 type ConfirmVariant = "danger" | "warning" | "default";
 
@@ -50,15 +51,18 @@ export default function ConfirmModal({
   open,
   title,
   message,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   variant = "danger",
   icon,
   loading = false,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const { translate } = useLanguage();
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const resolvedConfirmLabel = confirmLabel ?? translate("product.reviews.confirm");
+  const resolvedCancelLabel = cancelLabel ?? translate("admin.confirm.cancel");
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -117,7 +121,7 @@ export default function ConfirmModal({
                 onClick={onCancel}
                 disabled={loading}
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10"
-                aria-label="Close"
+                aria-label={translate("chat.workspace.close")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -133,7 +137,7 @@ export default function ConfirmModal({
                 disabled={loading}
                 className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-semibold text-zinc-200 transition-all duration-200 hover:bg-white/10 disabled:opacity-50"
               >
-                {cancelLabel}
+                {resolvedCancelLabel}
               </button>
               <button
                 ref={confirmRef}
@@ -149,10 +153,10 @@ export default function ConfirmModal({
                       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                       className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white"
                     />
-                    {confirmLabel}...
+                    {resolvedConfirmLabel}...
                   </>
                 ) : (
-                  confirmLabel
+                  resolvedConfirmLabel
                 )}
               </button>
             </div>

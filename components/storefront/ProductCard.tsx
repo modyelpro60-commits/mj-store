@@ -145,7 +145,7 @@ export default function ProductCard({
               {discountPct > 0 && savings > 0 && (
                 <p className="mt-1 text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
                   <span className="h-1 w-1 rounded-full bg-emerald-400 flex-shrink-0" />
-                  وفّر {savings.toLocaleString("en")} EGP
+                  {translate("product.savings.prefix")} {savings.toLocaleString("en")} EGP
                 </p>
               )}
             </div>

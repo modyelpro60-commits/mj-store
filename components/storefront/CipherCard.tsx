@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ArrowRight, Check, Loader2, ShoppingBag } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { useCart } from "../cart/CartProvider";
+import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 /* ── Types ──────────────────────────────────────────── */
 
@@ -65,6 +66,7 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
   const router = useRouter();
   const { accessToken, isLoading } = useAuth();
   const { add } = useCart();
+  const { translate } = useLanguage();
   const loggedIn = !isLoading && !!accessToken;
   const [adding, setAdding] = useState(false);
   const [added,  setAdded]  = useState(false);
@@ -73,7 +75,7 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
   function requireLogin(): boolean {
     if (!loggedIn) {
       try { localStorage.setItem("mj_pending_product", String(product.id)); } catch {}
-      toast("سجّل عشان تكمّل الشراء 🛍️", { description: "المنتج هيتحط في سلتك بعد التسجيل." });
+      toast(translate("product.toast.loginToCart"), { description: translate("product.toast.loginToCartDesc") });
       router.push("/register");
       return false;
     }
@@ -88,10 +90,10 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
     setAdding(false);
     if (ok) {
       setAdded(true);
-      toast.success("تمت الإضافة إلى السلة 🛒");
+      toast.success(translate("product.toast.addedToCart"));
       setTimeout(() => setAdded(false), 1600);
     } else {
-      toast.error("تعذّر الإضافة، حاول مجدداً");
+      toast.error(translate("product.toast.addFailed"));
     }
   }
 
@@ -102,7 +104,7 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
     const ok = await add(product.id);
     setBuying(false);
     if (ok) router.push("/cart");
-    else toast.error("تعذّر الإضافة، حاول مجدداً");
+    else toast.error(translate("product.toast.addFailed"));
   }
 
   return (
@@ -177,7 +179,7 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
               <span className="h-[7px] w-[7px] rounded-full bg-state-success animate-signal-pulse" />
               <span aria-hidden className="absolute h-[7px] w-[7px] rounded-full bg-state-success blur-[4px] opacity-70" />
             </span>
-            {(tags.length > 0 ? tags : ["DIGITAL"]).map((tag, i) => (
+            {(tags.length > 0 ? tags : [translate('product.digital')]).map((tag, i) => (
               <span key={i}
                 className="mono-label text-purple-200/90 border border-purple-500/25 bg-purple-500/[0.08] px-1.5 py-[3px] truncate max-w-[130px]"
                 style={{ borderRadius: "var(--radius-badge)" }}>
@@ -209,7 +211,7 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
                 className="h-full w-full object-contain p-3 transition-transform duration-700 ease-out group-hover:scale-[1.08]" />
             ) : (
               <div className="h-full w-full flex items-center justify-center">
-                <span className="mono-label text-text-muted">NO IMAGE</span>
+                <span className="mono-label text-text-muted">{translate('product.noImage')}</span>
               </div>
             )}
 
@@ -220,7 +222,7 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
             {sales > 0 && (
               <span className="absolute top-2 right-2 mono-label text-[10px] flex items-center gap-1 px-1.5 py-[3px] border backdrop-blur-sm"
                 style={{ borderRadius: "var(--radius-badge)", color: "#A3FF47", borderColor: "rgba(163,255,71,0.30)", background: "rgba(163,255,71,0.10)" }}>
-                {sales} SOLD
+                {sales} {translate('product.sold')}
               </span>
             )}
 
@@ -252,7 +254,7 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
             {/* Divider */}
             <span aria-hidden className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-void-line to-transparent" />
 
-            <p className="mono-label text-text-muted mb-1.5">UNIT COST</p>
+            <p className="mono-label text-text-muted mb-1.5">{translate('product.unitCost')}</p>
 
             {/* Original price (strikethrough) */}
             {discountPct > 0 && (
@@ -279,7 +281,7 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
             {discountPct > 0 && savings > 0 && (
               <p className="mt-1.5 text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
                 <span className="h-1 w-1 rounded-full bg-emerald-400 flex-shrink-0" />
-                وفّر {savings.toLocaleString("en")} EGP
+                {translate("product.savings.prefix")} {savings.toLocaleString("en")} EGP
               </p>
             )}
           </div>
@@ -293,7 +295,7 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
             style={{ borderRadius: "var(--radius-btn)" }}
           >
             <span aria-hidden className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-out group-hover/btn:translate-x-full" />
-            {buying ? <Loader2 className="relative h-4 w-4 animate-spin" /> : <span className="relative">BUY NOW</span>}
+            {buying ? <Loader2 className="relative h-4 w-4 animate-spin" /> : <span className="relative">{translate('product.buyNowBtn')}</span>}
             {!buying && <ArrowRight className="relative h-3.5 w-3.5 transition-transform duration-200 group-hover/btn:translate-x-1" />}
           </button>
 
@@ -302,9 +304,9 @@ export default function CipherCard({ product, size = "support" }: CipherCardProp
             className="flex w-full h-10 items-center justify-center gap-2 mono-label tracking-[0.18em] border border-purple-500/25 bg-purple-500/[0.06] text-purple-200 hover:bg-purple-500/[0.12] hover:text-white hover:border-purple-400/40 transition-all duration-200 disabled:opacity-75"
             style={{ borderRadius: "var(--radius-btn)" }}
           >
-            {added   ? <><Check    className="h-4 w-4" />ADDED</>    :
-             adding  ? <><Loader2  className="h-4 w-4 animate-spin" />ADDING</> :
-                       <><ShoppingBag className="h-3.5 w-3.5" />ADD TO CART</>}
+            {added   ? <><Check    className="h-4 w-4" />{translate('product.cart.added')}</>    :
+             adding  ? <><Loader2  className="h-4 w-4 animate-spin" />{translate('product.cart.adding')}</> :
+                       <><ShoppingBag className="h-3.5 w-3.5" />{translate('product.addToCart')}</>}
           </button>
         </div>
       </div>

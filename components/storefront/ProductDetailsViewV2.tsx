@@ -83,35 +83,36 @@ type Review = {
 function getAvailability(isActive?: boolean) {
   return isActive === false
     ? {
-        label:   "غير متاح",
-        dot:     "bg-zinc-600",
-        pill:    "border-zinc-600/25 bg-zinc-600/10 text-zinc-400",
-        buyable: false,
+        labelKey: "product.status.unavailable",
+        dot:      "bg-zinc-600",
+        pill:     "border-zinc-600/25 bg-zinc-600/10 text-zinc-400",
+        buyable:  false,
       }
     : {
-        label:   "متوفر",
-        dot:     "bg-emerald-400 animate-pulse",
-        pill:    "border-emerald-500/25 bg-emerald-500/10 text-emerald-400",
-        buyable: true,
+        labelKey: "product.status.available",
+        dot:      "bg-emerald-400 animate-pulse",
+        pill:     "border-emerald-500/25 bg-emerald-500/10 text-emerald-400",
+        buyable:  true,
       };
 }
 
 /* ── Role badge ───────────────────────────────────────────────── */
 
-const ROLE_META: Record<string, { label: string; style: string; icon: React.ElementType }> = {
-  admin:     { label: "أدمن",  style: "border-amber-500/30  bg-amber-500/10  text-amber-300",    icon: Crown       },
-  moderator: { label: "مشرف",  style: "border-blue-500/30   bg-blue-500/10   text-blue-300",     icon: ShieldCheck },
-  helper:    { label: "مساعد", style: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300", icon: Wrench      },
+const ROLE_META: Record<string, { labelKey: string; style: string; icon: React.ElementType }> = {
+  admin:     { labelKey: "admin.role.admin",     style: "border-amber-500/30  bg-amber-500/10  text-amber-300",    icon: Crown       },
+  moderator: { labelKey: "admin.role.moderator", style: "border-blue-500/30   bg-blue-500/10   text-blue-300",     icon: ShieldCheck },
+  helper:    { labelKey: "admin.role.helper",    style: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300", icon: Wrench      },
 };
 
 function RoleBadge({ role }: { role: string }) {
+  const { translate } = useLanguage();
   const meta = ROLE_META[role];
   if (!meta) return null;
   const Icon = meta.icon;
   return (
     <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-black tracking-wide ${meta.style}`}>
       <Icon className="h-2.5 w-2.5" />
-      {meta.label}
+      {translate(meta.labelKey)}
     </span>
   );
 }
@@ -175,7 +176,8 @@ function Divider() {
  * ══════════════════════════════════════════════════════════════ */
 
 export default function ProductDetailsViewV2({ product }: { product: Product }) {
-  const { translate }                                 = useLanguage();
+  const { translate, language }                        = useLanguage();
+  const dir = language === "ar" ? "rtl" : "ltr";
   const { accessToken, isLoading: authLoading, role } = useAuth();
   const prefersReducedMotion                          = useReducedMotion();
   const { trackEvent }                                = useAnalytics();
@@ -261,7 +263,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
     if (!availability.buyable) return false;
     if (!loggedIn) {
       try { localStorage.setItem("mj_pending_product", String(product.id)); } catch {}
-      toast("سجّل عشان تكمّل الشراء 🛍️", { description: "المنتج هيتحط في سلتك بعد التسجيل." });
+      toast(translate("product.toast.loginToCart"), { description: translate("product.toast.loginToCartDesc") });
       router.push("/register");
       return false;
     }
@@ -270,13 +272,13 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
     const ok = await add(product.id);
     setAddingCart(false);
     if (ok) void trackEvent(product.id, "add_to_cart");
-    else toast.error("تعذّر الإضافة، حاول مجدداً");
+    else toast.error(translate("product.toast.addFailed"));
     return ok;
   }
 
   async function handleAddToCart() {
     const ok = await addToCart();
-    if (ok) toast.success("تمت الإضافة إلى السلة 🛒");
+    if (ok) toast.success(translate("product.toast.addedToCart"));
   }
 
   async function handleBuyNow() {
@@ -295,11 +297,11 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
         body: JSON.stringify({ rating: writeRating, comment: writeComment.trim() }),
       });
       const d = await r.json();
-      if (!d.success) { setPostError(d.error || "خطأ"); return; }
+      if (!d.success) { setPostError(d.error || translate("product.reviews.error")); return; }
       setPostOk(true); setWriteComment("");
       const rd = await (await fetch(`/api/product/${product.id}/reviews`)).json();
       if (rd.success) setReviews(rd.data);
-    } catch { setPostError("خطأ في الاتصال"); }
+    } catch { setPostError(translate("product.reviews.connectionError")); }
     finally { setPosting(false); }
   }
 
@@ -329,13 +331,13 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
         body: JSON.stringify({ body }),
       });
       const d = await r.json();
-      if (!d.success) { setReplyError((p) => ({ ...p, [reviewId]: d.error ?? "خطأ" })); return; }
+      if (!d.success) { setReplyError((p) => ({ ...p, [reviewId]: d.error ?? translate("product.reviews.error") })); return; }
       setReplyText((p) => ({ ...p, [reviewId]: "" }));
       setReplyOpen((p) => ({ ...p, [reviewId]: false }));
       const rd = await (await fetch(`/api/product/${product.id}/reviews`)).json();
       if (rd.success) setReviews(rd.data);
     } catch {
-      setReplyError((p) => ({ ...p, [reviewId]: "خطأ في الاتصال" }));
+      setReplyError((p) => ({ ...p, [reviewId]: translate("product.reviews.connectionError") }));
     } finally {
       setReplyBusy((p) => ({ ...p, [reviewId]: false }));
     }
@@ -345,7 +347,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
   return (
     <div
       className="bg-[#07070D] text-white min-h-screen selection:bg-purple-500/25"
-      dir="rtl"
+      dir={dir}
     >
 
       {/* ── Ambient background ── */}
@@ -358,7 +360,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
       <div className="border-b border-white/[0.04] bg-[#09090F]/80 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-5 sm:px-8 py-3.5">
           <ol className="flex items-center gap-1.5 text-xs text-white/25 flex-wrap">
-            <li><Link href="/" className="hover:text-purple-300 transition-colors">الرئيسية</Link></li>
+            <li><Link href="/" className="hover:text-purple-300 transition-colors">{translate("product.breadcrumb.home")}</Link></li>
             <li><ChevronLeft className="h-3 w-3" /></li>
             <li className="text-white/50 font-medium truncate max-w-[240px]">{product.name}</li>
           </ol>
@@ -435,7 +437,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                 transition={{ delay: 0.5, duration: 0.4, ease: "backOut" }}
                 className="absolute top-5 right-5 rounded-2xl border border-red-500/30 bg-red-500/20 backdrop-blur-xl px-3.5 py-2.5 text-center"
               >
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-red-400/60 mb-0.5">خصم</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-red-400/60 mb-0.5">{translate("product.discount.label")}</p>
                 <p className="text-xl font-black text-red-300 leading-none">{discountPct}%</p>
               </motion.div>
             )}
@@ -448,7 +450,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                 transition={{ delay: 0.6, duration: 0.4, ease: "backOut" }}
                 className="absolute bottom-5 left-5 rounded-2xl border border-purple-400/20 bg-black/50 backdrop-blur-xl px-4 py-2.5 text-center"
               >
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-400/50 mb-0.5">المبيعات</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-400/50 mb-0.5">{translate("product.sales.label")}</p>
                 <p className="text-xl font-black text-purple-200 leading-none">{salesCount.toLocaleString()}+</p>
               </motion.div>
             )}
@@ -463,7 +465,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                   className="rounded-3xl border border-red-500/35 bg-red-500/15 px-8 py-5 text-center backdrop-blur-xl"
                 >
                   <p className="text-[9px] font-black uppercase tracking-[0.25em] mb-2 text-red-400/60">
-                    غير متاح
+                    {translate("product.status.unavailable")}
                   </p>
                   <p className="text-2xl font-black text-red-200">
                     Not Available
@@ -484,7 +486,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
             >
               <span className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-bold ${availability.pill}`}>
                 <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${availability.dot}`} />
-                {availability.label}
+                {translate(availability.labelKey)}
               </span>
             </motion.div>
 
@@ -519,14 +521,14 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                     <Stars rating={Number(avgRating)} size="md" />
                     <span className="text-sm font-black text-amber-400">{avgRating}</span>
                     <span className="text-xs text-white/25">
-                      ({reviews.length} {reviews.length === 1 ? "تقييم" : "تقييمات"})
+                      ({reviews.length} {reviews.length === 1 ? translate("product.reviews.singular") : translate("product.reviews.plural")})
                     </span>
                   </div>
                 )}
                 {salesCount > 0 && (
                   <span className="inline-flex items-center gap-1.5 text-xs text-white/30">
                     <TrendingUp className="h-3 w-3 text-purple-400" />
-                    {salesCount.toLocaleString()}+ عملية شراء
+                    {salesCount.toLocaleString()}+ {translate("product.sales.count")}
                   </span>
                 )}
               </div>
@@ -540,7 +542,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               className="rounded-2xl border border-white/[0.07] bg-white/[0.025] px-5 py-4"
               style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
             >
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-3">السعر</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-3">{translate("product.price.label")}</p>
 
               {/* Original price (strikethrough) — shown ABOVE current price when discount exists */}
               {originalPrice > price && (
@@ -573,7 +575,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               {discountPct > 0 && (
                 <p className="mt-2.5 text-[11px] font-semibold text-emerald-400 flex items-center gap-1.5">
                   <span className="h-1 w-1 rounded-full bg-emerald-400" />
-                  وفّر {(originalPrice - price).toLocaleString("en")} EGP على هذا الطلب
+                  {translate("product.savings.prefix")} {(originalPrice - price).toLocaleString("en")} EGP {translate("product.savings.onThisOrder")}
                 </p>
               )}
             </motion.div>
@@ -588,9 +590,9 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               >
                 <span className={`mt-0.5 h-2 w-2 rounded-full flex-shrink-0 ${availability.dot}`} />
                 <div>
-                  <p className="text-sm font-black mb-0.5">{availability.label}</p>
+                  <p className="text-sm font-black mb-0.5">{translate(availability.labelKey)}</p>
                   <p className="text-xs opacity-70 leading-relaxed">
-                    هذا المنتج غير متاح للشراء حالياً.
+                    {translate("product.unavailable.notice")}
                   </p>
                 </div>
               </motion.div>
@@ -628,7 +630,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                   ? <LoaderCircle className="relative h-5 w-5 animate-spin shrink-0" />
                   : <ShoppingBag className="relative h-5 w-5 shrink-0" />}
                 <span className="relative">
-                  {availability.buyable ? "اشتري الآن" : availability.label}
+                  {availability.buyable ? translate("product.buy.now") : translate(availability.labelKey)}
                 </span>
               </motion.button>
 
@@ -646,7 +648,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                 ].join(" ")}
               >
                 <ShoppingCart className="h-4 w-4" />
-                أضف للسلة
+                {translate("product.cart.add")}
               </motion.button>
             </motion.div>
 
@@ -654,16 +656,16 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
             <div className="flex items-center gap-2.5 pt-1">
               <button
                 type="button"
-                aria-label="مشاركة"
+                aria-label={translate("product.share")}
                 onClick={() => navigator.share?.({ title: product.name, url: window.location.href }).catch(() => {})}
                 className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-white/30 hover:text-white/60 hover:border-purple-500/25 transition-all"
               >
                 <Share2 className="h-3.5 w-3.5" />
-                مشاركة
+                {translate("product.share")}
               </button>
               <button
                 type="button"
-                aria-label="إضافة للمفضلة"
+                aria-label={translate("product.wishlist.add")}
                 onClick={() => setWishlisted((v) => !v)}
                 className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
                   wishlisted
@@ -674,7 +676,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                 <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill={wishlisted ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
                   <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                 </svg>
-                {wishlisted ? "في المفضلة" : "المفضلة"}
+                {wishlisted ? translate("product.wishlist.added") : translate("product.wishlist.add")}
               </button>
             </div>
 
@@ -687,7 +689,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
          ════════════════════════════════════════════════════════ */}
       <Divider />
       <section className="max-w-5xl mx-auto px-4 sm:px-8 py-10">
-        <SectionLabel icon={BadgeCheck}>مميزات الخدمة</SectionLabel>
+        <SectionLabel icon={BadgeCheck}>{translate("product.section.features")}</SectionLabel>
 
         {/* Custom product features (if defined in admin) */}
         {product.features && product.features.length > 0 ? (
@@ -738,13 +740,13 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
           /* Default generic features when none defined */
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {[
-              { icon: Zap,          title: "تسليم فوري",   desc: "يصلك المنتج خلال دقائق من تأكيد الدفع",       accent: "text-purple-400 border-purple-500/20 bg-purple-500/[0.06]",  glow: "bg-purple-500/[0.04]"  },
-              { icon: ShieldCheck,  title: "دفع آمن 100%", desc: "جميع المعاملات مشفرة ومحمية بالكامل",         accent: "text-emerald-400 border-emerald-500/20 bg-emerald-500/[0.06]", glow: "bg-emerald-500/[0.03]" },
-              { icon: MessageCircle,title: "دعم مباشر",    desc: "فريق الدعم جاهز لمساعدتك في أي وقت",         accent: "text-blue-400 border-blue-500/20 bg-blue-500/[0.06]",         glow: "bg-blue-500/[0.03]"    },
-              { icon: CheckCircle2, title: "جودة مضمونة",  desc: "منتجات أصلية وموثقة 100%",                   accent: "text-amber-400 border-amber-500/20 bg-amber-500/[0.06]",      glow: "bg-amber-500/[0.03]"   },
+              { icon: Zap,          titleKey: "product.feature.instant.title", descKey: "product.feature.instant.desc", accent: "text-purple-400 border-purple-500/20 bg-purple-500/[0.06]",  glow: "bg-purple-500/[0.04]"  },
+              { icon: ShieldCheck,  titleKey: "product.feature.secure.title",  descKey: "product.feature.secure.desc",  accent: "text-emerald-400 border-emerald-500/20 bg-emerald-500/[0.06]", glow: "bg-emerald-500/[0.03]" },
+              { icon: MessageCircle,titleKey: "product.feature.support.title", descKey: "product.feature.support.desc", accent: "text-blue-400 border-blue-500/20 bg-blue-500/[0.06]",         glow: "bg-blue-500/[0.03]"    },
+              { icon: CheckCircle2, titleKey: "product.feature.quality.title", descKey: "product.feature.quality.desc", accent: "text-amber-400 border-amber-500/20 bg-amber-500/[0.06]",      glow: "bg-amber-500/[0.03]"   },
             ].map((f, i) => (
               <motion.div
-                key={f.title}
+                key={f.titleKey}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.07, duration: 0.35 }}
@@ -753,8 +755,8 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                 <div className={`mb-3 grid h-9 w-9 place-items-center rounded-xl border ${f.accent}`}>
                   <f.icon className="h-4 w-4" />
                 </div>
-                <p className="text-sm font-black text-white leading-none mb-1.5">{f.title}</p>
-                <p className="text-[11px] text-zinc-500 leading-relaxed">{f.desc}</p>
+                <p className="text-sm font-black text-white leading-none mb-1.5">{translate(f.titleKey)}</p>
+                <p className="text-[11px] text-zinc-500 leading-relaxed">{translate(f.descKey)}</p>
                 <div className={`pointer-events-none absolute -bottom-6 -right-6 h-20 w-20 rounded-full blur-2xl ${f.glow}`} />
               </motion.div>
             ))}
@@ -769,7 +771,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
         <>
           <Divider />
           <section className="max-w-5xl mx-auto px-4 sm:px-8 py-10">
-            <SectionLabel icon={FileText}>تفاصيل المنتج</SectionLabel>
+            <SectionLabel icon={FileText}>{translate("product.section.details")}</SectionLabel>
             <div className="rounded-3xl border border-white/[0.06] bg-zinc-900/30 p-6 sm:p-8">
               <div className="space-y-3.5">
                 {(descExpanded ? parts : parts.slice(0, 5)).map((p, i) => (
@@ -782,7 +784,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                   onClick={() => setDescExpanded((v) => !v)}
                   className="mt-4 flex items-center gap-1.5 text-sm font-bold text-purple-400 hover:text-purple-300 transition-colors"
                 >
-                  {descExpanded ? "عرض أقل" : "اقرأ المزيد"}
+                  {descExpanded ? translate("product.readLess") : translate("product.readMore")}
                   <ArrowRight className={`h-3.5 w-3.5 transition-transform ${descExpanded ? "-rotate-90" : "rotate-90"}`} />
                 </button>
               )}
@@ -796,7 +798,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
          ════════════════════════════════════════════════════════ */}
       <Divider />
       <section className="max-w-5xl mx-auto px-4 sm:px-8 py-10">
-        <SectionLabel icon={Package}>معلومات التسليم</SectionLabel>
+        <SectionLabel icon={Package}>{translate("product.section.delivery")}</SectionLabel>
         <div className="grid gap-4 sm:grid-cols-2">
 
           {/* Delivery Time */}
@@ -806,11 +808,10 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                 <Clock className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-purple-400/60 mb-1.5">وقت التسليم</p>
-                <p className="text-base font-black text-white mb-1">فوري بعد التأكيد</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-purple-400/60 mb-1.5">{translate("product.delivery.time.label")}</p>
+                <p className="text-base font-black text-white mb-1">{translate("product.delivery.time.title")}</p>
                 <p className="text-xs text-zinc-500 leading-relaxed">
-                  يُسلَّم منتجك فور التحقق من الدفع —<br />
-                  لا تتجاوز العملية 5–15 دقيقة في أغلب الحالات.
+                  {translate("product.delivery.time.desc")}
                 </p>
               </div>
             </div>
@@ -824,11 +825,10 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                 <MessageSquare className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-fuchsia-400/60 mb-1.5">طريقة التسليم</p>
-                <p className="text-base font-black text-white mb-1">عبر المحادثة المباشرة</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-fuchsia-400/60 mb-1.5">{translate("product.delivery.method.label")}</p>
+                <p className="text-base font-black text-white mb-1">{translate("product.delivery.method.title")}</p>
                 <p className="text-xs text-zinc-500 leading-relaxed">
-                  يتم إرسال المنتج مباشرةً عبر نظام المحادثة<br />
-                  الموجود داخل التطبيق بعد تأكيد الطلب.
+                  {translate("product.delivery.method.desc")}
                 </p>
               </div>
             </div>
@@ -842,7 +842,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
          ════════════════════════════════════════════════════════ */}
       <Divider />
       <section className="max-w-5xl mx-auto px-4 sm:px-8 py-10">
-        <SectionLabel icon={CreditCard}>طرق الدفع المقبولة</SectionLabel>
+        <SectionLabel icon={CreditCard}>{translate("product.section.payment")}</SectionLabel>
         <div className="grid gap-4 sm:grid-cols-3">
 
           {/* Vodafone Cash */}
@@ -853,11 +853,11 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               </div>
               <div>
                 <p className="text-sm font-black text-white">Vodafone Cash</p>
-                <p className="text-[10px] text-red-400/70 font-semibold">فودافون كاش</p>
+                <p className="text-[10px] text-red-400/70 font-semibold">Vodafone Cash</p>
               </div>
             </div>
             <p className="text-xs text-zinc-500 leading-relaxed">
-              ادفع فوراً عبر محفظتك في فودافون كاش بكل سهولة وأمان.
+              {translate("product.payment.vodafone.desc")}
             </p>
             <div className="pointer-events-none absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-red-500/[0.06] blur-2xl" />
           </div>
@@ -870,11 +870,11 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               </div>
               <div>
                 <p className="text-sm font-black text-white">InstaPay</p>
-                <p className="text-[10px] text-blue-400/70 font-semibold">إنستاباي</p>
+                <p className="text-[10px] text-blue-400/70 font-semibold">InstaPay</p>
               </div>
             </div>
             <p className="text-xs text-zinc-500 leading-relaxed">
-              تحويل بنكي فوري عبر تطبيق InstaPay من أي بنك مصري.
+              {translate("product.payment.instapay.desc")}
             </p>
             <div className="pointer-events-none absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-blue-500/[0.06] blur-2xl" />
           </div>
@@ -887,11 +887,11 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               </div>
               <div>
                 <p className="text-sm font-black text-white">USDT</p>
-                <p className="text-[10px] text-emerald-400/70 font-semibold">تيثر · شبكة BEP20</p>
+                <p className="text-[10px] text-emerald-400/70 font-semibold">{translate("product.payment.usdt.sub")}</p>
               </div>
             </div>
             <p className="text-xs text-zinc-500 leading-relaxed">
-              دفع بعملة USDT المستقرة عبر شبكة BNB Smart Chain.
+              {translate("product.payment.usdt.desc")}
             </p>
             <div className="pointer-events-none absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-emerald-500/[0.06] blur-2xl" />
           </div>
@@ -903,7 +903,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
          ════════════════════════════════════════════════════════ */}
       <Divider />
       <section className="max-w-5xl mx-auto px-4 sm:px-8 py-10 pb-28">
-        <SectionLabel icon={Star}>التقييمات</SectionLabel>
+        <SectionLabel icon={Star}>{translate("product.section.reviews")}</SectionLabel>
 
         {/* Rating summary */}
         {!reviewsBusy && reviews.length > 0 && avgRating && (
@@ -914,7 +914,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               <div className="flex flex-col items-center sm:items-start gap-1 shrink-0">
                 <p className="text-5xl font-black text-white leading-none">{avgRating}</p>
                 <Stars rating={Number(avgRating)} size="md" />
-                <p className="text-xs text-white/25 mt-1">{reviews.length} {reviews.length === 1 ? "تقييم" : "تقييمات"}</p>
+                <p className="text-xs text-white/25 mt-1">{reviews.length} {reviews.length === 1 ? translate("product.reviews.singular") : translate("product.reviews.plural")}</p>
               </div>
 
               {/* Distribution bars */}
@@ -947,14 +947,14 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
           {reviewsBusy ? (
             <div className="flex items-center gap-2 text-white/20 py-8">
               <LoaderCircle className="h-4 w-4 animate-spin" />
-              <span className="text-sm">جاري التحميل…</span>
+              <span className="text-sm">{translate("product.reviews.loading")}</span>
             </div>
           ) : reviews.length === 0 ? (
             <div className="rounded-3xl border border-white/[0.05] bg-white/[0.015] py-14 text-center">
               <div className="h-14 w-14 rounded-2xl border border-white/[0.04] bg-white/[0.02] grid place-items-center mx-auto mb-3">
                 <Star className="h-6 w-6 text-white/[0.08]" />
               </div>
-              <p className="text-white/25 text-sm">لا توجد تقييمات بعد — كن أول من يقيّم!</p>
+              <p className="text-white/25 text-sm">{translate("product.reviews.empty")}</p>
             </div>
           ) : (
             reviews.map((rv) => (
@@ -994,18 +994,18 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                             }`}
                           >
                             <MessageSquare className="h-2.5 w-2.5" />
-                            رد
+                            {translate("product.reviews.reply")}
                           </button>
                           {confirmId === rv.id ? (
                             <div className="flex items-center gap-1">
                               <button type="button" onClick={() => setConfirmId(null)}
                                 className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[10px] text-white/30 hover:text-white/60 transition-all">
-                                لا
+                                {translate("product.reviews.no")}
                               </button>
                               <button type="button" disabled={deletingId === rv.id} onClick={() => deleteReview(rv.id)}
                                 className="flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/15 px-2 py-1 text-[10px] font-bold text-red-400 hover:bg-red-500/25 disabled:opacity-50 transition-all">
                                 {deletingId === rv.id ? <LoaderCircle className="h-2.5 w-2.5 animate-spin" /> : <Trash2 className="h-2.5 w-2.5" />}
-                                تأكيد
+                                {translate("product.reviews.confirm")}
                               </button>
                             </div>
                           ) : (
@@ -1059,12 +1059,12 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                       <div className="rounded-xl border border-purple-500/20 bg-purple-500/[0.05] p-3 space-y-2.5">
                         <div className="flex items-center gap-2">
                           <RoleBadge role={role ?? "helper"} />
-                          <span className="text-[10px] text-white/30">ردك كـ {ROLE_META[role ?? ""]?.label ?? "فريق الدعم"}</span>
+                          <span className="text-[10px] text-white/30">{translate("product.reviews.replyAs")} {ROLE_META[role ?? ""] ? translate(ROLE_META[role ?? ""].labelKey) : translate("product.reviews.supportTeam")}</span>
                         </div>
                         <textarea
                           value={replyText[rv.id] ?? ""}
                           onChange={(e) => setReplyText((p) => ({ ...p, [rv.id]: e.target.value }))}
-                          placeholder="اكتب ردك هنا…"
+                          placeholder={translate("product.reviews.replyPlaceholder")}
                           rows={2}
                           className="w-full rounded-lg border border-white/[0.07] bg-white/[0.04] px-3 py-2 text-xs text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/40 resize-none transition-all"
                         />
@@ -1074,7 +1074,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                         <div className="flex items-center gap-2 justify-end">
                           <button type="button" onClick={() => setReplyOpen((p) => ({ ...p, [rv.id]: false }))}
                             className="px-3 py-1.5 text-[10px] font-bold text-white/30 hover:text-white/60 transition-colors">
-                            إلغاء
+                            {translate("product.reviews.cancel")}
                           </button>
                           <button
                             type="button"
@@ -1084,7 +1084,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                             style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)" }}
                           >
                             {replyBusy[rv.id] ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
-                            {replyBusy[rv.id] ? "جاري الإرسال…" : "إرسال الرد"}
+                            {replyBusy[rv.id] ? translate("product.reviews.sending") : translate("product.reviews.send")}
                           </button>
                         </div>
                       </div>
@@ -1102,12 +1102,12 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
           <form onSubmit={handleSubmit}
             className="rounded-3xl border border-white/[0.06] bg-zinc-900/30 p-5 sm:p-6 space-y-4"
           >
-            <p className="text-xs font-black uppercase tracking-widest text-zinc-600">أكتب تقييمك</p>
+            <p className="text-xs font-black uppercase tracking-widest text-zinc-600">{translate("product.reviews.writeTitle")}</p>
 
             {/* Star picker */}
             <div className="flex gap-1.5">
               {[1, 2, 3, 4, 5].map((s) => (
-                <button key={s} type="button" aria-label={`تقييم ${s} نجوم`}
+                <button key={s} type="button" aria-label={translate("product.reviews.ratingAria").replace("{n}", String(s))}
                   onClick={() => setWriteRating(s)}
                   onMouseEnter={() => setHoverStar(s)}
                   onMouseLeave={() => setHoverStar(0)}
@@ -1125,7 +1125,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
             <textarea
               value={writeComment}
               onChange={(e) => setWriteComment(e.target.value)}
-              placeholder="شارك تجربتك مع هذا المنتج…"
+              placeholder={translate("product.reviews.placeholder")}
               required
               className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-sm text-white/65 placeholder:text-white/15 outline-none focus:border-purple-500/35 focus:bg-purple-500/[0.03] min-h-[80px] resize-none transition-all"
             />
@@ -1133,7 +1133,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
             {postError && <p className="text-red-400/75 text-xs">{postError}</p>}
             {postOk    && (
               <p className="text-emerald-400/75 text-xs flex items-center gap-1.5">
-                <Check className="h-3 w-3" /> تم إرسال تقييمك بنجاح!
+                <Check className="h-3 w-3" /> {translate("product.reviews.submitted")}
               </p>
             )}
 
@@ -1142,13 +1142,13 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)" }}
             >
               {posting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-              {posting ? "جاري الإرسال…" : "إرسال التقييم"}
+              {posting ? translate("product.reviews.submitting") : translate("product.reviews.submit")}
             </button>
           </form>
         ) : (
           <div className="rounded-3xl border border-white/[0.05] bg-white/[0.015] p-6 text-center">
             <Star className="h-8 w-8 text-white/[0.08] mx-auto mb-3" />
-            <p className="text-white/25 text-sm mb-4">سجل دخولك لكتابة تقييم على هذا المنتج</p>
+            <p className="text-white/25 text-sm mb-4">{translate("product.reviews.loginRequired")}</p>
             <Link href="/login">
               <button type="button"
                 className="rounded-xl px-6 py-2.5 text-sm font-black text-white transition-all"
@@ -1216,7 +1216,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                   {addingCart
                     ? <LoaderCircle className="h-4 w-4 animate-spin" />
                     : <ShoppingBag className="h-4 w-4" />}
-                  {availability.buyable ? "اشتري الآن" : availability.label}
+                  {availability.buyable ? translate("product.buy.now") : translate(availability.labelKey)}
                 </motion.button>
               </div>
             </div>

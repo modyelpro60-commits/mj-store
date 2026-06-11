@@ -106,7 +106,7 @@ export default function StorefrontNavbar() {
     setIsSigningOut(true);
     try {
       await signOut();
-      toast.success("Signed out", { description: "See you soon." });
+      toast.success(translate("nav.signOut"));
       await new Promise((r) => setTimeout(r, 800));
       router.refresh();
       router.replace("/");
@@ -334,7 +334,7 @@ export default function StorefrontNavbar() {
                                   <div className="flex items-center gap-2">
                                     <p className="text-[13px] font-bold text-white truncate">{fullName}</p>
                                     <div className="flex items-center gap-1 shrink-0">
-                                      <span className="text-[10px] font-semibold text-emerald-400/80">Online</span>
+                                      <span className="text-[10px] font-semibold text-emerald-400/80">{translate("nav.online")}</span>
                                     </div>
                                   </div>
                                   {profile?.email && (
@@ -346,7 +346,7 @@ export default function StorefrontNavbar() {
                                         ? "bg-purple-500/15 text-purple-300/80 border border-purple-500/20"
                                         : "bg-blue-500/15 text-blue-300/80 border border-blue-500/20"
                                     }`}>
-                                      {isAdmin ? "Admin" : "Moderator"}
+                                      {isAdmin ? translate("admin.role.admin") : translate("admin.role.moderator")}
                                     </span>
                                   )}
                                 </div>
@@ -358,13 +358,13 @@ export default function StorefrontNavbar() {
                               <DropItem
                                 href="/account"
                                 icon={User}
-                                label="My Profile"
+                                label={translate("nav.myProfile")}
                                 onClick={() => setAccountOpen(false)}
                               />
                               <DropItem
                                 href="/account"
                                 icon={Receipt}
-                                label="My Orders"
+                                label={translate("nav.myOrders")}
                                 onClick={() => setAccountOpen(false)}
                               />
                             </div>
@@ -378,7 +378,7 @@ export default function StorefrontNavbar() {
                                     <DropItem
                                       href="/admin"
                                       icon={LayoutDashboard}
-                                      label="Admin Panel"
+                                      label={translate("nav.adminPanel")}
                                       accent="purple"
                                       onClick={() => setAccountOpen(false)}
                                     />
@@ -387,7 +387,7 @@ export default function StorefrontNavbar() {
                                     <DropItem
                                       href="/admin"
                                       icon={ShieldCheck}
-                                      label="Moderator Panel"
+                                      label={translate("nav.moderatorPanel")}
                                       accent="blue"
                                       onClick={() => setAccountOpen(false)}
                                     />
@@ -508,20 +508,20 @@ export default function StorefrontNavbar() {
                       <Link href="/account" onClick={() => setMobileOpen(false)}
                         className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-[13px] font-medium text-white/50 transition-all hover:bg-white/[0.04] hover:text-white/80">
                         <User className="h-4 w-4 text-white/20 shrink-0" />
-                        My Profile
+                        {translate("nav.myProfile")}
                       </Link>
 
                       <Link href="/account" onClick={() => setMobileOpen(false)}
                         className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-[13px] font-medium text-white/50 transition-all hover:bg-white/[0.04] hover:text-white/80">
                         <Receipt className="h-4 w-4 text-white/20 shrink-0" />
-                        My Orders
+                        {translate("nav.myOrders")}
                       </Link>
 
                       {isAdmin && (
                         <Link href="/admin" onClick={() => setMobileOpen(false)}
                           className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-[13px] font-medium text-purple-300/70 transition-all hover:bg-purple-500/10 hover:text-purple-200">
                           <LayoutDashboard className="h-4 w-4 text-purple-400/60 shrink-0" />
-                          Admin Panel
+                          {translate("nav.adminPanel")}
                         </Link>
                       )}
 
@@ -529,7 +529,7 @@ export default function StorefrontNavbar() {
                         <Link href="/admin" onClick={() => setMobileOpen(false)}
                           className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-[13px] font-medium text-blue-300/70 transition-all hover:bg-blue-500/10 hover:text-blue-200">
                           <ShieldCheck className="h-4 w-4 text-blue-400/60 shrink-0" />
-                          Moderator Panel
+                          {translate("nav.moderatorPanel")}
                         </Link>
                       )}
 
@@ -577,9 +577,9 @@ export default function StorefrontNavbar() {
 
       <ConfirmModal
         open={showLogoutModal}
-        title="Sign Out"
-        message="Are you sure you want to sign out?"
-        confirmLabel="Sign Out"
+        title={translate("nav.signOutConfirmTitle")}
+        message={translate("nav.signOutConfirmMsg")}
+        confirmLabel={translate("nav.signOutConfirmLabel")}
         variant="default"
         loading={isSigningOut}
         onConfirm={handleLogout}
