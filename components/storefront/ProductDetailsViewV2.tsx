@@ -6,31 +6,20 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  ArrowRight,
-  BadgeCheck,
   Check,
-  CheckCircle2,
   ChevronLeft,
-  Clock,
   CornerDownLeft,
-  CreditCard,
   Crown,
   FileText,
   LoaderCircle,
-  MessageCircle,
   MessageSquare,
-  Package,
-  Share2,
   ShieldCheck,
   ShoppingBag,
   ShoppingCart,
-  Smartphone,
   Star,
   Trash2,
   TrendingUp,
-  Wallet,
   Wrench,
-  Zap,
 } from "lucide-react";
 import { useLanguage }    from "../../lib/i18n/LanguageProvider";
 import { useAuth }        from "../auth/AuthProvider";
@@ -39,10 +28,6 @@ import { useAnalytics }   from "../../lib/analytics/useAnalytics";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
-// Actual DB columns: id, name, description, image, price, sales_count, category,
-//   badge, features, full_description, is_active, created_at
-// Migrations added: original_price NUMERIC NULL, short_description TEXT NULL
-// is_active = true (or undefined) → purchasable; false → hidden
 type Product = {
   id: number | string;
   name: string;
@@ -78,8 +63,6 @@ type Review = {
 
 /* ── Availability ────────────────────────────────────────────── */
 
-// Derives display + buyable flag solely from is_active.
-// undefined is treated as true (backward compat with old data).
 function getAvailability(isActive?: boolean) {
   return isActive === false
     ? {
@@ -99,8 +82,8 @@ function getAvailability(isActive?: boolean) {
 /* ── Role badge ───────────────────────────────────────────────── */
 
 const ROLE_META: Record<string, { labelKey: string; style: string; icon: React.ElementType }> = {
-  admin:     { labelKey: "admin.role.admin",     style: "border-amber-500/30  bg-amber-500/10  text-amber-300",    icon: Crown       },
-  moderator: { labelKey: "admin.role.moderator", style: "border-blue-500/30   bg-blue-500/10   text-blue-300",     icon: ShieldCheck },
+  admin:     { labelKey: "admin.role.admin",     style: "border-amber-500/30  bg-amber-500/10  text-amber-300",     icon: Crown       },
+  moderator: { labelKey: "admin.role.moderator", style: "border-blue-500/30   bg-blue-500/10   text-blue-300",      icon: ShieldCheck },
   helper:    { labelKey: "admin.role.helper",    style: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300", icon: Wrench      },
 };
 
@@ -151,7 +134,7 @@ function SectionLabel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2.5 mb-5">
+    <div className="flex items-center gap-2.5 mb-6">
       <div className="grid h-8 w-8 place-items-center rounded-xl border border-purple-500/20 bg-purple-500/[0.08] text-purple-400">
         <Icon className="h-3.5 w-3.5" />
       </div>
@@ -165,10 +148,57 @@ function SectionLabel({
 /* ── Divider ─────────────────────────────────────────────────── */
 function Divider() {
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-8">
       <div className="h-px bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" />
     </div>
   );
+}
+
+/* ── Description renderer ───────────────────────────────────── */
+// Converts flat lines into paragraphs, headings, and bullet lists.
+function renderDescription(parts: string[]): React.ReactNode[] {
+  const output: React.ReactNode[] = [];
+  let bullets: string[] = [];
+  let idx = 0;
+
+  const flushBullets = () => {
+    if (!bullets.length) return;
+    output.push(
+      <ul key={`ul-${idx++}`} className="my-1 space-y-2">
+        {bullets.map((text, i) => (
+          <li key={i} className="flex items-start gap-3">
+            <span className="mt-[0.6em] h-1.5 w-1.5 rounded-full bg-purple-400/50 shrink-0" />
+            <span className="text-white/70 text-[15px] leading-[1.85]">{text}</span>
+          </li>
+        ))}
+      </ul>
+    );
+    bullets = [];
+  };
+
+  for (const part of parts) {
+    if (/^#{1,2}\s/.test(part)) {
+      flushBullets();
+      const isH1 = part.startsWith("# ");
+      const text = part.replace(/^#{1,2}\s+/, "");
+      output.push(
+        isH1
+          ? <h3 key={`h1-${idx++}`} className="text-white/90 text-lg font-black tracking-tight pt-2">{text}</h3>
+          : <h4 key={`h2-${idx++}`} className="text-white/70 text-sm font-black uppercase tracking-widest pt-1">{text}</h4>
+      );
+    } else if (/^[-•*]\s/.test(part)) {
+      bullets.push(part.replace(/^[-•*]\s+/, ""));
+    } else {
+      flushBullets();
+      output.push(
+        <p key={`p-${idx++}`} className="text-white/70 text-[15px] leading-[1.85]">
+          {part}
+        </p>
+      );
+    }
+  }
+  flushBullets();
+  return output;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -200,8 +230,6 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
   const [postError,     setPostError]     = useState("");
   const [postOk,        setPostOk]        = useState(false);
   const [showSticky,    setShowSticky]    = useState(false);
-  const [descExpanded,  setDescExpanded]  = useState(false);
-  const [wishlisted,    setWishlisted]    = useState(false);
   const [addingCart,    setAddingCart]    = useState(false);
 
   const [replyOpen,     setReplyOpen]     = useState<Record<number, boolean>>({});
@@ -227,11 +255,10 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
     : null;
 
   const ratingDist = useMemo(() => {
-    const dist = [5, 4, 3, 2, 1].map((star) => ({
+    return [5, 4, 3, 2, 1].map((star) => ({
       star,
       count: reviews.filter((r) => r.rating === star).length,
     }));
-    return dist;
   }, [reviews]);
 
   /* ── Fetch reviews ─────────────────────────────────────────── */
@@ -350,10 +377,9 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
       dir={dir}
     >
 
-      {/* ── Ambient background ── */}
+      {/* Ambient background */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden>
-        <div className="absolute -top-40 left-1/4 h-[600px] w-[600px] rounded-full bg-purple-700/[0.06] blur-[180px]" />
-        <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-fuchsia-600/[0.04] blur-[140px]" />
+        <div className="absolute -top-40 left-1/4 h-[500px] w-[500px] rounded-full bg-purple-700/[0.05] blur-[160px]" />
       </div>
 
       {/* ── BREADCRUMB ─────────────────────────────────────────── */}
@@ -368,115 +394,89 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
       </div>
 
       {/* ════════════════════════════════════════════════════════
-          1. HERO — image left / purchase panel right
+          HERO — image left / purchase panel right
          ════════════════════════════════════════════════════════ */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <div className="grid gap-6 lg:gap-8 lg:grid-cols-[55fr_45fr]">
+        <div className="grid gap-6 lg:gap-10 lg:grid-cols-[58fr_42fr]">
 
-          {/* ── Image Panel (LEFT via RTL order trick) ── */}
+          {/* ── Image Panel (LEFT) ── */}
           <div
-            className="order-first lg:order-last relative overflow-hidden rounded-3xl min-h-[280px] sm:min-h-[380px] lg:min-h-[500px] flex items-center justify-center"
-            style={{ background: "radial-gradient(ellipse at 55% 50%, #120921 0%, #07070D 70%)" }}
+            className="relative overflow-hidden rounded-3xl border border-white/[0.05] flex items-center justify-center min-h-[320px] sm:min-h-[440px] lg:min-h-[560px]"
+            style={{ background: "radial-gradient(ellipse at 55% 45%, #110820 0%, #07070D 65%)" }}
           >
-
-            {/* Ambient image blur */}
-            <div className="absolute inset-0 overflow-hidden" aria-hidden>
+            {/* Subtle image-tinted glow */}
+            <div className="absolute inset-0 overflow-hidden opacity-[0.18]" aria-hidden>
               <img
                 src={product.image} alt=""
-                className="absolute inset-0 w-full h-full object-cover scale-125 blur-[100px] opacity-20 saturate-[2.5]"
+                className="absolute inset-0 w-full h-full object-cover scale-110 blur-[90px] saturate-150"
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-[#07070D]/10 via-transparent to-[#07070D]/60" />
             </div>
 
-            {/* Rings */}
-            <motion.div aria-hidden
-              className="absolute rounded-full border border-purple-500/[0.10]"
-              style={{ width: "min(420px,75vw)", height: "min(420px,75vw)" }}
-              animate={prefersReducedMotion ? {} : { scale: [1, 1.04, 1] }}
-              transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div aria-hidden
-              className="absolute rounded-full bg-purple-600/15 blur-[80px]"
-              style={{ width: "min(280px,55vw)", height: "min(280px,55vw)" }}
-              animate={prefersReducedMotion ? {} : { scale: [0.9, 1.1, 0.9] }}
-              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            />
-
-            {/* Product image */}
-            <div className="relative z-10 flex items-center justify-center p-12 sm:p-16">
-              <div className="relative overflow-hidden rounded-2xl">
+            {/* Product image with hover lift */}
+            <motion.div
+              className="relative z-10 p-8 sm:p-12 flex items-center justify-center"
+              whileHover={prefersReducedMotion || !availability.buyable ? undefined : { scale: 1.04 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+            >
+              <div className="relative overflow-hidden">
                 <motion.img
                   src={product.image}
                   alt={product.name}
                   className={[
-                    "w-[200px] h-[200px] sm:w-[260px] sm:h-[260px] lg:w-[320px] lg:h-[320px]",
-                    "object-contain drop-shadow-[0_24px_64px_rgba(0,0,0,0.9)]",
+                    "w-[240px] h-[240px] sm:w-[320px] sm:h-[320px] lg:w-[420px] lg:h-[420px]",
+                    "object-contain drop-shadow-[0_24px_60px_rgba(0,0,0,0.85)]",
                     !availability.buyable ? "opacity-40 grayscale" : "",
                   ].join(" ")}
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={{ opacity: 0, scale: 0.93 }}
                   animate={{ opacity: availability.buyable ? 1 : 0.4, scale: 1 }}
-                  transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  transition={{ duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94] }}
                 />
+                {/* Shine sweep */}
                 {!prefersReducedMotion && availability.buyable && (
                   <motion.span aria-hidden
                     className="pointer-events-none absolute inset-0"
-                    style={{ background: "linear-gradient(110deg,transparent 30%,rgba(255,255,255,0.10) 50%,transparent 70%)" }}
+                    style={{ background: "linear-gradient(110deg,transparent 30%,rgba(255,255,255,0.08) 50%,transparent 70%)" }}
                     initial={{ x: "-100%" }}
                     animate={{ x: "100%" }}
-                    transition={{ duration: 1.6, ease: [0.4, 0, 0.2, 1], delay: 1.6, repeat: Infinity, repeatDelay: 5 }}
+                    transition={{ duration: 1.8, ease: [0.4, 0, 0.2, 1], delay: 1.2, repeat: Infinity, repeatDelay: 6 }}
                   />
                 )}
               </div>
-            </div>
+            </motion.div>
 
-            {/* ── Discount badge ── */}
+            {/* Discount badge */}
             {discountPct > 0 && availability.buyable && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.7, y: -8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.4, ease: "backOut" }}
-                className="absolute top-5 right-5 rounded-2xl border border-red-500/30 bg-red-500/20 backdrop-blur-xl px-3.5 py-2.5 text-center"
+                initial={{ opacity: 0, scale: 0.75 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5, duration: 0.35, ease: "backOut" }}
+                className="absolute top-4 right-4 rounded-xl border border-red-500/30 bg-red-500/20 backdrop-blur-xl px-3 py-2 text-center"
               >
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-red-400/60 mb-0.5">{translate("product.discount.label")}</p>
-                <p className="text-xl font-black text-red-300 leading-none">{discountPct}%</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-red-400/70 leading-none mb-0.5">OFF</p>
+                <p className="text-lg font-black text-red-300 leading-none">{discountPct}%</p>
               </motion.div>
             )}
 
-            {/* ── Sales count badge ── */}
-            {salesCount > 0 && availability.buyable && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.7, y: 8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ delay: 0.6, duration: 0.4, ease: "backOut" }}
-                className="absolute bottom-5 left-5 rounded-2xl border border-purple-400/20 bg-black/50 backdrop-blur-xl px-4 py-2.5 text-center"
-              >
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-400/50 mb-0.5">{translate("product.sales.label")}</p>
-                <p className="text-xl font-black text-purple-200 leading-none">{salesCount.toLocaleString()}+</p>
-              </motion.div>
-            )}
-
-            {/* ── Out of stock overlay ── */}
+            {/* Out of stock overlay */}
             {!availability.buyable && (
-              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-[inherit] bg-black/55 backdrop-blur-[2px]">
+              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-[inherit] bg-black/55 backdrop-blur-[2px]">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.85 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.4, ease: "backOut" }}
-                  className="rounded-3xl border border-red-500/35 bg-red-500/15 px-8 py-5 text-center backdrop-blur-xl"
+                  className="rounded-2xl border border-red-500/35 bg-red-500/15 px-8 py-5 text-center backdrop-blur-xl"
                 >
                   <p className="text-[9px] font-black uppercase tracking-[0.25em] mb-2 text-red-400/60">
                     {translate("product.status.unavailable")}
                   </p>
-                  <p className="text-2xl font-black text-red-200">
-                    Not Available
-                  </p>
+                  <p className="text-2xl font-black text-red-200">Not Available</p>
                 </motion.div>
               </div>
             )}
           </div>
 
-          {/* ── Purchase Panel (RIGHT via RTL order trick) ── */}
-          <div className="order-last lg:order-first flex flex-col gap-5 lg:sticky lg:top-8 lg:self-start">
+          {/* ── Purchase Panel (RIGHT) ── */}
+          <div className="flex flex-col gap-5 lg:sticky lg:top-8 lg:self-start">
 
             {/* Availability pill */}
             <motion.div
@@ -490,7 +490,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               </span>
             </motion.div>
 
-            {/* Product name */}
+            {/* Product name + meta */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -507,7 +507,6 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                 {product.name}
               </h1>
 
-              {/* Short description (tagline) */}
               {product.short_description && (
                 <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
                   {product.short_description}
@@ -515,20 +514,20 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               )}
 
               {/* Rating + sales row */}
-              <div className="mt-3 flex flex-wrap items-center gap-3">
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
                 {!reviewsBusy && reviews.length > 0 && avgRating && (
                   <div className="flex items-center gap-2">
-                    <Stars rating={Number(avgRating)} size="md" />
-                    <span className="text-sm font-black text-amber-400">{avgRating}</span>
+                    <Stars rating={Number(avgRating)} size="sm" />
+                    <span className="text-sm font-bold text-amber-400">{avgRating}</span>
                     <span className="text-xs text-white/25">
                       ({reviews.length} {reviews.length === 1 ? translate("product.reviews.singular") : translate("product.reviews.plural")})
                     </span>
                   </div>
                 )}
                 {salesCount > 0 && (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-white/30">
-                    <TrendingUp className="h-3 w-3 text-purple-400" />
-                    {salesCount.toLocaleString()}+ {translate("product.sales.count")}
+                  <span className="inline-flex items-center gap-1.5 text-xs text-white/45 font-medium">
+                    <TrendingUp className="h-3 w-3 text-purple-400/70" />
+                    🔥 {salesCount.toLocaleString()}+ {translate("product.sales.count")}
                   </span>
                 )}
               </div>
@@ -542,16 +541,12 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               className="rounded-2xl border border-white/[0.07] bg-white/[0.025] px-5 py-4"
               style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
             >
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-3">{translate("product.price.label")}</p>
-
-              {/* Original price (strikethrough) — shown ABOVE current price when discount exists */}
               {originalPrice > price && (
-                <p className="text-base font-bold text-zinc-600 line-through leading-none mb-2 tabular-nums">
+                <p className="text-sm font-semibold text-zinc-600 line-through leading-none mb-2 tabular-nums">
                   {originalPrice.toLocaleString("en")} EGP
                 </p>
               )}
 
-              {/* Current price + OFF badge on same row */}
               <div className="flex items-center gap-3 flex-wrap">
                 <p
                   className="text-4xl sm:text-5xl font-black leading-none tracking-tight tabular-nums"
@@ -571,7 +566,6 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                 )}
               </div>
 
-              {/* Savings summary */}
               {discountPct > 0 && (
                 <p className="mt-2.5 text-[11px] font-semibold text-emerald-400 flex items-center gap-1.5">
                   <span className="h-1 w-1 rounded-full bg-emerald-400" />
@@ -652,257 +646,30 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
               </motion.button>
             </motion.div>
 
-            {/* Share + Wishlist */}
-            <div className="flex items-center gap-2.5 pt-1">
-              <button
-                type="button"
-                aria-label={translate("product.share")}
-                onClick={() => navigator.share?.({ title: product.name, url: window.location.href }).catch(() => {})}
-                className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-white/30 hover:text-white/60 hover:border-purple-500/25 transition-all"
-              >
-                <Share2 className="h-3.5 w-3.5" />
-                {translate("product.share")}
-              </button>
-              <button
-                type="button"
-                aria-label={translate("product.wishlist.add")}
-                onClick={() => setWishlisted((v) => !v)}
-                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
-                  wishlisted
-                    ? "border-fuchsia-500/35 bg-fuchsia-500/12 text-fuchsia-400"
-                    : "border-white/[0.07] bg-white/[0.03] text-white/30 hover:text-fuchsia-400 hover:border-fuchsia-500/25"
-                }`}
-              >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill={wishlisted ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-                {wishlisted ? translate("product.wishlist.added") : translate("product.wishlist.add")}
-              </button>
-            </div>
-
           </div>
         </div>
       </section>
 
       {/* ════════════════════════════════════════════════════════
-          2. FEATURES
-         ════════════════════════════════════════════════════════ */}
-      <Divider />
-      <section className="max-w-5xl mx-auto px-4 sm:px-8 py-10">
-        <SectionLabel icon={BadgeCheck}>{translate("product.section.features")}</SectionLabel>
-
-        {/* Custom product features (if defined in admin) */}
-        {product.features && product.features.length > 0 ? (
-          <div className={`grid gap-3 ${
-            product.features.length <= 2
-              ? "grid-cols-1 sm:grid-cols-2"
-              : product.features.length === 3
-              ? "grid-cols-1 sm:grid-cols-3"
-              : "grid-cols-2 sm:grid-cols-4"
-          }`}>
-            {product.features.map((feat, i) => {
-              const accents = [
-                "text-purple-400 border-purple-500/20 bg-purple-500/[0.06]",
-                "text-emerald-400 border-emerald-500/20 bg-emerald-500/[0.06]",
-                "text-blue-400 border-blue-500/20 bg-blue-500/[0.06]",
-                "text-amber-400 border-amber-500/20 bg-amber-500/[0.06]",
-                "text-fuchsia-400 border-fuchsia-500/20 bg-fuchsia-500/[0.06]",
-                "text-cyan-400 border-cyan-500/20 bg-cyan-500/[0.06]",
-              ];
-              const glows = [
-                "bg-purple-500/[0.04]",
-                "bg-emerald-500/[0.03]",
-                "bg-blue-500/[0.03]",
-                "bg-amber-500/[0.03]",
-                "bg-fuchsia-500/[0.03]",
-                "bg-cyan-500/[0.03]",
-              ];
-              const accent = accents[i % accents.length] ?? accents[0];
-              const glow   = glows[i % glows.length] ?? glows[0];
-              return (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.07, duration: 0.35 }}
-                  className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-zinc-900/40 p-4 sm:p-5"
-                >
-                  <div className={`mb-3 grid h-9 w-9 place-items-center rounded-xl border ${accent}`}>
-                    <CheckCircle2 className="h-4 w-4" />
-                  </div>
-                  <p className="text-sm font-black text-white leading-snug">{feat}</p>
-                  <div className={`pointer-events-none absolute -bottom-6 -right-6 h-20 w-20 rounded-full blur-2xl ${glow}`} />
-                </motion.div>
-              );
-            })}
-          </div>
-        ) : (
-          /* Default generic features when none defined */
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            {[
-              { icon: Zap,          titleKey: "product.feature.instant.title", descKey: "product.feature.instant.desc", accent: "text-purple-400 border-purple-500/20 bg-purple-500/[0.06]",  glow: "bg-purple-500/[0.04]"  },
-              { icon: ShieldCheck,  titleKey: "product.feature.secure.title",  descKey: "product.feature.secure.desc",  accent: "text-emerald-400 border-emerald-500/20 bg-emerald-500/[0.06]", glow: "bg-emerald-500/[0.03]" },
-              { icon: MessageCircle,titleKey: "product.feature.support.title", descKey: "product.feature.support.desc", accent: "text-blue-400 border-blue-500/20 bg-blue-500/[0.06]",         glow: "bg-blue-500/[0.03]"    },
-              { icon: CheckCircle2, titleKey: "product.feature.quality.title", descKey: "product.feature.quality.desc", accent: "text-amber-400 border-amber-500/20 bg-amber-500/[0.06]",      glow: "bg-amber-500/[0.03]"   },
-            ].map((f, i) => (
-              <motion.div
-                key={f.titleKey}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.07, duration: 0.35 }}
-                className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-zinc-900/40 p-4 sm:p-5"
-              >
-                <div className={`mb-3 grid h-9 w-9 place-items-center rounded-xl border ${f.accent}`}>
-                  <f.icon className="h-4 w-4" />
-                </div>
-                <p className="text-sm font-black text-white leading-none mb-1.5">{translate(f.titleKey)}</p>
-                <p className="text-[11px] text-zinc-500 leading-relaxed">{translate(f.descKey)}</p>
-                <div className={`pointer-events-none absolute -bottom-6 -right-6 h-20 w-20 rounded-full blur-2xl ${f.glow}`} />
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* ════════════════════════════════════════════════════════
-          3. PRODUCT DESCRIPTION
+          DESCRIPTION
          ════════════════════════════════════════════════════════ */}
       {hasDescription && (
         <>
           <Divider />
-          <section className="max-w-5xl mx-auto px-4 sm:px-8 py-10">
+          <section className="max-w-6xl mx-auto px-4 sm:px-8 py-10">
             <SectionLabel icon={FileText}>{translate("product.section.details")}</SectionLabel>
-            <div className="rounded-3xl border border-white/[0.06] bg-zinc-900/30 p-6 sm:p-8">
-              <div className="space-y-3.5">
-                {(descExpanded ? parts : parts.slice(0, 5)).map((p, i) => (
-                  <p key={i} className="text-[13.5px] text-white/50 leading-[1.9]">{p}</p>
-                ))}
-              </div>
-              {parts.length > 5 && (
-                <button
-                  type="button"
-                  onClick={() => setDescExpanded((v) => !v)}
-                  className="mt-4 flex items-center gap-1.5 text-sm font-bold text-purple-400 hover:text-purple-300 transition-colors"
-                >
-                  {descExpanded ? translate("product.readLess") : translate("product.readMore")}
-                  <ArrowRight className={`h-3.5 w-3.5 transition-transform ${descExpanded ? "-rotate-90" : "rotate-90"}`} />
-                </button>
-              )}
+            <div className="space-y-4">
+              {renderDescription(parts)}
             </div>
           </section>
         </>
       )}
 
       {/* ════════════════════════════════════════════════════════
-          4. DELIVERY INFORMATION
+          REVIEWS
          ════════════════════════════════════════════════════════ */}
       <Divider />
-      <section className="max-w-5xl mx-auto px-4 sm:px-8 py-10">
-        <SectionLabel icon={Package}>{translate("product.section.delivery")}</SectionLabel>
-        <div className="grid gap-4 sm:grid-cols-2">
-
-          {/* Delivery Time */}
-          <div className="relative overflow-hidden rounded-3xl border border-purple-500/15 bg-purple-500/[0.04] p-5 sm:p-6">
-            <div className="flex items-start gap-4">
-              <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-2xl border border-purple-500/20 bg-purple-500/10 text-purple-300">
-                <Clock className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-purple-400/60 mb-1.5">{translate("product.delivery.time.label")}</p>
-                <p className="text-base font-black text-white mb-1">{translate("product.delivery.time.title")}</p>
-                <p className="text-xs text-zinc-500 leading-relaxed">
-                  {translate("product.delivery.time.desc")}
-                </p>
-              </div>
-            </div>
-            <div className="pointer-events-none absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-purple-500/[0.06] blur-2xl" />
-          </div>
-
-          {/* Delivery Method */}
-          <div className="relative overflow-hidden rounded-3xl border border-fuchsia-500/15 bg-fuchsia-500/[0.04] p-5 sm:p-6">
-            <div className="flex items-start gap-4">
-              <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-300">
-                <MessageSquare className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-fuchsia-400/60 mb-1.5">{translate("product.delivery.method.label")}</p>
-                <p className="text-base font-black text-white mb-1">{translate("product.delivery.method.title")}</p>
-                <p className="text-xs text-zinc-500 leading-relaxed">
-                  {translate("product.delivery.method.desc")}
-                </p>
-              </div>
-            </div>
-            <div className="pointer-events-none absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-fuchsia-500/[0.06] blur-2xl" />
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════
-          5. PAYMENT METHODS
-         ════════════════════════════════════════════════════════ */}
-      <Divider />
-      <section className="max-w-5xl mx-auto px-4 sm:px-8 py-10">
-        <SectionLabel icon={CreditCard}>{translate("product.section.payment")}</SectionLabel>
-        <div className="grid gap-4 sm:grid-cols-3">
-
-          {/* Vodafone Cash */}
-          <div className="relative overflow-hidden rounded-3xl border border-red-500/20 bg-zinc-900/40 p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="grid h-10 w-10 place-items-center rounded-2xl border border-red-500/25 bg-red-500/10 text-red-400 flex-shrink-0">
-                <Smartphone className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-black text-white">Vodafone Cash</p>
-                <p className="text-[10px] text-red-400/70 font-semibold">Vodafone Cash</p>
-              </div>
-            </div>
-            <p className="text-xs text-zinc-500 leading-relaxed">
-              {translate("product.payment.vodafone.desc")}
-            </p>
-            <div className="pointer-events-none absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-red-500/[0.06] blur-2xl" />
-          </div>
-
-          {/* InstaPay */}
-          <div className="relative overflow-hidden rounded-3xl border border-blue-500/20 bg-zinc-900/40 p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="grid h-10 w-10 place-items-center rounded-2xl border border-blue-500/25 bg-blue-500/10 text-blue-400 flex-shrink-0">
-                <CreditCard className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-black text-white">InstaPay</p>
-                <p className="text-[10px] text-blue-400/70 font-semibold">InstaPay</p>
-              </div>
-            </div>
-            <p className="text-xs text-zinc-500 leading-relaxed">
-              {translate("product.payment.instapay.desc")}
-            </p>
-            <div className="pointer-events-none absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-blue-500/[0.06] blur-2xl" />
-          </div>
-
-          {/* USDT */}
-          <div className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-zinc-900/40 p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="grid h-10 w-10 place-items-center rounded-2xl border border-emerald-500/25 bg-emerald-500/10 text-emerald-400 flex-shrink-0">
-                <Wallet className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-black text-white">USDT</p>
-                <p className="text-[10px] text-emerald-400/70 font-semibold">{translate("product.payment.usdt.sub")}</p>
-              </div>
-            </div>
-            <p className="text-xs text-zinc-500 leading-relaxed">
-              {translate("product.payment.usdt.desc")}
-            </p>
-            <div className="pointer-events-none absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-emerald-500/[0.06] blur-2xl" />
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════
-          6. REVIEWS
-         ════════════════════════════════════════════════════════ */}
-      <Divider />
-      <section className="max-w-5xl mx-auto px-4 sm:px-8 py-10 pb-28">
+      <section className="max-w-6xl mx-auto px-4 sm:px-8 py-10 pb-28">
         <SectionLabel icon={Star}>{translate("product.section.reviews")}</SectionLabel>
 
         {/* Rating summary */}
@@ -910,14 +677,14 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
           <div className="mb-6 rounded-3xl border border-white/[0.06] bg-zinc-900/30 p-5 sm:p-6">
             <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
 
-              {/* Big avg number */}
               <div className="flex flex-col items-center sm:items-start gap-1 shrink-0">
                 <p className="text-5xl font-black text-white leading-none">{avgRating}</p>
                 <Stars rating={Number(avgRating)} size="md" />
-                <p className="text-xs text-white/25 mt-1">{reviews.length} {reviews.length === 1 ? translate("product.reviews.singular") : translate("product.reviews.plural")}</p>
+                <p className="text-xs text-white/25 mt-1">
+                  {reviews.length} {reviews.length === 1 ? translate("product.reviews.singular") : translate("product.reviews.plural")}
+                </p>
               </div>
 
-              {/* Distribution bars */}
               <div className="flex-1 w-full space-y-2">
                 {ratingDist.map(({ star, count }) => {
                   const pct = reviews.length > 0 ? Math.round((count / reviews.length) * 100) : 0;
@@ -1018,7 +785,7 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                       )}
                     </div>
                   </div>
-                  <p className="text-xs text-white/40 leading-relaxed">{rv.comment}</p>
+                  <p className="text-sm text-white/55 leading-relaxed">{rv.comment}</p>
                 </article>
 
                 {/* Replies */}
@@ -1059,7 +826,9 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                       <div className="rounded-xl border border-purple-500/20 bg-purple-500/[0.05] p-3 space-y-2.5">
                         <div className="flex items-center gap-2">
                           <RoleBadge role={role ?? "helper"} />
-                          <span className="text-[10px] text-white/30">{translate("product.reviews.replyAs")} {ROLE_META[role ?? ""] ? translate(ROLE_META[role ?? ""].labelKey) : translate("product.reviews.supportTeam")}</span>
+                          <span className="text-[10px] text-white/30">
+                            {translate("product.reviews.replyAs")} {ROLE_META[role ?? ""] ? translate(ROLE_META[role ?? ""].labelKey) : translate("product.reviews.supportTeam")}
+                          </span>
                         </div>
                         <textarea
                           value={replyText[rv.id] ?? ""}
@@ -1104,7 +873,6 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
           >
             <p className="text-xs font-black uppercase tracking-widest text-zinc-600">{translate("product.reviews.writeTitle")}</p>
 
-            {/* Star picker */}
             <div className="flex gap-1.5">
               {[1, 2, 3, 4, 5].map((s) => (
                 <button key={s} type="button" aria-label={translate("product.reviews.ratingAria").replace("{n}", String(s))}
@@ -1176,7 +944,6 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
             <div className="border-t border-white/[0.06] bg-[#09090F]/96 backdrop-blur-2xl px-5 py-3.5">
               <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
 
-                {/* Product info */}
                 <div className="flex items-center gap-3.5 min-w-0">
                   <div className="h-10 w-10 rounded-xl border border-white/[0.06] bg-white/[0.03] grid place-items-center shrink-0 overflow-hidden">
                     <img src={product.image} alt="" className="h-8 w-8 object-contain" />
@@ -1196,7 +963,6 @@ export default function ProductDetailsViewV2({ product }: { product: Product }) 
                   </div>
                 </div>
 
-                {/* Sticky buy button */}
                 <motion.button
                   onClick={handleBuyNow}
                   disabled={addingCart || !availability.buyable}

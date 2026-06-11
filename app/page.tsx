@@ -1,4 +1,8 @@
 import { supabase } from "../lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+/* Disable static caching — every request fetches fresh product data from the DB */
+export const dynamic = "force-dynamic";
 import { getHomeStats } from "./lib/home/getHomeStats";
 import FeaturedProductsGrid from "../components/storefront/FeaturedProductsGrid";
 import StorefrontHero from "../components/storefront/StorefrontHero";
@@ -48,35 +52,45 @@ export default async function Home() {
   const list = (products ?? []) as Product[];
 
   /* ── Featured = best-selling active product ── */
-  const { data: orderData } = await supabase
+  /* Service-role client bypasses RLS to count all completed orders */
+  const sbAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+  const { data: orderData } = await sbAdmin
     .from("orders")
     .select("product_id")
-    .eq("status", "completed")
+    .eq("status", "Completed")
     .order("product_id");
 
+  /* ── Build per-product sales count from actual completed orders ── */
+  const salesMap = new Map<string | number, number>();
+  (orderData ?? []).forEach((o) =>
+    salesMap.set(o.product_id, (salesMap.get(o.product_id) ?? 0) + 1),
+  );
+
+  /* Inject real order count into every product's sales_count */
+  const enrichedList = list.map((p) => ({
+    ...p,
+    sales_count: salesMap.get(p.id) ?? toNumber(p.sales_count),
+  }));
+
+  /* ── Featured = best-selling active product ── */
   let featuredProduct: Product | null = null;
 
-  if (orderData && orderData.length > 0) {
-    const salesMap = new Map<string | number, number>();
-    orderData.forEach((o) => salesMap.set(o.product_id, (salesMap.get(o.product_id) || 0) + 1));
-
-    let maxSales = 0;
-    for (const p of list) {
-      if (p.is_active === false) continue;
-      const sales = salesMap.get(p.id) || 0;
-      if (sales > maxSales) { maxSales = sales; featuredProduct = p; }
-    }
+  let maxSales = 0;
+  for (const p of enrichedList) {
+    if (p.is_active === false) continue;
+    const sales = toNumber(p.sales_count);
+    if (sales > maxSales) { maxSales = sales; featuredProduct = p; }
   }
 
   if (!featuredProduct) {
-    const sorted = [...list]
-      .filter((p) => p.is_active !== false)
-      .sort((a, b) => toNumber(b.sales_count) - toNumber(a.sales_count));
-    featuredProduct = sorted[0] || null;
+    featuredProduct = enrichedList.find((p) => p.is_active !== false) ?? null;
   }
 
   const featured        = featuredProduct ? [featuredProduct] : [];
-  const activeProducts  = list.filter((p) => p.is_active !== false);
+  const activeProducts  = enrichedList.filter((p) => p.is_active !== false);
 
   return (
     <>
@@ -107,7 +121,7 @@ export default async function Home() {
         )}
 
         {/* ── All Products (with category filter) ── */}
-        <HomeProductsSection products={list} />
+        <HomeProductsSection products={enrichedList} />
 
         {/* ── Trust Section ── */}
         <HomeTrustSection />

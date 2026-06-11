@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Grid3x3, Tag } from "lucide-react";
 import CipherCard from "./CipherCard";
-import { sortCategories } from "../../app/lib/categories";
+import { sortCategories, KNOWN_CATEGORIES } from "../../app/lib/categories";
 import { useLanguage } from "../../lib/i18n/LanguageProvider";
 
 type Product = {
@@ -49,23 +49,38 @@ const itemVariants: Variants = {
 
 export default function HomeProductsSection({ products }: Props) {
   const [active, setActive] = useState<string>("all");
-  const categories = useCategories(products);
   const { translate } = useLanguage();
 
-  /* Filter: skip inactive products on storefront */
+  /* Active products only — computed first so categories derive from this */
   const visible = useMemo(
     () => products.filter((p) => p.is_active !== false),
     [products],
   );
 
+  /* Tabs come from active products only — no ghost tabs for inactive categories */
+  const categories = useCategories(visible);
+
   const filtered = useMemo(() => {
-    if (active === "all") return visible;
-    return visible.filter(
-      (p) => (p.category ?? "").toLowerCase() === active.toLowerCase(),
-    );
+    if (active !== "all") {
+      return visible.filter(
+        (p) => (p.category ?? "").toLowerCase() === active.toLowerCase(),
+      );
+    }
+    /* "All" tab: group by category order so same categories stay together.
+       JS sort is stable — relative order within a category is preserved. */
+    return [...visible].sort((a, b) => {
+      const catA = (a.category ?? "").trim();
+      const catB = (b.category ?? "").trim();
+      const orderA = KNOWN_CATEGORIES[catA]?.order ?? 50;
+      const orderB = KNOWN_CATEGORIES[catB]?.order ?? 50;
+      return orderA - orderB;
+    });
   }, [visible, active]);
 
-  const tabs = [{ key: "all", label: translate("home.products.tabAll") }, ...categories.map((c) => ({ key: c, label: c }))];
+  const tabs = [
+    { key: "all", label: translate("home.products.tabAll") },
+    ...categories.map((c) => ({ key: c, label: KNOWN_CATEGORIES[c]?.label ?? c })),
+  ];
 
   return (
     <section id="products" className="max-w-[1600px] mx-auto px-8 pb-28">

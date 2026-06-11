@@ -58,11 +58,13 @@ export type CategoryConfig = {
 
 export const KNOWN_CATEGORIES: Record<string, CategoryConfig> = {
   Gaming:        { label: "Gaming",        order: 1 },
-  Streaming:     { label: "Streaming",     order: 2 },
-  Subscriptions: { label: "Subscriptions", order: 3 },
-  Music:         { label: "Music",         order: 4 },
-  Software:      { label: "Software",      order: 5 },
-  "Gift Cards":  { label: "Gift Cards",    order: 6 },
+  Ai:            { label: "AI",            order: 2 },
+  Games:         { label: "Games",         order: 3 },
+  Streaming:     { label: "Streaming",     order: 4 },
+  Music:         { label: "Music",         order: 5 },
+  Subscriptions: { label: "Subscriptions", order: 6 },
+  Software:      { label: "Software",      order: 7 },
+  "Gift Cards":  { label: "Gift Cards",    order: 8 },
   General:       { label: "General",       order: 99 },
 };
 
