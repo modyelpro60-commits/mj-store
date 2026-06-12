@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireActiveUser } from "../../../lib/auth/requireAuthContext";
 
-const STAFF_ROLES = ["admin", "moderator", "helper"];
+const STAFF_ROLES = ["owner", "admin", "moderator", "helper"];
 
 /* ─── GET /api/chat/unread ───────────────────────────────────────────────────
  * Staff → number of OPEN customer rooms with an unread customer message.

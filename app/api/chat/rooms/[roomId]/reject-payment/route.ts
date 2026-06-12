@@ -5,8 +5,10 @@ import { createNotification } from "../../../../../../lib/notifications/createNo
 import { logActivity } from "../../../../../lib/logs/logActivity";
 
 /* ─── POST /api/chat/rooms/[roomId]/reject-payment ───────────────────────────
- * Admin ONLY — reject payment with a reason, set order to Rejected,
+ * Admin ONLY — reject payment proof, set order to payment_rejected,
  * post system message, notify customer.
+ * The customer can upload a new screenshot; once they do the order returns
+ * to "Awaiting Payment" and the admin controls reappear.
  * Body: { reason: string }
  * ─────────────────────────────────────────────────────────────────────────── */
 export async function POST(
@@ -55,20 +57,25 @@ export async function POST(
   const staffName = (prof?.full_name as string) ?? "الإدارة";
   const now = new Date().toISOString();
 
-  /* ── Find order info ── */
-  const { data: orderRow } = await db
+  /* ── Find order info (all rows for this order_ref) ── */
+  const { data: orderRows } = await db
     .from("orders")
     .select("id, product_name, user_id")
-    .eq("order_ref", room.order_ref as string)
-    .maybeSingle();
+    .eq("order_ref", room.order_ref as string);
+  const orderRow = orderRows?.[0] ?? null;
 
-  /* ── Update order status → Rejected ── */
+  /* ── Update order status → payment_rejected ── */
   await db
     .from("orders")
-    .update({ status: "Rejected", handled_by: ctx.userId, handled_by_name: staffName, handled_at: now })
+    .update({
+      status: "payment_rejected",
+      handled_by: ctx.userId,
+      handled_by_name: staffName,
+      handled_at: now,
+    })
     .eq("order_ref", room.order_ref as string);
 
-  /* ── System message in chat ── */
+  /* ── System message ── */
   await db.from("chat_messages").insert({
     room_id:   roomId,
     sender_id: null,
@@ -76,10 +83,9 @@ export async function POST(
     body: [
       "❌ تم رفض إثبات الدفع.",
       "",
-      "السبب:",
-      reason,
+      `السبب: ${reason}`,
       "",
-      "يرجى رفع صورة جديدة أو التواصل مع الدعم.",
+      "تم رفض إثبات الدفع، يرجى رفع لقطة شاشة جديدة لإثبات الدفع.",
     ].join("\n"),
   });
 
@@ -95,7 +101,7 @@ export async function POST(
       userId:  customerId,
       type:    "payment_rejected",
       title:   "تم رفض إثبات الدفع ❌",
-      message: `تم رفض إثبات الدفع لطلب "${orderRow?.product_name ?? "طلبك"}". السبب: ${reason}`,
+      message: `السبب: ${reason}. يرجى رفع لقطة شاشة جديدة.`,
       link:    `/chat?room=${roomId}`,
     });
   }

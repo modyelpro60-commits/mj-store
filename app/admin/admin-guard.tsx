@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { LoaderCircle } from "lucide-react";
 
-type AllowedRole = "admin" | "moderator";
+type AllowedRole = "admin" | "moderator" | "owner";
 
 export default function AdminGuard({
   children,
-  allowedRoles = ["admin"],
+  allowedRoles = ["admin", "owner"],
 }: {
   children: ReactNode;
   allowedRoles?: AllowedRole[];
@@ -17,8 +17,9 @@ export default function AdminGuard({
   const router = useRouter();
   const { role, isLoading, status } = useAuth();
 
-  // Single useEffect: both role check and status check in one hook,
-  // called unconditionally on every render.
+  // Owner can access any admin area
+  const effectiveAllowed = [...allowedRoles, "owner"] as AllowedRole[];
+
   useEffect(() => {
     if (isLoading) return;
 
@@ -27,15 +28,15 @@ export default function AdminGuard({
       return;
     }
 
-    if (!allowedRoles.includes(role as AllowedRole)) {
+    if (!effectiveAllowed.includes(role as AllowedRole)) {
       router.replace("/");
     }
-  }, [isLoading, role, router, status, allowedRoles]);
+  }, [isLoading, role, router, status]);
 
   const isAuthorized =
     !isLoading &&
     (!status || status === "Active") &&
-    allowedRoles.includes(role as AllowedRole);
+    effectiveAllowed.includes(role as AllowedRole);
 
   if (isLoading) {
     return (
@@ -77,22 +78,22 @@ export default function AdminGuard({
 
 /* ─────────────────────────────────────────────────────────────────────
  *  AdminOnlyGuard
- *  Restricts a page to admin role only.
+ *  Restricts a page to admin / owner roles only.
  *  Moderators (and anyone else) are immediately redirected to /admin/orders.
- *  Use this as a wrapper inside each admin-only page component.
  * ───────────────────────────────────────────────────────────────────── */
 export function AdminOnlyGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { role, isLoading } = useAuth();
 
+  const isAdminOrOwner = role === "admin" || role === "owner";
+
   useEffect(() => {
     if (isLoading) return;
-    if (role && role !== "admin") {
+    if (role && !isAdminOrOwner) {
       router.replace("/admin/orders");
     }
-  }, [isLoading, role, router]);
+  }, [isLoading, role, router, isAdminOrOwner]);
 
-  /* Still determining role — show spinner to avoid flash of restricted content */
   if (isLoading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -101,8 +102,36 @@ export function AdminOnlyGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  /* Non-admin: render nothing while the redirect fires */
-  if (role !== "admin") return null;
+  if (!isAdminOrOwner) return null;
+
+  return <>{children}</>;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ *  OwnerOnlyGuard
+ *  Restricts a page to the Owner role exclusively.
+ *  Used for /admin/roles and other system-level pages.
+ * ───────────────────────────────────────────────────────────────────── */
+export function OwnerOnlyGuard({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const { role, isLoading, can } = useAuth();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!can("manage_roles")) {
+      router.replace("/admin");
+    }
+  }, [isLoading, role, router, can]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <LoaderCircle className="h-6 w-6 animate-spin text-purple-400" />
+      </div>
+    );
+  }
+
+  if (!can("manage_roles")) return null;
 
   return <>{children}</>;
 }

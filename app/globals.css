@@ -367,6 +367,72 @@
 }
 
 
+/* ── OWNER PREMIUM ANIMATIONS ────────────────────────────────── */
+
+/* Owner Gold Border Pulse — slow glow breathe on avatar ring     */
+@keyframes mj-owner-glow-pulse {
+  0%,  100% {
+    box-shadow:
+      0 0 0 2px rgba(245,158,11,0.90),
+      0 0 18px rgba(245,158,11,0.55),
+      0 0 36px rgba(245,158,11,0.20);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(251,191,36,0.95),
+      0 0 28px rgba(245,158,11,0.75),
+      0 0 56px rgba(245,158,11,0.35);
+  }
+}
+
+/* Owner Shimmer — horizontal shimmer sweep across surfaces        */
+@keyframes mj-owner-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+/* Owner Crown Float — subtle vertical float on crown icon         */
+@keyframes mj-crown-float {
+  0%,  100% { transform: translateY(0)   rotate(-2deg); }
+  50%        { transform: translateY(-3px) rotate( 2deg); }
+}
+
+/* Owner Card Glow — ambient glow pulse for cards/panels           */
+@keyframes mj-owner-card-glow {
+  0%,  100% {
+    border-color: rgba(245,158,11,0.20);
+    box-shadow: 0 0 0 0 rgba(245,158,11,0), inset 0 0 0 0 rgba(245,158,11,0);
+  }
+  50% {
+    border-color: rgba(245,158,11,0.40);
+    box-shadow: 0 0 40px rgba(245,158,11,0.12), inset 0 0 20px rgba(245,158,11,0.04);
+  }
+}
+
+/* Owner Token Spin — rotating crown / star badge                  */
+@keyframes mj-owner-token-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@utility animate-owner-glow {
+  animation: mj-owner-glow-pulse 2.8s ease-in-out infinite;
+}
+
+@utility animate-owner-shimmer {
+  background-size: 200% auto;
+  animation: mj-owner-shimmer 3.5s linear infinite;
+}
+
+@utility animate-crown-float {
+  animation: mj-crown-float 3s ease-in-out infinite;
+}
+
+@utility animate-owner-card {
+  animation: mj-owner-card-glow 4s ease-in-out infinite;
+}
+
+
 /* ── BASE STYLES ─────────────────────────────────────────────── */
 
 html {

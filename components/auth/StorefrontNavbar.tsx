@@ -119,7 +119,8 @@ export default function StorefrontNavbar() {
   }
 
   /* ── Derived ──────────────────────────────────────────────────── */
-  const isAdmin     = role === "admin";
+  const isOwner     = role === "owner";
+  const isAdmin     = role === "admin" || role === "owner";
   const isModerator = role === "moderator";
   const isLoggedIn  = !!role && !isLoading;
 
@@ -340,13 +341,21 @@ export default function StorefrontNavbar() {
                                   {profile?.email && (
                                     <p className="text-[11px] text-white/25 truncate mt-0.5">{profile.email}</p>
                                   )}
-                                  {(isAdmin || isModerator) && (
+                                  {(isOwner || isAdmin || isModerator) && (
                                     <span className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                                      isAdmin
+                                      isOwner
+                                        ? "bg-amber-500/15 text-amber-300 border border-amber-400/30 shadow-[0_0_8px_rgba(245,158,11,0.15)]"
+                                        : isAdmin
                                         ? "bg-purple-500/15 text-purple-300/80 border border-purple-500/20"
                                         : "bg-blue-500/15 text-blue-300/80 border border-blue-500/20"
                                     }`}>
-                                      {isAdmin ? translate("admin.role.admin") : translate("admin.role.moderator")}
+                                      {isOwner && (
+                                        <svg viewBox="0 0 10 10" fill="none" className="h-2 w-2 shrink-0">
+                                          <path d="M1.5 7.5V6L3 3L5 5L7 3L8.5 6V7.5Z" fill="currentColor" fillOpacity="0.9"/>
+                                          <rect x="1.5" y="7.5" width="7" height="1.3" rx="0.4" fill="currentColor" fillOpacity="0.9"/>
+                                        </svg>
+                                      )}
+                                      {isOwner ? translate("admin.role.owner") : isAdmin ? translate("admin.role.admin") : translate("admin.role.moderator")}
                                     </span>
                                   )}
                                 </div>

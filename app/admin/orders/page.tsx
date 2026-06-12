@@ -31,7 +31,7 @@ import StatusDropdown from "../../../components/StatusDropdown";
 import UserAvatar from "../../../components/ui/UserAvatar";
 
 /* ─────────────────────── Types ─────────────────────── */
-const ORDER_STATUSES = ["Awaiting Payment", "Pending", "Processing", "Completed", "Cancelled"] as const;
+const ORDER_STATUSES = ["Awaiting Payment", "payment_rejected", "Pending", "Processing", "Completed", "Cancelled"] as const;
 type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 interface OrderRecord {
@@ -58,19 +58,21 @@ interface ActionApiResponse  { success: boolean; error?: string }
 
 /* ─────────────────────── Status config ─────────────────────── */
 const SC: Record<OrderStatus, { dot: string; pill: string; text: string; ring: string; bg: string }> = {
-  "Awaiting Payment": { dot: "bg-orange-400", pill: "border-orange-500/30 bg-orange-500/10 text-orange-300", text: "text-orange-300", ring: "ring-orange-500/20", bg: "bg-orange-500/[0.04]" },
-  Pending:    { dot: "bg-amber-400",   pill: "border-amber-500/30 bg-amber-500/10 text-amber-300",    text: "text-amber-300",    ring: "ring-amber-500/20",    bg: "bg-amber-500/[0.04]"    },
-  Processing: { dot: "bg-blue-400",    pill: "border-blue-500/30 bg-blue-500/10 text-blue-300",       text: "text-blue-300",     ring: "ring-blue-500/20",     bg: "bg-blue-500/[0.04]"     },
-  Completed:  { dot: "bg-emerald-400", pill: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300", text: "text-emerald-300", ring: "ring-emerald-500/20", bg: "bg-emerald-500/[0.04]" },
-  Cancelled:  { dot: "bg-red-400",     pill: "border-red-500/30 bg-red-500/10 text-red-300",          text: "text-red-300",      ring: "ring-red-500/20",      bg: "bg-red-500/[0.04]"      },
+  "Awaiting Payment": { dot: "bg-orange-400",  pill: "border-orange-500/30 bg-orange-500/10 text-orange-300",   text: "text-orange-300",  ring: "ring-orange-500/20",  bg: "bg-orange-500/[0.04]"  },
+  payment_rejected:   { dot: "bg-rose-400",    pill: "border-rose-500/30 bg-rose-500/10 text-rose-300",         text: "text-rose-300",    ring: "ring-rose-500/20",    bg: "bg-rose-500/[0.04]"    },
+  Pending:            { dot: "bg-amber-400",   pill: "border-amber-500/30 bg-amber-500/10 text-amber-300",      text: "text-amber-300",   ring: "ring-amber-500/20",   bg: "bg-amber-500/[0.04]"   },
+  Processing:         { dot: "bg-blue-400",    pill: "border-blue-500/30 bg-blue-500/10 text-blue-300",         text: "text-blue-300",    ring: "ring-blue-500/20",    bg: "bg-blue-500/[0.04]"    },
+  Completed:          { dot: "bg-emerald-400", pill: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",text: "text-emerald-300", ring: "ring-emerald-500/20", bg: "bg-emerald-500/[0.04]" },
+  Cancelled:          { dot: "bg-red-400",     pill: "border-red-500/30 bg-red-500/10 text-red-300",            text: "text-red-300",     ring: "ring-red-500/20",     bg: "bg-red-500/[0.04]"     },
 };
 
 const STATUS_TRANSLATE_KEYS = {
   "Awaiting Payment": "admin.orders.status.AwaitingPayment",
-  Pending:    "admin.orders.status.Pending",
-  Processing: "admin.orders.status.Processing",
-  Completed:  "admin.orders.status.Completed",
-  Cancelled:  "admin.orders.status.Cancelled",
+  payment_rejected:   "admin.orders.status.PaymentRejected",
+  Pending:            "admin.orders.status.Pending",
+  Processing:         "admin.orders.status.Processing",
+  Completed:          "admin.orders.status.Completed",
+  Cancelled:          "admin.orders.status.Cancelled",
 } as const;
 
 /* ─────────────────────── Helpers ─────────────────────── */
@@ -485,7 +487,7 @@ export default function OrdersPage() {
 
   /* ── Metrics ── */
   const metrics = useMemo(() => {
-    const counts: Record<OrderStatus, number> = { "Awaiting Payment": 0, Pending: 0, Processing: 0, Completed: 0, Cancelled: 0 };
+    const counts: Record<OrderStatus, number> = { "Awaiting Payment": 0, payment_rejected: 0, Pending: 0, Processing: 0, Completed: 0, Cancelled: 0 };
     let revenue  = 0;
     for (const o of orders) {
       const s = safeStatus(o.status);

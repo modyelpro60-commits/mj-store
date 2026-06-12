@@ -4,10 +4,10 @@ import { requireRole } from "../../../../../lib/auth/requireAuthContext";
 import { createNotification } from "../../../../../../lib/notifications/createNotification";
 import { logActivity } from "../../../../../lib/logs/logActivity";
 
-/* ─── POST /api/chat/rooms/[roomId]/deliver ──────────────────────────────────
- * Admin ONLY — mark the order as Completed (delivered), post system message,
- * notify customer, increment sales_count.
- * Supports multi-product orders (multiple rows with the same order_ref).
+/* ─── POST /api/chat/rooms/[roomId]/cancel-order ─────────────────────────────
+ * Admin ONLY — cancel the order linked to this chat room.
+ * Sets status → "Cancelled", stamps handled_by / handled_at,
+ * posts a system message, notifies the customer.
  * ─────────────────────────────────────────────────────────────────────────── */
 export async function POST(
   req: Request,
@@ -49,72 +49,37 @@ export async function POST(
   const staffName = (prof?.full_name as string) ?? "الإدارة";
   const now = new Date().toISOString();
 
-  /* ── Find ALL order rows for this order_ref ── */
+  /* ── Find all order rows for this order_ref ── */
   const { data: orderRows } = await db
     .from("orders")
-    .select("id, product_name, product_id, user_id, status")
+    .select("id, product_name, user_id, status")
     .eq("order_ref", room.order_ref as string);
 
   const orderRow   = orderRows?.[0] ?? null;
   const customerId = (orderRow?.user_id ?? room.user_id) as string | null;
 
-  /* ── Update all rows to Completed ── */
+  /* ── Guard: don't double-cancel ── */
+  if (orderRow?.status === "Cancelled") {
+    return NextResponse.json({ success: false, error: "الطلب ملغي مسبقاً" }, { status: 400 });
+  }
+
+  /* ── Cancel all rows ── */
   await db
     .from("orders")
     .update({
-      status: "Completed",
+      status: "Cancelled",
       handled_by: ctx.userId,
       handled_by_name: staffName,
       handled_at: now,
     })
     .eq("order_ref", room.order_ref as string);
 
-  /* ── Increment product sales_count for each product ── */
-  for (const row of (orderRows ?? [])) {
-    if (row.product_id && row.status !== "Completed") {
-      const { data: product } = await db
-        .from("products")
-        .select("sales_count")
-        .eq("id", row.product_id)
-        .maybeSingle();
-      if (product) {
-        const currentSales = Number(product.sales_count) || 0;
-        await db
-          .from("products")
-          .update({ sales_count: currentSales + 1 })
-          .eq("id", row.product_id);
-      }
-    }
-  }
-
-  /* ── Build product list for the system message ── */
-  const productNames = (orderRows ?? [])
-    .map((r) => r.product_name as string | null)
-    .filter(Boolean) as string[];
-
-  let productLine: string;
-  if (productNames.length === 0) {
-    productLine = "المنتج: —";
-  } else if (productNames.length === 1) {
-    productLine = `المنتج: ${productNames[0]}`;
-  } else {
-    productLine = `المنتجات (${productNames.length}):\n${productNames.map((n) => `• ${n}`).join("\n")}`;
-  }
-
   /* ── System message ── */
   await db.from("chat_messages").insert({
     room_id:   roomId,
     sender_id: null,
     is_system: true,
-    body: [
-      "🎉 تم تسليم الطلب بنجاح!",
-      "",
-      `رقم الطلب: #${orderRow?.id ?? room.order_ref}`,
-      "",
-      productLine,
-      "",
-      "إذا واجهتك أي مشكلة يمكنك الرد داخل هذه المحادثة.",
-    ].join("\n"),
+    body:      "🚫 تم إلغاء الطلب بواسطة الإدارة.",
   });
 
   await db
@@ -123,17 +88,14 @@ export async function POST(
     .eq("id", roomId);
 
   /* ── Notify customer ── */
-  const firstProductName = productNames[0] ?? "طلبك";
   if (customerId) {
+    const productName = (orderRow?.product_name as string) ?? "طلبك";
     void createNotification({
       userId:  customerId,
-      type:    "order_delivered",
-      title:   "تم تسليم طلبك 🎉",
-      message:
-        productNames.length > 1
-          ? `تم تسليم طلبك (${productNames.length} منتجات) بنجاح. شكراً لثقتك بـ MJ Store!`
-          : `تم تسليم طلب "${firstProductName}" بنجاح. شكراً لثقتك بـ MJ Store!`,
-      link: `/chat?room=${roomId}`,
+      type:    "order_rejected",
+      title:   "تم إلغاء الطلب 🚫",
+      message: `تم إلغاء طلب "${productName}" بواسطة الإدارة.`,
+      link:    `/chat?room=${roomId}`,
     });
   }
 
@@ -142,10 +104,10 @@ export async function POST(
     actorId:     ctx.userId,
     actorRole:   ctx.role,
     actorName:   staffName,
-    action:      "order.deliver",
+    action:      "order.cancel",
     targetType:  "order",
     targetId:    orderRow?.id ?? room.order_ref,
-    targetLabel: firstProductName,
+    targetLabel: (orderRow?.product_name as string) ?? String(room.order_ref),
   });
 
   return NextResponse.json({ success: true });

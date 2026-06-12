@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "../../../lib/auth/requireAdmin";
 
-const ROLE_OPTIONS = ["user", "helper", "moderator", "admin"] as const;
+const ROLE_OPTIONS = ["user", "helper", "moderator", "admin", "owner"] as const;
 type RoleOption = (typeof ROLE_OPTIONS)[number];
 
 const STATUS_OPTIONS = ["Active", "Suspended", "Banned"] as const;
@@ -53,12 +53,15 @@ function mapRoleFromDb(dbRole: string | null): RoleOption {
   const normalized = dbRole.trim().toLowerCase();
 
   if (normalized === "customer") return "user";
+  if (normalized === "member") return "user";
   if (ROLE_OPTIONS.includes(normalized as RoleOption)) return normalized as RoleOption;
 
   return "user";
 }
 
 function mapRoleToDb(role: RoleOption): string {
+  // "owner" is stored directly
+  if (role === "owner") return "owner";
   // Legacy DB uses "customer" for user role.
   if (role === "user") return "customer";
   return role;

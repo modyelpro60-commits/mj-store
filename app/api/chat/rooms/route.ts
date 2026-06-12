@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireActiveUser } from "../../../lib/auth/requireAuthContext";
 
-const STAFF_ROLES = ["admin", "moderator", "helper"];
+const STAFF_ROLES = ["owner", "admin", "moderator", "helper"];
 const AUTO_CLOSE_MS = 3 * 60 * 60 * 1000; // 3h unpaid → auto-close
 
 function serviceClient() {
@@ -118,8 +118,8 @@ export async function GET(req: Request) {
 
   let visible = data.filter((r) => r.lastMsg !== null);
 
-  // Moderators/helpers don't keep closed conversations (admins do).
-  if (isStaff && ctx.role !== "admin") {
+  // Moderators/helpers don't keep closed conversations (admins and owners do).
+  if (isStaff && ctx.role !== "admin" && ctx.role !== "owner") {
     visible = visible.filter((r) => r.status === "open" || r.inGrace);
   }
 

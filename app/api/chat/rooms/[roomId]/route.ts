@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { requireActiveUser } from "../../../../lib/auth/requireAuthContext";
 import { logActivity } from "../../../../lib/logs/logActivity";
 
-const STAFF_ROLES = ["admin", "moderator", "helper"];
+const STAFF_ROLES = ["owner", "admin", "moderator", "helper"];
 
 function serviceClient() {
   return createClient(
@@ -88,9 +88,10 @@ export async function PATCH(
     const staffName = (me?.full_name as string) ?? "الإدارة";
     const custName  = (cust?.full_name as string) ?? "مستخدم";
 
-    // The chat stays visible (with a "closing in 1 minute" banner) for the
+    // The chat stays visible (with a "closing in 5 minutes" banner) for the
     // customer + moderator/helper until this moment, then it clears for them.
-    const graceEnd = new Date(Date.now() + 60_000).toISOString();
+    const CLOSE_GRACE_MS = 5 * 60 * 1000; // 5 minutes
+    const graceEnd = new Date(Date.now() + CLOSE_GRACE_MS).toISOString();
 
     let result;
     if (action === "close") {
@@ -104,6 +105,20 @@ export async function PATCH(
         result = await supabase
           .from("chat_rooms")
           .update({ status: "closed", closed_by: ctx.userId, closed_by_name: staffName, closed_at: now })
+          .eq("id", roomId);
+      }
+
+      if (!result.error) {
+        // System message visible to everyone during the grace window
+        await supabase.from("chat_messages").insert({
+          room_id:   roomId,
+          sender_id: null,
+          is_system: true,
+          body:      `قام المسؤول ${staffName} بإغلاق المحادثة.\nسيتم حذف المحادثة خلال 5 دقائق.`,
+        });
+        await supabase
+          .from("chat_rooms")
+          .update({ last_message_at: now, last_sender_is_staff: true })
           .eq("id", roomId);
       }
     } else {
@@ -155,8 +170,8 @@ export async function DELETE(
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  // Deleting a conversation is admin-only
-  if (ctx.role !== "admin") {
+  // Deleting a conversation is admin/owner only
+  if (ctx.role !== "admin" && ctx.role !== "owner") {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 

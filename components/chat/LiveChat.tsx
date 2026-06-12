@@ -11,7 +11,7 @@ import { useLanguage } from "../../lib/i18n/LanguageProvider";
 export default function LiveChat() {
   const { accessToken, isLoading, role } = useAuth();
   const { language, translate } = useLanguage();
-  const isStaff = role === "admin" || role === "moderator" || role === "helper";
+  const isStaff = role === "owner" || role === "admin" || role === "moderator" || role === "helper";
   const loggedIn = !isLoading && !!accessToken;
   const dir = language === "ar" ? "rtl" : "ltr";
 

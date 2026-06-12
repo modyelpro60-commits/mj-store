@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { requireRole } from "../../../../../../lib/auth/requireAuthContext";
 import { createNotification } from "../../../../../../../lib/notifications/createNotification";
 
-const STAFF_ROLES = ["admin", "moderator", "helper"] as const;
+const STAFF_ROLES = ["owner", "admin", "moderator", "helper"] as const;
 
 export async function POST(
   req: Request,

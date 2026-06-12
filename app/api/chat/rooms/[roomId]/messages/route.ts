@@ -4,7 +4,7 @@ import { requireActiveUser } from "../../../../../lib/auth/requireAuthContext";
 import { createNotification } from "../../../../../../lib/notifications/createNotification";
 import { notifyAllStaff } from "../../../../../../lib/notifications/notifyStaff";
 
-const STAFF_ROLES = ["admin", "moderator", "helper"];
+const STAFF_ROLES = ["owner", "admin", "moderator", "helper"];
 
 function serviceClient() {
   return createClient(
@@ -34,7 +34,7 @@ export async function GET(
   const supabase = serviceClient();
   const isStaff  = STAFF_ROLES.includes(ctx.role);
 
-  const isAdmin = ctx.role === "admin";
+  const isAdmin = ctx.role === "admin" || ctx.role === "owner";
 
   // Try to read the room with the new columns; fall back to base columns if the
   // close/status migration hasn't been applied yet (keeps core chat working).
@@ -62,16 +62,28 @@ export async function GET(
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  // Order status for this room (drives the "send payment proof" banner)
+  // Order status + details for this room
   let orderStatus: string | null = null;
+  let orderProductName: string | null = null;
+  let orderProductImage: string | null = null;
+  let orderPrice: number | string | null = null;
+  let orderPaymentMethod: string | null = null;
+  let orderCustomerName: string | null = null;
+  let orderCreatedAt: string | null = null;
   if (room.order_ref) {
     const { data: ord } = await supabase
       .from("orders")
-      .select("status")
+      .select("status, product_name, product_image, price, payment_method, customer_name, created_at")
       .eq("order_ref", room.order_ref)
       .limit(1)
       .maybeSingle();
-    orderStatus = (ord?.status as string) ?? null;
+    orderStatus        = (ord?.status         as string) ?? null;
+    orderProductName   = (ord?.product_name   as string) ?? null;
+    orderProductImage  = (ord?.product_image  as string) ?? null;
+    orderPrice         = (ord?.price          as number | string) ?? null;
+    orderPaymentMethod = (ord?.payment_method as string) ?? null;
+    orderCustomerName  = (ord?.customer_name  as string) ?? null;
+    orderCreatedAt     = (ord?.created_at     as string) ?? null;
   }
 
   // Grace / clear logic. On close we stamp customer_cleared_at = closed_at + 60s.
@@ -146,9 +158,15 @@ export async function GET(
   //   • admin       → real closed state (can reopen), full record kept
   //   • others      → "closing" banner during the grace minute, then fresh chat
   const orderInfo = {
-    orderRef: (room.order_ref as string) ?? null,
+    orderRef:         (room.order_ref as string) ?? null,
     orderStatus,
-    title: (room.title as string) ?? null,
+    title:            (room.title as string) ?? null,
+    productName:      orderProductName,
+    productImage:     orderProductImage,
+    price:            orderPrice,
+    paymentMethod:    orderPaymentMethod,
+    customerName:     orderCustomerName,
+    orderCreatedAt,
   };
 
   let roomMeta;
@@ -200,18 +218,21 @@ export async function POST(
   const supabase = serviceClient();
   const isStaff  = STAFF_ROLES.includes(ctx.role);
 
-  // For customers: verify ownership and read the pending-clear time so we can
-  // decide whether their message cancels a pending close.
+  // Terminal order statuses — customers cannot send to a completed/cancelled order
+  const TERMINAL_ORDER_STATUSES = ["Completed", "Cancelled", "Rejected"];
+
+  // For customers: verify ownership, check room/order status, read pending-clear time.
   let custClearedAt: string | null = null;
   if (!isStaff) {
+    // Fetch room with status + order_ref so we can enforce send permissions
     let r = await supabase
       .from("chat_rooms")
-      .select("id, customer_cleared_at")
+      .select("id, status, order_ref, customer_cleared_at")
       .eq("id", roomId)
       .eq("user_id", ctx.userId)
       .maybeSingle();
     if (r.error) {
-      // customer_cleared_at column missing (pre-migration) — fall back
+      // customer_cleared_at / status column missing (pre-migration) — fall back
       r = await supabase
         .from("chat_rooms")
         .select("id")
@@ -222,7 +243,33 @@ export async function POST(
     if (!r.data) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
-    custClearedAt = ((r.data as any).customer_cleared_at as string | null) ?? null;
+
+    const roomData = r.data as any;
+    custClearedAt = (roomData.customer_cleared_at as string | null) ?? null;
+
+    // Block customers from sending when the chat has been closed by staff
+    if (roomData.status === "closed") {
+      return NextResponse.json(
+        { success: false, error: "تم إغلاق هذه المحادثة." },
+        { status: 403 }
+      );
+    }
+
+    // Block customers when the linked order is in a terminal state
+    if (roomData.order_ref) {
+      const { data: orderCheck } = await supabase
+        .from("orders")
+        .select("status")
+        .eq("order_ref", roomData.order_ref)
+        .limit(1)
+        .maybeSingle();
+      if (orderCheck && TERMINAL_ORDER_STATUSES.includes(orderCheck.status as string)) {
+        return NextResponse.json(
+          { success: false, error: "تم إغلاق هذه المحادثة." },
+          { status: 403 }
+        );
+      }
+    }
   }
 
   let raw: { body?: string; imageUrl?: string };
@@ -257,15 +304,34 @@ export async function POST(
     return NextResponse.json({ success: false, error: insertErr.message }, { status: 500 });
   }
 
-  // When a customer attaches a payment screenshot in an order chat, auto-reply.
+  // When a customer attaches a payment screenshot in an order chat:
+  //   • If order was payment_rejected → restore to Awaiting Payment so admin controls reappear
+  //   • Always post the auto-reply system message
   if (imageUrl && !isStaff) {
-    const { data: rm } = await supabase.from("chat_rooms").select("order_ref").eq("id", roomId).maybeSingle();
+    const { data: rm } = await supabase
+      .from("chat_rooms")
+      .select("order_ref")
+      .eq("id", roomId)
+      .maybeSingle();
     if (rm?.order_ref) {
+      // Check if order needs to be cycled back to review
+      const { data: ordCheck } = await supabase
+        .from("orders")
+        .select("status")
+        .eq("order_ref", rm.order_ref)
+        .limit(1)
+        .maybeSingle();
+      if ((ordCheck?.status as string) === "payment_rejected") {
+        await supabase
+          .from("orders")
+          .update({ status: "Awaiting Payment" })
+          .eq("order_ref", rm.order_ref);
+      }
       await supabase.from("chat_messages").insert({
-        room_id: roomId,
+        room_id:   roomId,
         sender_id: null,
         is_system: true,
-        body: "✅ تم استلام صورة الدفع. سيراجعها الأدمن للتأكد من عملية الدفع — تابع الشات.",
+        body:      "✅ تم استلام لقطة الشاشة الجديدة. سيراجعها الأدمن قريباً — تابع الشات.",
       });
     }
   }

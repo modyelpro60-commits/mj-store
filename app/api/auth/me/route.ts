@@ -79,6 +79,8 @@ export async function GET(req: Request) {
         phone: profile.phone ?? null,
         phone_verified: profile.phone_verified ?? false,
         verified: profile.verified ?? false,
+        // RBAC: include resolved permissions for client-side hooks
+        permissions: ctx.permissions,
       },
     });
   } catch (err) {

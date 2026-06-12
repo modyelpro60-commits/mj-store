@@ -233,7 +233,8 @@ export default function AccountPage() {
 
   const { data: ordersData, isLoading: ordersLoading } = useMyOrders(50);
 
-  const isAdmin  = role === "admin";
+  const isOwner  = role === "owner";
+  const isAdmin  = role === "admin" || role === "owner";
   const fullName = profile?.full_name || profile?.email || translate("account.unknown");
   const email    = profile?.email ?? "—";
   const createdAt = profile?.created_at ?? null;
@@ -344,7 +345,16 @@ export default function AccountPage() {
               <div className="flex-1 min-w-0 sm:mb-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-xl sm:text-2xl font-black text-white leading-none">{fullName}</h1>
-                  {isAdmin && (
+                  {isOwner && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-200 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
+                      <svg viewBox="0 0 10 10" fill="none" className="h-2.5 w-2.5 shrink-0">
+                        <path d="M1.5 7.5V6L3 3L5 5L7 3L8.5 6V7.5Z" fill="currentColor" fillOpacity="0.9"/>
+                        <rect x="1.5" y="7.5" width="7" height="1.3" rx="0.4" fill="currentColor" fillOpacity="0.9"/>
+                      </svg>
+                      {translate("admin.role.owner")}
+                    </span>
+                  )}
+                  {!isOwner && isAdmin && (
                     <span className="inline-flex items-center gap-1 rounded-full border border-purple-400/30 bg-purple-500/15 px-2.5 py-0.5 text-[11px] font-bold text-purple-200">
                       <Crown className="h-2.5 w-2.5" /> {translate("admin.role.admin")}
                     </span>
@@ -501,7 +511,7 @@ export default function AccountPage() {
               {[
                 { label: translate("account.email"),    value: email },
                 { label: translate("account.joinDate"), value: fmtDate(createdAt, "long") },
-                { label: translate("account.roleLabel"), value: role === "admin" ? translate("admin.role.admin") : role === "moderator" ? translate("admin.role.moderator") : translate("account.roleUser") },
+                { label: translate("account.roleLabel"), value: role === "owner" ? translate("admin.role.owner") : role === "admin" ? translate("admin.role.admin") : role === "moderator" ? translate("admin.role.moderator") : role === "helper" ? translate("admin.role.helper") : translate("account.roleUser") },
                 { label: translate("account.status"),   value: status ?? translate("account.active") },
               ].map(({ label, value }) => (
                 <div

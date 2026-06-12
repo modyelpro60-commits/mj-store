@@ -11,6 +11,10 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { createClient, type Session } from "@supabase/supabase-js";
+import {
+  type PermissionKey,
+  defaultRoleHasPermission,
+} from "../../lib/rbac/permissions";
 
 type AuthProfile = {
   id: string;
@@ -22,6 +26,7 @@ type AuthProfile = {
   phone?: string | null;
   phone_verified?: boolean | null;
   verified?: boolean | null;
+  permissions?: PermissionKey[];
 };
 
 type AuthContextValue = {
@@ -30,7 +35,11 @@ type AuthContextValue = {
   profile: AuthProfile | null;
   role: string | null;
   status: string | null;
+  permissions: PermissionKey[];
   isLoading: boolean;
+
+  /** Check a single permission key. Owner always returns true. */
+  can: (permission: PermissionKey) => boolean;
 
   signOut: () => Promise<void>;
   reloadProfile: () => Promise<void>;
@@ -57,7 +66,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<AuthProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
   async function signOut() {
@@ -79,14 +87,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Server-side status enforcement (Suspended/Banned -> 403).
-    // We do NOT redirect here — the login page or a hard navigation
-    // already set the ?accountStatus= param. Just clear profile.
     if (res.status === 403) {
       setProfile(null);
       return;
     }
 
-    // If we can’t validate the session, clear local profile.
     if (!res.ok) {
       setProfile(null);
       return;
@@ -95,9 +100,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = (await res.json()) as {
       user: { id: string; email: string | null } | null;
       profile:
-        | (Omit<AuthProfile, "role" | "status"> & {
+        | (Omit<AuthProfile, "role" | "status" | "permissions"> & {
             role: unknown;
             status: unknown;
+            permissions?: PermissionKey[];
           })
         | null;
     };
@@ -120,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...(data.profile as any),
       role,
       status,
+      permissions: data.profile.permissions ?? [],
     });
   }
 
@@ -137,7 +144,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = nextSession?.access_token ?? null;
         setAccessToken(token);
 
-        // If session exists, fetch role/profile using the freshly read token.
         if (token) {
           await reloadProfile(token);
         } else {
@@ -171,6 +177,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const permissions: PermissionKey[] = profile?.permissions ?? [];
+
+  const can = useMemo(
+    () =>
+      (permission: PermissionKey): boolean => {
+        const role = profile?.role ?? null;
+        // Owner always has every permission
+        if (role === "owner") return true;
+        // If permissions array is populated (from API), use it
+        if (permissions.length > 0) return permissions.includes(permission);
+        // Fall back to static default map
+        return defaultRoleHasPermission(role, permission);
+      },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [profile?.role, permissions]
+  );
+
   const value: AuthContextValue = useMemo(
     () => ({
       session,
@@ -178,11 +201,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       role: profile?.role ?? null,
       status: profile?.status ?? null,
+      permissions,
       isLoading,
+      can,
       signOut,
       reloadProfile: async () => reloadProfile(),
     }),
-    [session, accessToken, profile, isLoading]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session, accessToken, profile, isLoading, can]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

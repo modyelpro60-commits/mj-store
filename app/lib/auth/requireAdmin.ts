@@ -6,20 +6,21 @@ import {
 
 type AdminAuthResult = {
   userId: string;
-  role: "admin";
+  role: "admin" | "owner";
 };
 
 export async function requireAdmin(req: Request): Promise<AdminAuthResult> {
-  const ctx = (await requireRole(req, ["admin"])) as AuthContext & {
+  // Allow both "admin" and "owner" (owner supersedes admin)
+  const ctx = (await requireRole(req, ["admin", "owner"])) as AuthContext & {
     role: UserRole;
   };
 
-  if (ctx.role !== "admin") {
+  if (ctx.role !== "admin" && ctx.role !== "owner") {
     throw new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { "content-type": "application/json" },
     });
   }
 
-  return { userId: ctx.userId, role: "admin" };
+  return { userId: ctx.userId, role: ctx.role as "admin" | "owner" };
 }

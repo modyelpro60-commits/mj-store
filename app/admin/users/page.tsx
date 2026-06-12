@@ -16,7 +16,7 @@ import StatusDropdown from "../../../components/StatusDropdown";
 import Skeleton from "../../../components/Skeleton";
 import UserAvatar, { VerifiedBadge } from "../../../components/ui/UserAvatar";
 
-const ROLE_OPTIONS = ["user", "helper", "moderator", "admin"] as const;
+const ROLE_OPTIONS = ["user", "helper", "moderator", "admin", "owner"] as const;
 type RoleOption = (typeof ROLE_OPTIONS)[number];
 
 const STATUS_OPTIONS = ["Active", "Suspended", "Banned"] as const;
@@ -39,14 +39,16 @@ type AdminUserRow = {
 type UsersApiResponse = { success: boolean; data?: AdminUserRow[]; error?: string };
 type ActionApiResponse = { success: boolean; error?: string };
 
-const ROLE_LABEL_KEYS: Record<RoleOption, "admin.users.role.user" | "admin.users.role.helper" | "admin.users.role.moderator" | "admin.users.role.admin"> = {
+const ROLE_LABEL_KEYS: Record<RoleOption, "admin.users.role.user" | "admin.users.role.helper" | "admin.users.role.moderator" | "admin.users.role.admin" | "admin.users.role.owner"> = {
   user:      "admin.users.role.user",
   helper:    "admin.users.role.helper",
   moderator: "admin.users.role.moderator",
   admin:     "admin.users.role.admin",
+  owner:     "admin.users.role.owner",
 };
 
 function roleBadgeCls(role: RoleOption) {
+  if (role === "owner")     return "border-amber-400/30 bg-amber-500/15 text-amber-200";
   if (role === "admin")     return "border-purple-400/30 bg-purple-500/15 text-purple-200";
   if (role === "moderator") return "border-blue-400/25 bg-blue-500/10 text-blue-200";
   if (role === "helper")    return "border-fuchsia-400/25 bg-fuchsia-500/10 text-fuchsia-200";
@@ -111,7 +113,7 @@ function UsersPageInner() {
   useEffect(() => {
     if (isLoading) return;
     if (status && status !== "Active") return;
-    if (role !== "admin") router.replace("/");
+    if (role !== "admin" && role !== "owner") router.replace("/");
   }, [isLoading, role, status, router]);
 
   const queryString = useMemo(() => {
@@ -329,7 +331,13 @@ function UsersPageInner() {
 
                 {/* Badges row */}
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${roleBadgeCls(roleValue)}`}>
+                  <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${roleBadgeCls(roleValue)}`}>
+                    {roleValue === "owner" && (
+                      <svg viewBox="0 0 10 10" fill="none" className="h-2.5 w-2.5 shrink-0">
+                        <path d="M1.5 7.5V6L3 3L5 5L7 3L8.5 6V7.5Z" fill="currentColor" fillOpacity="0.9"/>
+                        <rect x="1.5" y="7.5" width="7" height="1.3" rx="0.4" fill="currentColor" fillOpacity="0.9"/>
+                      </svg>
+                    )}
                     {translate(ROLE_LABEL_KEYS[roleValue])}
                   </span>
                   <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${statusBadgeCls(u.status)}`}>

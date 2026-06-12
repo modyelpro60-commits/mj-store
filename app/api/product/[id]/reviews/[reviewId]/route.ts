@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireRole } from "../../../../../lib/auth/requireAuthContext";
 
-const STAFF_ROLES = ["admin", "moderator", "helper"] as const;
+const STAFF_ROLES = ["owner", "admin", "moderator", "helper"] as const;
 
 export async function DELETE(
   req: Request,

@@ -82,9 +82,10 @@ function getAvailability(isActive?: boolean) {
 /* ── Role badge ───────────────────────────────────────────────── */
 
 const ROLE_META: Record<string, { labelKey: string; style: string; icon: React.ElementType }> = {
-  admin:     { labelKey: "admin.role.admin",     style: "border-amber-500/30  bg-amber-500/10  text-amber-300",     icon: Crown       },
-  moderator: { labelKey: "admin.role.moderator", style: "border-blue-500/30   bg-blue-500/10   text-blue-300",      icon: ShieldCheck },
-  helper:    { labelKey: "admin.role.helper",    style: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300", icon: Wrench      },
+  owner:     { labelKey: "admin.role.owner",     style: "border-amber-400/50  bg-amber-500/15  text-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.18)]", icon: Crown       },
+  admin:     { labelKey: "admin.role.admin",     style: "border-purple-500/30 bg-purple-500/10 text-purple-300",   icon: Crown       },
+  moderator: { labelKey: "admin.role.moderator", style: "border-blue-500/30   bg-blue-500/10   text-blue-300",     icon: ShieldCheck },
+  helper:    { labelKey: "admin.role.helper",    style: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300", icon: Wrench     },
 };
 
 function RoleBadge({ role }: { role: string }) {

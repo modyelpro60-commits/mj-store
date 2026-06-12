@@ -13,6 +13,7 @@ import {
   LogOut,
   MessageCircle,
   ScrollText,
+  ShieldCheck,
   ShoppingCart,
   TrendingUp,
   Users,
@@ -24,28 +25,38 @@ import { MJMark } from "../../components/brand/MJLogo";
 import UserAvatar from "../../components/ui/UserAvatar";
 
 const NAV_ITEMS = [
-  { href: "/",                labelKey: "admin.nav.home"      as const, icon: Home,          adminOnly: true  },
-  { href: "/admin",           labelKey: "admin.nav.overview"  as const, icon: LayoutDashboard, adminOnly: true  },
-  { href: "/admin/products",  labelKey: "admin.nav.products"  as const, icon: Boxes,          adminOnly: false },
-  { href: "/admin/orders",    labelKey: "admin.nav.orders"    as const, icon: ShoppingCart,   adminOnly: false },
-  { href: "/admin/chat",      labelKey: "admin.nav.chat"      as const, icon: MessageCircle,  adminOnly: false },
-  { href: "/admin/logs",      labelKey: "admin.nav.logs"      as const, icon: ScrollText,     adminOnly: true  },
-  { href: "/admin/analytics", labelKey: "admin.nav.analytics" as const, icon: TrendingUp,     adminOnly: true  },
-  { href: "/admin/users",     labelKey: "admin.nav.users"     as const, icon: Users,          adminOnly: true  },
-  { href: "/admin/settings",  labelKey: "admin.nav.settings"  as const, icon: CreditCard,     adminOnly: true  },
+  { href: "/",                labelKey: "admin.nav.home"       as const, icon: Home,          adminOnly: true,  ownerOnly: false },
+  { href: "/admin",           labelKey: "admin.nav.overview"   as const, icon: LayoutDashboard, adminOnly: true, ownerOnly: false },
+  { href: "/admin/products",  labelKey: "admin.nav.products"   as const, icon: Boxes,          adminOnly: false, ownerOnly: false },
+  { href: "/admin/orders",    labelKey: "admin.nav.orders"     as const, icon: ShoppingCart,   adminOnly: false, ownerOnly: false },
+  { href: "/admin/chat",      labelKey: "admin.nav.chat"       as const, icon: MessageCircle,  adminOnly: false, ownerOnly: false },
+  { href: "/admin/logs",      labelKey: "admin.nav.logs"       as const, icon: ScrollText,     adminOnly: true,  ownerOnly: false },
+  { href: "/admin/analytics", labelKey: "admin.nav.analytics"  as const, icon: TrendingUp,     adminOnly: true,  ownerOnly: false },
+  { href: "/admin/users",     labelKey: "admin.nav.users"      as const, icon: Users,          adminOnly: true,  ownerOnly: false },
+  { href: "/admin/settings",  labelKey: "admin.nav.settings"   as const, icon: CreditCard,     adminOnly: true,  ownerOnly: false },
+  { href: "/admin/roles",     labelKey: "admin.nav.roles"      as const, icon: ShieldCheck,    adminOnly: true,  ownerOnly: true  },
 ] as const;
 
 export default function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { role, profile, isLoading, signOut, accessToken } = useAuth();
+  const { role, profile, isLoading, signOut, accessToken, can } = useAuth();
   const { translate } = useLanguage();
   const chatUnread = useChatUnread(accessToken, !!accessToken);
 
+  const isOwner = role === "owner";
+  const isAdminOrOwner = role === "admin" || role === "owner";
+
   /* Show all items while loading (prevents layout flicker).
-     Once role is known: admin sees everything, moderator sees only !adminOnly items. */
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => isLoading || role === "admin" || !item.adminOnly
-  );
+     Once role is known:
+       owner     → sees everything
+       admin     → sees everything except ownerOnly items
+       moderator → sees only !adminOnly items */
+  const visibleItems = NAV_ITEMS.filter((item) => {
+    if (isLoading) return true;
+    if (item.ownerOnly) return isOwner || can("manage_roles");
+    if (item.adminOnly) return isAdminOrOwner;
+    return true;
+  });
 
   const currentLabel = visibleItems.find((item) => item.href === pathname)?.labelKey;
 
@@ -154,13 +165,34 @@ export default function AdminShell({ children }: { children: ReactNode }) {
               </div>
 
               <div className="mt-3 flex items-center justify-between gap-2">
-                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
-                  role === "admin"
-                    ? "border-purple-400/25 bg-purple-500/15 text-purple-200"
-                    : "border-blue-400/25 bg-blue-500/10 text-blue-200"
-                }`}>
-                  {role === "admin" ? translate("admin.role.admin") : translate("admin.role.moderator")}
-                </span>
+                {role === "owner" ? (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-100"
+                    style={{
+                      borderColor: "rgba(245,158,11,0.45)",
+                      background: "linear-gradient(90deg, rgba(245,158,11,0.20) 0%, rgba(251,191,36,0.28) 50%, rgba(245,158,11,0.20) 100%)",
+                      backgroundSize: "200% auto",
+                      animation: "mj-owner-shimmer 3.5s linear infinite",
+                    }}
+                  >
+                    <ShieldCheck className="h-2.5 w-2.5" />
+                    {translate("admin.role.owner")}
+                  </span>
+                ) : (
+                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                    role === "admin"
+                      ? "border-purple-400/25 bg-purple-500/15 text-purple-200"
+                      : role === "moderator"
+                      ? "border-blue-400/25 bg-blue-500/10 text-blue-200"
+                      : "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
+                  }`}>
+                    {role === "admin"
+                      ? translate("admin.role.admin")
+                      : role === "helper"
+                      ? translate("admin.role.helper")
+                      : translate("admin.role.moderator")}
+                  </span>
+                )}
 
                 <button
                   type="button"
